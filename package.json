@@ -1,0 +1,17 @@
+{
+  "name": "gles3",
+  "version": "0.0.1",
+  "description": "native node bindings to OpenGLES3",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bindings": "^1.5.0",
+    "gl-matrix": "^3.0.0",
+    "native-graphics-deps": "0.0.20",
+    "node-glfw": "^0.4.6"
+  }
+}
