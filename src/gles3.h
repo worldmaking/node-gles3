@@ -229,10 +229,12 @@ napi_value glewInit(napi_env env, napi_callback_info info) {
 		napi_throw_type_error(env, nullptr, (char *)glewGetErrorString(err));
 		return nullptr;
 	}
+	printf("glew version %s\n", (char *)glewGetString(GLEW_VERSION));
 	napi_value greeting;
-	status = napi_create_string_utf8(env, (char *)glewGetString(GLEW_VERSION), NAPI_AUTO_LENGTH, &greeting);
+	status = napi_create_string_utf8(env, (char *)glGetString(GL_VERSION), NAPI_AUTO_LENGTH, &greeting);
 	if (status != napi_ok) return nullptr;
 
+	printf("glversion %s\n", glGetString(GL_VERSION));
 
 	// TODO: why is this needed?
 	glEnable(GL_PROGRAM_POINT_SIZE);
