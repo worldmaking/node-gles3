@@ -4,7 +4,7 @@
       "target_name": "gles3",
       "sources": [ "src/gles3.cpp" ],
 	  'include_dirs': [
-		  'src'
+		  'src', 'src/include'
 	  ],
 	  'conditions': [
         ['OS=="mac"',
@@ -26,7 +26,7 @@
               './node_modules/native-graphics-deps/include',
               ],
             'library_dirs': [
-              './node_modules/native-graphics-deps/windows/lib/<(target_arch)',
+              './lib/<(target_arch)',
               ],
             'libraries': [
               'glew32.lib',
@@ -48,12 +48,7 @@
               {
                 'destination': './build/Release/',
                 'files': [
-                  './node_modules/native-graphics-deps/windows/lib/x64/glew32.dll',
-                  './node_modules/native-graphics-deps/windows/lib/x64/glew32.lib',
-                  './node_modules/native-graphics-deps/windows/lib/x64/glew32s.lib',
-                  './node_modules/native-graphics-deps/windows/lib/x64/glfw3.dll',
-                  './node_modules/native-graphics-deps/windows/lib/x64/glfw3.lib',
-                  './node_modules/native-graphics-deps/windows/lib/x64/glfw3dll.lib',
+                  './lib/<(target_arch)/glew32.dll'
                  ]
               }
             ],

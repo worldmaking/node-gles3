@@ -256,7 +256,7 @@ napi_value init(napi_env env, napi_value exports) {
 		${out_properties.join(",\n\t\t")}
 	};
 	status = napi_define_properties(env, exports, ${out_properties.length}, properties);
-	assert(status == napi_ok);
+	//assert(status == napi_ok);
 	return exports;
 }
 

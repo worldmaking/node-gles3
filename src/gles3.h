@@ -1,9 +1,11 @@
 #include <node_api.h>
-#include <GLES3/gl3.h>
+//#include <GLES3/gl3.h>
 #include <GL/glew.h>
 
 #include <stdio.h>
 #include <string>
+
+#define BIGSTRINGLEN 4096*64
 
 size_t checkArgCount(napi_env env, napi_callback_info info, napi_value * args, size_t max, size_t min=0) {
 	size_t argc = max;
@@ -68,6 +70,7 @@ napi_status getPointerAndSize(napi_env env, napi_value &arg, void *& data, size_
 		data = nullptr;
 		size = 0;
 	}
+	return status;
 }
 
 template<typename T> 
@@ -348,7 +351,7 @@ napi_value GetAttribLocation(napi_env env, napi_callback_info info) {
 	
 	size_t bufsize;
 	status = napi_get_value_string_utf8(env, args[1], nullptr, 0, &bufsize);
-	GLchar name[bufsize+1];
+	GLchar name[BIGSTRINGLEN];
 	status = napi_get_value_string_utf8(env, args[1], name, bufsize+1, &bufsize);
 
 	GLint result = glGetAttribLocation(program, name);
@@ -366,7 +369,7 @@ napi_value GetProgramInfoLog(napi_env env, napi_callback_info info) {
 	
 	GLint bufSize;
 	glGetProgramiv(program, GL_INFO_LOG_LENGTH, &bufSize);	
-	GLchar infoLog[bufSize];
+	GLchar infoLog[BIGSTRINGLEN];
 	GLsizei length_result = bufSize;
 	glGetProgramInfoLog(program, length_result, &length_result, infoLog);
 
@@ -400,7 +403,7 @@ napi_value GetShaderInfoLog(napi_env env, napi_callback_info info) {
 	
 	GLint bufSize;
 	glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &bufSize);
-	GLchar infoLog[bufSize];
+	GLchar infoLog[BIGSTRINGLEN];
 	GLsizei length_result = bufSize;
 	glGetShaderInfoLog(shader, length_result, &length_result, infoLog);
 
@@ -434,7 +437,7 @@ napi_value GetUniformLocation(napi_env env, napi_callback_info info) {
 	
 	size_t bufsize;
 	status = napi_get_value_string_utf8(env, args[1], nullptr, 0, &bufsize);
-	GLchar name[bufsize+1];
+	GLchar name[BIGSTRINGLEN];
 	status = napi_get_value_string_utf8(env, args[1], name, bufsize+1, &bufsize);
 
 	GLint result = glGetUniformLocation(program, name);
