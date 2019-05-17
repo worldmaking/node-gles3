@@ -3030,7 +3030,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "getInternalformativ", 0, GetInternalformativ, 0, 0, 0, napi_default, 0 }
 	};
 	status = napi_define_properties(env, exports, 251, properties);
-	assert(status == napi_ok);
+	//assert(status == napi_ok);
 	return exports;
 }
 
