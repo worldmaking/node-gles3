@@ -4,7 +4,7 @@
       "target_name": "gles3",
       "sources": [ "src/gles3.cpp" ],
 	  'include_dirs': [
-		  'src'
+		  'src', 'src/include'
 	  ],
 	  'conditions': [
         ['OS=="mac"',
