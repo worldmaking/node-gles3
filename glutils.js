@@ -529,7 +529,7 @@ function createVao(gl, geom, program) {
                     let buffer = gl.createBuffer();
                     // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
                     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer);
-                    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geom.indices, gl.STATIC_DRAW);
+                    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geom.indices, gl.DYNAMIC_DRAW);
                     this.indexBuffer = buffer;
                 }
             }
