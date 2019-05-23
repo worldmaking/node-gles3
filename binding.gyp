@@ -30,6 +30,7 @@
               ],
             'libraries': [
               'glew32.lib',
+              'openvr_api.lib',
               'opengl32.lib'
               ],
             'defines' : [
@@ -48,7 +49,8 @@
               {
                 'destination': './build/Release/',
                 'files': [
-                  './lib/<(target_arch)/glew32.dll'
+                  './lib/<(target_arch)/glew32.dll',
+                  './lib/<(target_arch)/openvr_api.dll'
                  ]
               }
             ],
