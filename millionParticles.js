@@ -1,53 +1,56 @@
-const glfw = require("node-glfw")
+//const glfw = require("node-glfw")
+const EventEmitter = require('events');
+const glfw = require("glfw-raub")
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 const gl = require('./index.js') 
+const glutils = require('./glutils.js');
 
-if (!glfw.Init()) {
+
+if (!glfw.init()) {
 	console.log("Failed to initialize GLFW");
 	process.exit(-1);
 }
-let version = glfw.GetVersion();
+let version = glfw.getVersion();
 console.log('glfw ' + version.major + '.' + version.minor + '.' + version.rev);
-console.log('glfw version-string: ' + glfw.GetVersionString());
+console.log('glfw version-string: ' + glfw.getVersionString());
 
 // Open OpenGL window
-glfw.DefaultWindowHints();
-glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, 3);
-glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, 3);
-glfw.WindowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
-glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
-let window = glfw.CreateWindow(720, 480, "Test");
+glfw.defaultWindowHints();
+glfw.windowHint(glfw.CONTEXT_VERSION_MAJOR, 3);
+glfw.windowHint(glfw.CONTEXT_VERSION_MINOR, 3);
+glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
+glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
+
+let emitter = new EventEmitter(); 
+emitter.on('keydown',function(evt) {
+	console.log("[keydown] ", (evt));
+});
+emitter.on('mousemove',function(evt) {
+	console.log("[mousemove] "+evt.x+", "+evt.y);
+});
+emitter.on('mousewheel',function(evt) {
+	console.log("[mousewheel] "+evt.position);
+});
+emitter.on('resize',function(evt){
+	console.log("[resize] "+evt.width+", "+evt.height);
+});
+
+let window = glfw.createWindow(720, 480, { emit: (t, e) => emitter.emit(t, e) }, "Test");
 if (!window) {
 	console.log("Failed to open GLFW window");
-	glfw.Terminate();
+	glfw.terminate();
 	process.exit(-1);
 }
-glfw.MakeContextCurrent(window);
+glfw.makeContextCurrent(window);
 console.log(gl.glewInit());
 
 //can only be called after window creation!
-console.log('GL ' + glfw.GetWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '.' + glfw.GetWindowAttrib(window, glfw.CONTEXT_VERSION_MINOR) + '.' + glfw.GetWindowAttrib(window, glfw.CONTEXT_REVISION) + " Profile: " + glfw.GetWindowAttrib(window, glfw.OPENGL_PROFILE));
-
-
-// testing events
-glfw.events.on('keydown',function(evt) {
-	//console.log("[keydown] ", (evt));
-});
-
-glfw.events.on('mousemove',function(evt) {
-	//console.log("[mousemove] "+evt.x+", "+evt.y);
-});
-
-glfw.events.on('mousewheel',function(evt) {
-	//console.log("[mousewheel] "+evt.position);
-});
-
-glfw.events.on('resize',function(evt){
-	//console.log("[resize] "+evt.width+", "+evt.height);
-});
+console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MINOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_REVISION) + " Profile: " + glfw.getWindowAttrib(window, glfw.OPENGL_PROFILE));
 
 // Enable vertical sync (on cards that support it)
-glfw.SwapInterval(1); // 0 for vsync off
+glfw.swapInterval(1); // 0 for vsync off
+
+
 
 let vert = gl.createShader(gl.VERTEX_SHADER)
 let frag = gl.createShader(gl.FRAGMENT_SHADER)
@@ -144,18 +147,27 @@ let stride = 0;
 let offset = 0;
 gl.vertexAttribPointer(positionLocation, elementsPerVertex, gl.FLOAT, normalize, stride, offset);
 
-let t0 = glfw.GetTime();
+
+let t = glfw.getTime();
 let fps = 60;
-while(!glfw.WindowShouldClose(window) && !glfw.GetKey(window, glfw.KEY_ESCAPE)) {
-	let t1 = glfw.GetTime();
-	let dt = t1-t0;
+while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) {
+	let t1 = glfw.getTime();
+	let dt = t1-t;
 	fps += 0.1*((1/dt)-fps);
-	t0 = t1;
-	glfw.SetWindowTitle(window, `fps ${fps}`);
-	
+	t = t1;
+	glfw.setWindowTitle(window, `fps ${fps}`);
 	// Get window size (may be different than the requested size)
-	let dim = glfw.GetFramebufferSize(window);
+	let dim = glfw.getFramebufferSize(window);
 	//if(wsize) console.log("FB size: "+wsize.width+', '+wsize.height);
+
+	// update scene:
+	for (let i=0; i<NUM_POINTS/10; i++) {
+		let idx = Math.floor(Math.random() * vertices.length);
+		vertices[idx] += (Math.random()-0.5) * 0.1;
+	}
+	// update GPU buffers:
+	gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+	gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
 
 	gl.viewport(0, 0, dim.width, dim.height);
 	gl.clearColor(0.2, 0.2, 0.2, 1);
@@ -189,19 +201,13 @@ while(!glfw.WindowShouldClose(window) && !glfw.GetKey(window, glfw.KEY_ESCAPE)) 
     //gl.drawArrays(gl.TRIANGLES, 0, count);
 
 	// Swap buffers
-	glfw.SwapBuffers(window);
-	glfw.PollEvents();
+	glfw.swapBuffers(window);
+	glfw.pollEvents();
 
-	for (let i=0; i<10; i++) {
-		let idx = Math.floor(Math.random() * vertices.length);
-		vertices[idx] += (Math.random()-0.5) * 0.1;
-	}
-	gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-	gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
 }
 
 // Close OpenGL window and terminate GLFW
-glfw.DestroyWindow(window);
-glfw.Terminate();
+glfw.destroyWindow(window);
+glfw.terminate();
 
 process.exit(0);

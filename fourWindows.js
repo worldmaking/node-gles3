@@ -1,16 +1,18 @@
-const glfw = require("node-glfw")
+//const glfw = require("node-glfw")
+const EventEmitter = require('events');
+const glfw = require("glfw-raub")
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 const gl = require('./index.js') 
 const glutils = require('./glutils.js');
 
-if (!glfw.Init()) {
-	console.log("Failed to initialize glfw");
+if (!glfw.init()) {
+	console.log("Failed to initialize GLFW");
 	process.exit(-1);
 }
-let version = glfw.GetVersion();
+let version = glfw.getVersion();
 console.log('glfw ' + version.major + '.' + version.minor + '.' + version.rev);
-console.log('glfw version-string: ' + glfw.GetVersionString());
-let monitors = glfw.GetMonitors()
+console.log('glfw version-string: ' + glfw.getVersionString());
+let monitors = glfw.getMonitors()
 
 const requestAnimationFrame = function(callback, delay=1000/60) {
 	let t0 = process.hrtime();
@@ -31,34 +33,52 @@ const requestAnimationFrame = function(callback, delay=1000/60) {
 function createWindow(title="", width=640, height=480, x=30, y=30) {
 
 	// Open OpenGL window
-	glfw.DefaultWindowHints();
-	glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, 3);
-	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, 3);
-	glfw.WindowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
-	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
+	// Open OpenGL window
+	glfw.defaultWindowHints();
+	glfw.windowHint(glfw.CONTEXT_VERSION_MAJOR, 3);
+	glfw.windowHint(glfw.CONTEXT_VERSION_MINOR, 3);
+	glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
+	glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
 
-	glfw.WindowHint(glfw.RESIZABLE, 1);
-	glfw.WindowHint(glfw.VISIBLE, 1);
-	glfw.WindowHint(glfw.DECORATED, 1);
-	glfw.WindowHint(glfw.RED_BITS, 8);
-	glfw.WindowHint(glfw.GREEN_BITS, 8);
-	glfw.WindowHint(glfw.BLUE_BITS, 8);
-	glfw.WindowHint(glfw.DEPTH_BITS, 24);
-	glfw.WindowHint(glfw.REFRESH_RATE, 0);
+	let emitter = new EventEmitter(); 
+	emitter.on('keydown',function(evt) {
+		console.log("[keydown] ", (evt));
+	});
+	emitter.on('mousemove',function(evt) {
+		console.log("[mousemove] "+evt.x+", "+evt.y);
+	});
+	emitter.on('mousewheel',function(evt) {
+		console.log("[mousewheel] "+evt.position);
+	});
+	emitter.on('resize',function(evt){
+		console.log("[resize] "+evt.width+", "+evt.height);
+	});
 
-	let window=glfw.CreateWindow(width, height, title); //, monitors.length-1);
+	glfw.windowHint(glfw.RESIZABLE, 1);
+	glfw.windowHint(glfw.VISIBLE, 1);
+	glfw.windowHint(glfw.DECORATED, 1);
+	glfw.windowHint(glfw.RED_BITS, 8);
+	glfw.windowHint(glfw.GREEN_BITS, 8);
+	glfw.windowHint(glfw.BLUE_BITS, 8);
+	glfw.windowHint(glfw.DEPTH_BITS, 24);
+	glfw.windowHint(glfw.REFRESH_RATE, 0);
+
+	let window=glfw.createWindow(width, height, { emit: (t, e) => emitter.emit(t, e) }, title); //, monitors.length-1);
 	if (!window) {
 		console.log("Failed to open glfw window");
-		glfw.Terminate();
+		glfw.terminate();
 		process.exit(-1);
 	}
-	glfw.MakeContextCurrent(window);
+	glfw.makeContextCurrent(window);
+	console.log(gl.glewInit());
 	
-	glfw.SetWindowTitle(window, title);
-	glfw.SetWindowPos(window, x, y);
-	glfw.SwapInterval(0); // Disable VSync (we want to get as high FPS as possible!)
+	glfw.setWindowTitle(window, title);
+	glfw.setWindowPos(window, x, y);
+	glfw.swapInterval(0); // Disable VSync (we want to get as high FPS as possible!)
 
-	console.log('GL ' + glfw.GetWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '.' + glfw.GetWindowAttrib(window, glfw.CONTEXT_VERSION_MINOR) + '.' + glfw.GetWindowAttrib(window, glfw.CONTEXT_REVISION) + " Profile: " + glfw.GetWindowAttrib(window, glfw.OPENGL_PROFILE));
+	//can only be called after window creation!
+	console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MINOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_REVISION) + " Profile: " + glfw.getWindowAttrib(window, glfw.OPENGL_PROFILE));
+
 
 	return window;
 }
@@ -75,9 +95,9 @@ let t0 = process.hrtime();
 let framecount = 0;
 
 function update() {
-	glfw.PollEvents();
+	glfw.pollEvents();
 	for (let win of windows) {
-		if (glfw.WindowShouldClose(win)) {
+		if (glfw.windowShouldClose(win)) {
 			return;
 		}
 	}
@@ -95,14 +115,14 @@ function update() {
 		let win = windows[i]
 		let f = i/(windows.length-1)
 
-		glfw.MakeContextCurrent(win);
+		glfw.makeContextCurrent(win);
 		//let wsize = glfw.GetFramebufferSize(win);
 		
 		gl.clearColor(f, 1-f, 0, 1);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 		
 		// Swap buffers
-		glfw.SwapBuffers(win);
+		glfw.swapBuffers(win);
 	}
 }
 
