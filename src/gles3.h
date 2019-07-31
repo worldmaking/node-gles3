@@ -252,6 +252,16 @@ napi_value glewInit(napi_env env, napi_callback_info info) {
 ///////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
 
+
+napi_value GetError(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[1];
+	size_t argc = checkArgCount(env, info, args, 0, 0);
+	napi_value result_value;
+	status = napi_create_uint32(env, (uint32_t)glGetError(), &result_value);
+	return (status == napi_ok) ? result_value : nullptr;
+}
+
 /*
 // WebGL1: 
 void gl.bufferData(target, size, usage); 

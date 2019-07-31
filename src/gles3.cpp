@@ -639,16 +639,6 @@ napi_value GetBufferParameteriv(napi_env env, napi_callback_info info) {
 	return NULL;
 }
 
-napi_value GetError(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[1];
-	size_t argc = checkArgCount(env, info, args, 1, 1);
-	GLenum result = glGetError();
-	napi_value result_value;
-	status = napi_create_uint32(env, (uint32_t)result, &result_value);
-	return (status == napi_ok) ? result_value : nullptr;
-}
-
 napi_value GetFloatv(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
 	napi_value args[2];
@@ -2778,6 +2768,7 @@ napi_value init(napi_env env, napi_value exports) {
 	napi_status status;
 	napi_property_descriptor properties[] = {
 		{ "glewInit", 0, glewInit, 0, 0, 0, napi_default, 0 },
+		{ "getError", 0, GetError, 0, 0, 0, napi_default, 0 },
 		{ "bufferData", 0, BufferData, 0, 0, 0, napi_default, 0 },
 		{ "createBuffer", 0, CreateBuffer, 0, 0, 0, napi_default, 0 },
 		{ "createFramebuffer", 0, CreateFramebuffer, 0, 0, 0, napi_default, 0 },
@@ -2858,7 +2849,6 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "getAttachedShaders", 0, GetAttachedShaders, 0, 0, 0, napi_default, 0 },
 		{ "getBooleanv", 0, GetBooleanv, 0, 0, 0, napi_default, 0 },
 		{ "getBufferParameteriv", 0, GetBufferParameteriv, 0, 0, 0, napi_default, 0 },
-		{ "getError", 0, GetError, 0, 0, 0, napi_default, 0 },
 		{ "getFloatv", 0, GetFloatv, 0, 0, 0, napi_default, 0 },
 		{ "getFramebufferAttachmentParameteriv", 0, GetFramebufferAttachmentParameteriv, 0, 0, 0, napi_default, 0 },
 		{ "getIntegerv", 0, GetIntegerv, 0, 0, 0, napi_default, 0 },

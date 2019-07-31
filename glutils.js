@@ -1,19 +1,4 @@
 
-const requestAnimationFrame = function(callback, delay=1000/60) {
-	let t0 = process.hrtime();
-	let timer = ()=>{
-		let dt = process.hrtime(t0)
-		// dt (in ms):
-		let ms = (dt[0]*1e9 + dt[1]) * 1e-6;
-		if (ms > delay) {
-			callback();
-		} else {
-			setImmediate(timer);
-		}
-	}
-	timer();
-}
-
 // utility to help turn shader code into a shader object:
 function createShader(gl, type, source) {
     let shader = gl.createShader(type);
@@ -986,8 +971,8 @@ function geomFromOBJ(objcode) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     return texture;
-  }
-  
+}
+
 module.exports = {
 	createShader: createShader,
 	createProgram: createProgram,
@@ -1015,6 +1000,19 @@ module.exports = {
 	quat_rotate: quat_rotate,
     quat_unrotate: quat_unrotate,
     
-    requestAnimationFrame: requestAnimationFrame,
+    requestAnimationFrame: function(callback, delay=1000/60) {
+        let t0 = process.hrtime();
+        let timer = ()=>{
+            let dt = process.hrtime(t0)
+            // dt (in ms):
+            let ms = (dt[0]*1e9 + dt[1]) * 1e-6;
+            if (ms > delay) {
+                callback();
+            } else {
+                setImmediate(timer);
+            }
+        }
+        timer();
+    },
 
 }
