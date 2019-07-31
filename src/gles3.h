@@ -262,6 +262,25 @@ napi_value GetError(napi_env env, napi_callback_info info) {
 	return (status == napi_ok) ? result_value : nullptr;
 }
 
+napi_value ClearBufferfv(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[3];
+	size_t argc = checkArgCount(env, info, args, 3, 3);
+	GLenum buffer = getUint32(env, args[0]);
+	GLint drawbuffer = getInt32(env, args[1]);
+
+	// args[2] could be either an array or a typed array
+	// better to grab the values manually
+	GLfloat rgba[4];
+	napi_value rgba_value[4];
+	for (int i=0; i<4; i++) {
+		assert(napi_ok == napi_get_element(env, args[2], i, &rgba_value[i]));
+		rgba[i] = getDouble(env, rgba_value[i]);
+	}
+	glClearBufferfv(buffer, drawbuffer, rgba);
+	return NULL;
+}
+
 /*
 // WebGL1: 
 void gl.bufferData(target, size, usage); 

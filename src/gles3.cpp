@@ -2202,18 +2202,6 @@ napi_value ClearBufferuiv(napi_env env, napi_callback_info info) {
 	return NULL;
 }
 
-napi_value ClearBufferfv(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[3];
-	size_t argc = checkArgCount(env, info, args, 3, 3);
-	GLenum buffer = getUint32(env, args[0]);
-	GLint drawbuffer = getInt32(env, args[1]);
-	GLfloat * value = nullptr;
-	status = getTypedArray(env, args[2], value);
-	glClearBufferfv(buffer, drawbuffer, value);
-	return NULL;
-}
-
 napi_value ClearBufferfi(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
 	napi_value args[4];
@@ -2769,6 +2757,7 @@ napi_value init(napi_env env, napi_value exports) {
 	napi_property_descriptor properties[] = {
 		{ "glewInit", 0, glewInit, 0, 0, 0, napi_default, 0 },
 		{ "getError", 0, GetError, 0, 0, 0, napi_default, 0 },
+		{ "clearBufferfv", 0, ClearBufferfv, 0, 0, 0, napi_default, 0 },
 		{ "bufferData", 0, BufferData, 0, 0, 0, napi_default, 0 },
 		{ "createBuffer", 0, CreateBuffer, 0, 0, 0, napi_default, 0 },
 		{ "createFramebuffer", 0, CreateFramebuffer, 0, 0, 0, napi_default, 0 },
@@ -2789,6 +2778,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "vertexAttribPointer", 0, VertexAttribPointer, 0, 0, 0, napi_default, 0 },
 		{ "vrConnect", 0, vrConnect, 0, 0, 0, napi_default, 0 },
 		{ "vrGetTextureWidth", 0, vrGetTextureWidth, 0, 0, 0, napi_default, 0 },
+		{ "vrGetProjection", 0, vrGetProjection, 0, 0, 0, napi_default, 0 },
 		{ "vrGetTextureHeight", 0, vrGetTextureHeight, 0, 0, 0, napi_default, 0 },
 		{ "vrUpdate", 0, vrUpdate, 0, 0, 0, napi_default, 0 },
 		{ "vrSubmit", 0, vrSubmit, 0, 0, 0, napi_default, 0 },
@@ -2978,7 +2968,6 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "uniform4uiv", 0, Uniform4uiv, 0, 0, 0, napi_default, 0 },
 		{ "clearBufferiv", 0, ClearBufferiv, 0, 0, 0, napi_default, 0 },
 		{ "clearBufferuiv", 0, ClearBufferuiv, 0, 0, 0, napi_default, 0 },
-		{ "clearBufferfv", 0, ClearBufferfv, 0, 0, 0, napi_default, 0 },
 		{ "clearBufferfi", 0, ClearBufferfi, 0, 0, 0, napi_default, 0 },
 		{ "copyBufferSubData", 0, CopyBufferSubData, 0, 0, 0, napi_default, 0 },
 		{ "getUniformIndices", 0, GetUniformIndices, 0, 0, 0, napi_default, 0 },
@@ -3024,7 +3013,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "texStorage3D", 0, TexStorage3D, 0, 0, 0, napi_default, 0 },
 		{ "getInternalformativ", 0, GetInternalformativ, 0, 0, 0, napi_default, 0 }
 	};
-	status = napi_define_properties(env, exports, 256, properties);
+	status = napi_define_properties(env, exports, 257, properties);
 	//assert(status == napi_ok);
 	return exports;
 }
