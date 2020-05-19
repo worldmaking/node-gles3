@@ -5,9 +5,8 @@ const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 const gl = require('./index.js') 
 const glutils = require('./glutils.js');
 
-console.log(gl)
 
-//console.log(gl.glfwGetVersion())
+console.log(gl.glfwGetVersion())
 
 if (!glfw.init()) {
 	console.log("Failed to initialize GLFW");

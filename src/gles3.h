@@ -1,6 +1,7 @@
 #include <node_api.h>
 //#include <GLES3/gl3.h>
 #include <GL/glew.h>
+#include <GLFW/glfw3.h>
 
 #include "vr.h"
 #include "window.h"
@@ -678,6 +679,7 @@ napi_value vrSubmit(napi_env env, napi_callback_info info) {
 
 // now the GLFW bindings:
 napi_value glfwGetVersion(napi_env env, napi_callback_info info) {
+	napi_value result_value;
 	napi_status status = napi_ok;
 	napi_value args[1];
 	size_t argc = checkArgCount(env, info, args, 1, 0);
@@ -690,7 +692,7 @@ napi_value glfwGetVersion(napi_env env, napi_callback_info info) {
 		napi_value nmaj, nmin, nrev;
 		napi_create_int32(env, maj, &nmaj);
 		napi_create_int32(env, min, &nmin);
-		napi_create_int32(env, rev, &nrev;
+		napi_create_int32(env, rev, &nrev);
 		napi_set_named_property(env, result_value, "major", nmaj);
 		napi_set_named_property(env, result_value, "minor", nmin);
 		napi_set_named_property(env, result_value, "rev", nrev);

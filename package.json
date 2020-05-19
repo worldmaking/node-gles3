@@ -8,6 +8,7 @@
     "preinstall": "node tools/gen.js",
     "postinstall": "node rotatingCube3.js"
   },
+  "gypfile": true,
   "author": "",
   "license": "ISC",
   "dependencies": {
