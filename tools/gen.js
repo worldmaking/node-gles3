@@ -2,6 +2,7 @@ const fs = require("fs"),
 	path = require("path");
 
 const header = fs.readFileSync(path.join(__dirname, "..", "src", "GLES3", "gl3.h"), "utf-8")
+const glfw_header = fs.readFileSync(path.join(__dirname, "..", "node_modules", "native-graphics-deps", "include", "GLFW", "glfw3.h"), "utf-8")
 
 const gles3_h = fs.readFileSync(path.join(__dirname, "..", "src", "gles3.h"), "utf-8")
 
@@ -56,6 +57,15 @@ let out_function_names = [];
 	while (match = regex.exec(gles3_h)) {
 		const name = match[1]
 		out_function_names.push(name)
+	}
+}
+
+{
+	const regex = /#define\s+(GLFW_[A-Za-z_]+)\s+([a-z0-9x_]+)/g
+	let match
+	while (match = regex.exec(glfw_header)) {
+		const name = match[1], val = match[2]
+		out_defines.push(`gl.${name} = ${val};`);
 	}
 }
 

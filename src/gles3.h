@@ -677,13 +677,13 @@ napi_value vrSubmit(napi_env env, napi_callback_info info) {
 	return (status == napi_ok) ? result_value : nullptr;
 }
 
+///////////////////////////////////////////////////////////////////////////
 // now the GLFW bindings:
-napi_value glfwGetVersion(napi_env env, napi_callback_info info) {
-	napi_value result_value;
-	napi_status status = napi_ok;
-	napi_value args[1];
-	size_t argc = checkArgCount(env, info, args, 1, 0);
+///////////////////////////////////////////////////////////////////////////
 
+napi_value glfwGetVersion(napi_env env, napi_callback_info info) {
+	napi_value result_value = nullptr;
+	napi_status status = napi_ok;
 	int maj, min, rev;
 	glfwGetVersion(&maj, &min, &rev);
 	// return object
@@ -698,4 +698,38 @@ napi_value glfwGetVersion(napi_env env, napi_callback_info info) {
 		napi_set_named_property(env, result_value, "rev", nrev);
 	}
 	return (status == napi_ok) ? result_value : nullptr;
+}
+
+napi_value glfwInit(napi_env env, napi_callback_info info) {
+	napi_value result_value = nullptr;
+	napi_status status = napi_ok;
+	int res = glfwInit();
+	napi_get_boolean(env, res, &result_value);
+	return (status == napi_ok) ? result_value : nullptr;
+}
+
+napi_value glfwGetVersionString(napi_env env, napi_callback_info info) {
+	napi_value result_value = nullptr;
+	napi_status status = napi_ok;
+	const char* res = glfwGetVersionString();
+	status = napi_create_string_utf8(env, res, strlen(res), &result_value);
+	return (status == napi_ok) ? result_value : nullptr;
+}
+
+napi_value glfwDefaultWindowHints(napi_env env, napi_callback_info info) {
+	napi_value result_value = nullptr;
+	napi_status status = napi_ok;
+	glfwDefaultWindowHints();
+	return result_value;
+}
+
+napi_value glfwWindowHint(napi_env env, napi_callback_info info) {
+	napi_value result_value = nullptr;
+	napi_status status = napi_ok;
+	napi_value args[2];
+	size_t argc = checkArgCount(env, info, args, 2, 2);
+	int hint = getInt32(env, args[0]);
+	int value = getInt32(env, args[1]);
+	glfwWindowHint(hint, value);
+	return result_value;
 }

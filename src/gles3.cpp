@@ -2783,6 +2783,10 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "vrUpdate", 0, vrUpdate, 0, 0, 0, napi_default, 0 },
 		{ "vrSubmit", 0, vrSubmit, 0, 0, 0, napi_default, 0 },
 		{ "glfwGetVersion", 0, glfwGetVersion, 0, 0, 0, napi_default, 0 },
+		{ "glfwInit", 0, glfwInit, 0, 0, 0, napi_default, 0 },
+		{ "glfwGetVersionString", 0, glfwGetVersionString, 0, 0, 0, napi_default, 0 },
+		{ "glfwDefaultWindowHints", 0, glfwDefaultWindowHints, 0, 0, 0, napi_default, 0 },
+		{ "glfwWindowHint", 0, glfwWindowHint, 0, 0, 0, napi_default, 0 },
 		{ "activeTexture", 0, ActiveTexture, 0, 0, 0, napi_default, 0 },
 		{ "attachShader", 0, AttachShader, 0, 0, 0, napi_default, 0 },
 		{ "bindAttribLocation", 0, BindAttribLocation, 0, 0, 0, napi_default, 0 },
@@ -3014,7 +3018,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "texStorage3D", 0, TexStorage3D, 0, 0, 0, napi_default, 0 },
 		{ "getInternalformativ", 0, GetInternalformativ, 0, 0, 0, napi_default, 0 }
 	};
-	status = napi_define_properties(env, exports, 258, properties);
+	status = napi_define_properties(env, exports, 262, properties);
 	//assert(status == napi_ok);
 	return exports;
 }

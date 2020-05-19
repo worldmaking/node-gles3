@@ -5,23 +5,21 @@ const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 const gl = require('./index.js') 
 const glutils = require('./glutils.js');
 
-
-console.log(gl.glfwGetVersion())
-
-if (!glfw.init()) {
+if (!gl.glfwInit()) {
 	console.log("Failed to initialize GLFW");
 	process.exit(-1);
 }
-let version = glfw.getVersion();
+let version = gl.glfwGetVersion();
 console.log('glfw ' + version.major + '.' + version.minor + '.' + version.rev);
-console.log('glfw version-string: ' + glfw.getVersionString());
+console.log('glfw version-string: ' + gl.glfwGetVersionString());
+
 
 // Open OpenGL window
-glfw.defaultWindowHints();
-glfw.windowHint(glfw.CONTEXT_VERSION_MAJOR, 3);
-glfw.windowHint(glfw.CONTEXT_VERSION_MINOR, 3);
-glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
-glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
+gl.glfwDefaultWindowHints();
+gl.glfwWindowHint(gl.GLFW_CONTEXT_VERSION_MAJOR, 4);
+gl.glfwWindowHint(gl.GLFW_CONTEXT_VERSION_MINOR, 1);
+gl.glfwWindowHint(gl.GLFW_OPENGL_FORWARD_COMPAT, 0);
+gl.glfwWindowHint(gl.GLFW_OPENGL_PROFILE, gl.GLFW_OPENGL_CORE_PROFILE);
 
 
 let emitter = new EventEmitter(); 
