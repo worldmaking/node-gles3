@@ -4,7 +4,9 @@
   "description": "native node bindings to OpenGLES3",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "preinstall": "node tools/gen.js",
+    "postinstall": "node rotatingCube3.js"
   },
   "author": "",
   "license": "ISC",

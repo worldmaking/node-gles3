@@ -3,6 +3,7 @@
 #include <GL/glew.h>
 
 #include "vr.h"
+#include "window.h"
 
 #include <stdio.h>
 #include <string>
@@ -672,5 +673,27 @@ napi_value vrSubmit(napi_env env, napi_callback_info info) {
 	// TODO
 	napi_value result_value;
 	status = napi_create_uint32(env, ok ? 1 : 0, &result_value);
+	return (status == napi_ok) ? result_value : nullptr;
+}
+
+// now the GLFW bindings:
+napi_value glfwGetVersion(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[1];
+	size_t argc = checkArgCount(env, info, args, 1, 0);
+
+	int maj, min, rev;
+	glfwGetVersion(&maj, &min, &rev);
+	// return object
+	status = napi_create_object(env, &result_value);
+	if (status == napi_ok) {
+		napi_value nmaj, nmin, nrev;
+		napi_create_int32(env, maj, &nmaj);
+		napi_create_int32(env, min, &nmin);
+		napi_create_int32(env, rev, &nrev;
+		napi_set_named_property(env, result_value, "major", nmaj);
+		napi_set_named_property(env, result_value, "minor", nmin);
+		napi_set_named_property(env, result_value, "rev", nrev);
+	}
 	return (status == napi_ok) ? result_value : nullptr;
 }
