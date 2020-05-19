@@ -1,31 +1,46 @@
-const glfw = require("node-glfw")
+//const glfw = require("node-glfw")
+const EventEmitter = require('events');
+const glfw = require("glfw-raub")
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 const gl = require('./index.js') 
 const glutils = require('./glutils.js');
 
-
-
-if (!glfw.Init()) {
+if (!glfw.init()) {
 	console.log("Failed to initialize GLFW");
 	process.exit(-1);
 }
-let version = glfw.GetVersion();
+let version = glfw.getVersion();
 console.log('glfw ' + version.major + '.' + version.minor + '.' + version.rev);
-console.log('glfw version-string: ' + glfw.GetVersionString());
+console.log('glfw version-string: ' + glfw.getVersionString());
 
 // Open OpenGL window
-glfw.DefaultWindowHints();
-glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, 3);
-glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, 3);
-glfw.WindowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
-glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
-let window = glfw.CreateWindow(720, 480, "Test");
+glfw.defaultWindowHints();
+glfw.windowHint(glfw.CONTEXT_VERSION_MAJOR, 3);
+glfw.windowHint(glfw.CONTEXT_VERSION_MINOR, 3);
+glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
+glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
+
+let emitter = new EventEmitter(); 
+emitter.on('keydown',function(evt) {
+	console.log("[keydown] ", (evt));
+});
+emitter.on('mousemove',function(evt) {
+	console.log("[mousemove] "+evt.x+", "+evt.y);
+});
+emitter.on('mousewheel',function(evt) {
+	console.log("[mousewheel] "+evt.position);
+});
+emitter.on('resize',function(evt){
+	console.log("[resize] "+evt.width+", "+evt.height);
+});
+
+let window = glfw.createWindow(720, 480, { emit: (t, e) => emitter.emit(t, e) }, "Test");
 if (!window) {
 	console.log("Failed to open GLFW window");
-	glfw.Terminate();
+	glfw.terminate();
 	process.exit(-1);
 }
-glfw.MakeContextCurrent(window);
+glfw.makeContextCurrent(window);
 console.log(gl.glewInit());
 
 
@@ -82,16 +97,16 @@ void main() {
 `);
 let geom = glutils.createVao(gl, glutils.geomFromOBJ(tetraOBJ), geomprogram.id);
 
-let t = glfw.GetTime();
+let t = glfw.getTime();
 let fps = 60;
-while(!glfw.WindowShouldClose(window) && !glfw.GetKey(window, glfw.KEY_ESCAPE)) {
-	let t1 = glfw.GetTime();
+while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) {
+	let t1 = glfw.getTime();
 	let dt = t1-t;
 	fps += 0.1*((1/dt)-fps);
 	t = t1;
-	glfw.SetWindowTitle(window, `fps ${fps}`);
+	glfw.setWindowTitle(window, `fps ${fps}`);
 	// Get window size (may be different than the requested size)
-	let dim = glfw.GetFramebufferSize(window);
+	let dim = glfw.getFramebufferSize(window);
 	//if(wsize) console.log("FB size: "+wsize.width+', '+wsize.height);
 
 	// Compute the matrix
@@ -125,12 +140,12 @@ while(!glfw.WindowShouldClose(window) && !glfw.GetKey(window, glfw.KEY_ESCAPE)) 
 	geomprogram.end();
 
 	// Swap buffers
-	glfw.SwapBuffers(window);
-	glfw.PollEvents();
+	glfw.swapBuffers(window);
+	glfw.pollEvents();
 }
 
 // Close OpenGL window and terminate GLFW
-glfw.DestroyWindow(window);
-glfw.Terminate();
+glfw.destroyWindow(window);
+glfw.terminate();
 
 process.exit(0);
