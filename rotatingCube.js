@@ -1,8 +1,8 @@
 //const glfw = require("node-glfw")
 const EventEmitter = require('events');
-const glfw = require("glfw-raub")
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
-const gl = require('./index.js') 
+const gl = require('./gles3.js') 
+const glfw = require('./glfw3.js') //require("glfw-raub")
 const glutils = require('./glutils.js');
 
 if (!glfw.init()) {
@@ -21,21 +21,21 @@ glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
 glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
 
 
-let emitter = new EventEmitter(); 
-emitter.on('keydown',function(evt) {
-	console.log("[keydown] ", (evt));
-});
-emitter.on('mousemove',function(evt) {
-	console.log("[mousemove] "+evt.x+", "+evt.y);
-});
-emitter.on('mousewheel',function(evt) {
-	console.log("[mousewheel] "+evt.position);
-});
-emitter.on('resize',function(evt){
-	console.log("[resize] "+evt.width+", "+evt.height);
-});
+// let emitter = new EventEmitter(); 
+// emitter.on('keydown',function(evt) {
+// 	console.log("[keydown] ", (evt));
+// });
+// emitter.on('mousemove',function(evt) {
+// 	console.log("[mousemove] "+evt.x+", "+evt.y);
+// });
+// emitter.on('mousewheel',function(evt) {
+// 	console.log("[mousewheel] "+evt.position);
+// });
+// emitter.on('resize',function(evt){
+// 	console.log("[resize] "+evt.width+", "+evt.height);
+// });
 
-let window = glfw.createWindow(720, 480, { emit: (t, e) => emitter.emit(t, e) }, "Test");
+let window = glfw.createWindow(720, 480, "Test");
 if (!window) {
 	console.log("Failed to open GLFW window");
 	glfw.terminate();
@@ -47,7 +47,7 @@ glfw.makeContextCurrent(window);
 console.log(gl.glewInit());
 
 //can only be called after window creation!
-console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MINOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_REVISION) + " Profile: " + glfw.getWindowAttrib(window, glfw.OPENGL_PROFILE));
+console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MINOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_REVISION) + " Core Profile?: " + (glfw.getWindowAttrib(window, glfw.OPENGL_PROFILE)==glfw.OPENGL_CORE_PROFILE));
 
 // Enable vertical sync (on cards that support it)
 glfw.swapInterval(1); // 0 for vsync off
@@ -179,9 +179,12 @@ void main() {
 `);
 let cube = glutils.createVao(gl, glutils.makeCube(), cubeprogram.id);
 
+
+
 let t = glfw.getTime();
 let fps = 60;
-while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) {
+while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)){
+
 	let t1 = glfw.getTime();
 	let dt = t1-t;
 	fps += 0.1*((1/dt)-fps);
@@ -189,21 +192,22 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 	glfw.setWindowTitle(window, `fps ${fps}`);
 	// Get window size (may be different than the requested size)
 	let dim = glfw.getFramebufferSize(window);
-	//if(wsize) console.log("FB size: "+wsize.width+', '+wsize.height);
 
+	
+	
 	// Compute the matrix
 	let viewmatrix = mat4.create();
 	let projmatrix = mat4.create();
 	let modelmatrix = mat4.create();
 	mat4.lookAt(viewmatrix, [0, 0, 3], [0, 0, 0], [0, 1, 0]);
-	mat4.perspective(projmatrix, Math.PI/2, dim.width/dim.height, 0.01, 10);
+	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 10);
 
 	//mat4.identity(modelmatrix);
 	let axis = vec3.fromValues(Math.sin(t), 1., 0.);
 	vec3.normalize(axis, axis);
 	mat4.rotate(modelmatrix, modelmatrix, t, axis)
 
-	gl.viewport(0, 0, dim.width, dim.height);
+	gl.viewport(0, 0, dim[0], dim[1]);
 	gl.clearColor(0.2, 0.2, 0.2, 1);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -243,6 +247,7 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 	// Swap buffers
 	glfw.swapBuffers(window);
 	glfw.pollEvents();
+	
 }
 
 // Close OpenGL window and terminate GLFW

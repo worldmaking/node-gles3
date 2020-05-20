@@ -1,225 +1,13 @@
-#include <node_api.h>
+#include "node-api-helpers.h"
+
 //#include <GLES3/gl3.h>
 #include <GL/glew.h>
-#include <GLFW/glfw3.h>
 
 #include "vr.h"
-#include "window.h"
-
-#include <stdio.h>
-#include <string>
 
 #define BIGSTRLEN 4096*64
 
 Hmd hmd;
-
-size_t checkArgCount(napi_env env, napi_callback_info info, napi_value * args, size_t max, size_t min=0) {
-	size_t argc = max;
-	napi_status status = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
-	if(status != napi_ok || argc < min) {
-		napi_throw_type_error(env, nullptr, "Missing arguments");
-	}
-	return argc;
-}
-
-template<typename T> bool isTypedArrayType(napi_typedarray_type ty);
-
-template<> bool isTypedArrayType<char>(napi_typedarray_type ty) { return ty == napi_int8_array; }
-template<> bool isTypedArrayType<int8_t>(napi_typedarray_type ty) { return ty == napi_int8_array; }
-template<> bool isTypedArrayType<uint8_t>(napi_typedarray_type ty) { return ty == napi_uint8_array; }
-template<> bool isTypedArrayType<int16_t>(napi_typedarray_type ty) { return ty == napi_int16_array; }
-template<> bool isTypedArrayType<uint16_t>(napi_typedarray_type ty) { return ty == napi_uint16_array; }
-template<> bool isTypedArrayType<int32_t>(napi_typedarray_type ty) { return ty == napi_int32_array; }
-template<> bool isTypedArrayType<uint32_t>(napi_typedarray_type ty) { return ty == napi_uint32_array; }
-// template<> bool isTypedArrayType<int64_t>(napi_typedarray_type ty) { return ty == napi_bigint64_array; }
-// template<> bool isTypedArrayType<uint64_t>(napi_typedarray_type ty) { return ty == napi_biguint64_array; }
-template<> bool isTypedArrayType<float>(napi_typedarray_type ty) { return ty == napi_float32_array; }
-template<> bool isTypedArrayType<double>(napi_typedarray_type ty) { return ty == napi_float64_array; }
-template<> bool isTypedArrayType<void>(napi_typedarray_type ty) { return true; }
-
-size_t typedArrayElementSize(napi_typedarray_type ty) {
-	switch(ty) {
-		case napi_int8_array:
-		case napi_uint8_array: return 1;
-		case napi_int16_array:
-		case napi_uint16_array: return 2;
-		case napi_int32_array:
-		case napi_uint32_array: 
-		case napi_float32_array: return 4;
-		case napi_float64_array: return 8;
-		default: return 0;
-	}
-}
-
-napi_status getPointerAndSize(napi_env env, napi_value &arg, void *& data, size_t &size) {
-	napi_valuetype valuetype;
-	napi_status status = napi_typeof(env, arg, &valuetype);
-	bool is_typedarray=0, is_arraybuffer=0, is_dataview=0, is_external = (valuetype == napi_external);
-	napi_is_typedarray(env, arg, &is_typedarray) == napi_ok &&
-	napi_is_arraybuffer(env, arg, &is_arraybuffer) == napi_ok &&
-	napi_is_dataview(env, arg, &is_dataview);
-	if (is_typedarray) {
-		napi_typedarray_type value_typedarray_type;
-		status = napi_get_typedarray_info(env, arg, &value_typedarray_type, &size, (void **)&data, nullptr, nullptr);
-		size *= typedArrayElementSize(value_typedarray_type);
-	} else if (is_arraybuffer) {
-		status = napi_get_arraybuffer_info(env, arg, (void **)&data, &size);
-		if (status != napi_ok ) {
-			napi_throw_type_error(env, nullptr, "Failed to read argument as arraybuffer");
-		} 
-	} else if (is_dataview) {
-		status = napi_get_dataview_info(env, arg, &size, (void **)&data, nullptr, nullptr);
-		if (status != napi_ok ) {
-			napi_throw_type_error(env, nullptr, "Failed to read argument as dataview");
-		} 
-	} else {
-		data = nullptr;
-		size = 0;
-	}
-	return status;
-}
-
-template<typename T> 
-napi_status getTypedArray(napi_env env, napi_value &arg, T * &value) {
-	napi_valuetype valuetype;
-	napi_status status = napi_typeof(env, arg, &valuetype);
-	bool is_typedarray=0, is_arraybuffer=0, is_dataview=0, is_external = (valuetype == napi_external);
-	napi_is_typedarray(env, arg, &is_typedarray) == napi_ok &&
-	napi_is_arraybuffer(env, arg, &is_arraybuffer) == napi_ok &&
-	napi_is_dataview(env, arg, &is_dataview);
-	if (is_typedarray) {
-		napi_typedarray_type value_typedarray_type;
-		status = napi_get_typedarray_info(env, arg, &value_typedarray_type, nullptr, (void **)&value, nullptr, nullptr);
-		if (status != napi_ok || !isTypedArrayType<T>(value_typedarray_type)) {
-			napi_throw_type_error(env, nullptr, "Wrong type for typed array");
-		}
-	} else if (is_arraybuffer) {
-		status = napi_get_arraybuffer_info(env, arg, (void **)&value, nullptr);
-		if (status != napi_ok ) {
-			napi_throw_type_error(env, nullptr, "Failed to read argument as arraybuffer");
-		} 
-	} else if (is_dataview) {
-		status = napi_get_dataview_info(env, arg, nullptr, (void **)&value, nullptr, nullptr);
-		if (status != napi_ok ) {
-			napi_throw_type_error(env, nullptr, "Failed to read argument as dataview");
-		} 
-	} else if (is_external) {
-		status = napi_get_value_external(env, arg, (void **)&value);
-		if (status != napi_ok ) {
-			napi_throw_type_error(env, nullptr, "Failed to read argument as external");
-		} 
-	} else {
-		value = nullptr;
-	}
-	return status;
-}
-
-napi_status getCharacterArray(napi_env env, napi_value &arg, char *& buf) {
-	napi_status status = napi_ok;
-	napi_valuetype valuetype;
-	status = napi_typeof(env, arg, &valuetype);
-	if (status == napi_ok && valuetype == napi_string) {
-		size_t len;
-		status = napi_get_value_string_utf8(env, arg, nullptr, 0, &len);
-		// allocate string buffer:
-		napi_value ab;
-		status = napi_create_arraybuffer(env, len, (void **)&buf, &ab);
-		status = napi_get_value_string_utf8(env, arg, buf, len+1, &len);
-	} else {
-		status = getTypedArray(env, arg, buf);
-	}
-	return status;
-}
-
-napi_status getCharacterArray(napi_env env, napi_value &arg, char *& buf, size_t &len) {
-	napi_status status = napi_ok;
-	napi_valuetype valuetype;
-	status = napi_typeof(env, arg, &valuetype);
-	if (status == napi_ok && valuetype == napi_string) {
-		status = napi_get_value_string_utf8(env, arg, nullptr, 0, &len);
-		// allocate string buffer:
-		napi_value ab;
-		status = napi_create_arraybuffer(env, len, (void **)&buf, &ab);
-		status = napi_get_value_string_utf8(env, arg, buf, len+1, &len);
-	} else {
-		napi_typedarray_type value_typedarray_type;
-		status = napi_get_typedarray_info(env, arg, &value_typedarray_type, &len, (void **)&buf, nullptr, nullptr);
-		if (status != napi_ok || !isTypedArrayType<int8_t>(value_typedarray_type)) {
-			napi_throw_type_error(env, nullptr, "Wrong type for typed array");
-		}
-	}
-	return status;
-}
-
-napi_status getListOfStrings(napi_env env, napi_value &arg, char **& strings) {
-	napi_status status = napi_ok;
-	bool isArray = false;
-	status =  napi_is_array(env, arg, &isArray);
-	if (status == napi_ok && isArray) {
-		uint32_t len;
-		status = napi_get_array_length(env, arg, &len);
-		// need to construct that char**
-		napi_value ab;
-		status = napi_create_arraybuffer(env, len, (void **)&strings, &ab);
-		for (uint32_t i=0; i<len; i++) {
-			// get array item at i
-			napi_value item;
-			status = napi_get_element(env, arg, i, &item);
-			status = getCharacterArray(env, item, strings[i]);
-		}
-	} else {
-		napi_throw_type_error(env, nullptr, "Expected an array of strings");
-	}
-	return status;
-}
-
-double getDouble(napi_env env, napi_value &arg) {
-	napi_valuetype ty;
-	napi_status status = napi_typeof(env, arg, &ty);
-	if (ty == napi_undefined || ty == napi_null) return 0.0;
-	double v = 0;
-	napi_value coerced;
-	status = napi_coerce_to_number(env, arg, &coerced);
-	if (status == napi_ok) status = napi_get_value_double(env, arg, &v);
-	if (status != napi_ok) napi_throw_type_error(env, nullptr, "Expected number");
-	return v;
-}
-
-uint32_t getUint32(napi_env env, napi_value &arg) {
-	napi_valuetype ty;
-	napi_status status = napi_typeof(env, arg, &ty);
-	if (ty == napi_undefined || ty == napi_null) return 0;
-	uint32_t v = 0;
-	napi_value coerced;
-	status = napi_coerce_to_number(env, arg, &coerced);
-	if (status == napi_ok) status = napi_get_value_uint32(env, arg, &v);
-	if (status != napi_ok) napi_throw_type_error(env, nullptr, "Expected integer");
-	return v;
-}
-
-int32_t getInt32(napi_env env, napi_value &arg) {
-	napi_valuetype ty;
-	napi_status status = napi_typeof(env, arg, &ty);
-	if (ty == napi_undefined || ty == napi_null) return 0;
-	int32_t v = 0;
-	napi_value coerced;
-	status = napi_coerce_to_number(env, arg, &coerced);
-	if (status == napi_ok) status = napi_get_value_int32(env, arg, &v);
-	if (status != napi_ok) napi_throw_type_error(env, nullptr, "Expected integer");
-	return v;
-}
-
-bool getBool(napi_env env, napi_value &arg) {
-	napi_valuetype ty;
-	napi_status status = napi_typeof(env, arg, &ty);
-	if (ty == napi_undefined || ty == napi_null) return false;
-	bool v = 0;
-	napi_value coerced;
-	status = napi_coerce_to_bool(env, arg, &coerced);
-	if (status == napi_ok) status = napi_get_value_bool(env, coerced, &v);
-	if (status != napi_ok) napi_throw_type_error(env, nullptr, "Expected boolean");
-	return v;
-}
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -396,6 +184,52 @@ napi_value GetAttribLocation(napi_env env, napi_callback_info info) {
 	status = napi_create_int32(env, (int32_t)result, &result_value);
 	return (status == napi_ok) ? result_value : nullptr;
 }
+
+napi_value GetInteger64v(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[2];
+	size_t argc = checkArgCount(env, info, args, 2, 2);
+	GLenum pname = getUint32(env, args[0]);
+	GLint64 data = 0;
+	// void glGetInteger64v(GLenum pname, GLint64 *data)
+	glGetInteger64v(pname, &data);
+
+	napi_value result_value;
+	status = napi_create_int64(env, data, &result_value);
+	return (status == napi_ok) ? result_value : nullptr;
+}
+
+napi_value GetInteger64i_v(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[3];
+	size_t argc = checkArgCount(env, info, args, 3, 3);
+	GLenum target = getUint32(env, args[0]);
+	GLuint index = getUint32(env, args[1]);
+	GLint64 data = 0;
+	// void glGetInteger64i_v(GLenum target, GLuint index, GLint64 *data)
+	glGetInteger64i_v(target, index, &data);
+
+	napi_value result_value;
+	status = napi_create_int64(env, data, &result_value);
+	return (status == napi_ok) ? result_value : nullptr;
+}
+
+
+napi_value GetBufferParameteri64v(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[3];
+	size_t argc = checkArgCount(env, info, args, 3, 3);
+	GLenum target = getUint32(env, args[0]);
+	GLenum pname = getUint32(env, args[1]);
+	GLint64 data = 0;
+	// void glGetBufferParameteri64v(GLenum target, GLenum pname, GLint64 *params)
+	glGetBufferParameteri64v(target, pname, &data);
+	
+	napi_value result_value;
+	status = napi_create_int64(env, data, &result_value);
+	return (status == napi_ok) ? result_value : nullptr;
+}
+
 
 napi_value GetProgramInfoLog(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
@@ -675,61 +509,4 @@ napi_value vrSubmit(napi_env env, napi_callback_info info) {
 	napi_value result_value;
 	status = napi_create_uint32(env, ok ? 1 : 0, &result_value);
 	return (status == napi_ok) ? result_value : nullptr;
-}
-
-///////////////////////////////////////////////////////////////////////////
-// now the GLFW bindings:
-///////////////////////////////////////////////////////////////////////////
-
-napi_value glfwGetVersion(napi_env env, napi_callback_info info) {
-	napi_value result_value = nullptr;
-	napi_status status = napi_ok;
-	int maj, min, rev;
-	glfwGetVersion(&maj, &min, &rev);
-	// return object
-	status = napi_create_object(env, &result_value);
-	if (status == napi_ok) {
-		napi_value nmaj, nmin, nrev;
-		napi_create_int32(env, maj, &nmaj);
-		napi_create_int32(env, min, &nmin);
-		napi_create_int32(env, rev, &nrev);
-		napi_set_named_property(env, result_value, "major", nmaj);
-		napi_set_named_property(env, result_value, "minor", nmin);
-		napi_set_named_property(env, result_value, "rev", nrev);
-	}
-	return (status == napi_ok) ? result_value : nullptr;
-}
-
-napi_value glfwInit(napi_env env, napi_callback_info info) {
-	napi_value result_value = nullptr;
-	napi_status status = napi_ok;
-	int res = glfwInit();
-	napi_get_boolean(env, res, &result_value);
-	return (status == napi_ok) ? result_value : nullptr;
-}
-
-napi_value glfwGetVersionString(napi_env env, napi_callback_info info) {
-	napi_value result_value = nullptr;
-	napi_status status = napi_ok;
-	const char* res = glfwGetVersionString();
-	status = napi_create_string_utf8(env, res, strlen(res), &result_value);
-	return (status == napi_ok) ? result_value : nullptr;
-}
-
-napi_value glfwDefaultWindowHints(napi_env env, napi_callback_info info) {
-	napi_value result_value = nullptr;
-	napi_status status = napi_ok;
-	glfwDefaultWindowHints();
-	return result_value;
-}
-
-napi_value glfwWindowHint(napi_env env, napi_callback_info info) {
-	napi_value result_value = nullptr;
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	int hint = getInt32(env, args[0]);
-	int value = getInt32(env, args[1]);
-	glfwWindowHint(hint, value);
-	return result_value;
 }

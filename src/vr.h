@@ -217,7 +217,7 @@ struct Hmd {
 		bool inputCapturedByAnotherProcess = mHMD->IsInputFocusCapturedByAnotherProcess();
 
         // check each device:
-		for (int i = 0; i < vr::k_unMaxTrackedDeviceCount; i++) {
+		for (uint32_t i = 0; i < vr::k_unMaxTrackedDeviceCount; i++) {
 			const vr::TrackedDevicePose_t& trackedDevicePose = pRenderPoseArray[i];
 
 			if (trackedDevicePose.bDeviceIsConnected) {

@@ -1,8 +1,8 @@
 //const glfw = require("node-glfw")
 const EventEmitter = require('events');
-const glfw = require("glfw-raub")
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 const gl = require('./index.js') 
+const glfw = gl.glfw //require("glfw-raub")
 const glutils = require('./glutils.js');
 
 
