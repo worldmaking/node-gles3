@@ -1,72 +1,6 @@
 {
   "targets": [
     {
-      "target_name": "glfw3",
-      "sources": [ "src/node-glfw3.cpp" ],
-      'include_dirs': [
-        'src', 'src/include'
-      ],
-      'cflags':[],
-      'conditions': [
-        ['OS=="mac"',
-          {
-            'libraries': [
-              '-framework Cocoa',
-              '../node_modules/native-graphics-deps/lib/macos/glfw/libglfw3.a'
-            ],
-            'include_dirs': [
-              './node_modules/native-graphics-deps/include'
-            ],
-            'library_dirs': [
-            ],
-            'xcode_settings': {
-              'MACOSX_DEPLOYMENT_TARGET': '10.13',
-              'OTHER_CFLAGS': [
-                "-Wno-unused-but-set-variable","-Wno-unused-parameter","-Wno-unused-variable"
-              ],
-            }
-          }
-        ],
-        ['OS=="linux"', {
-          'libraries': []
-          }
-        ],
-        ['OS=="win"',
-          {
-            'include_dirs': [
-              './node_modules/native-graphics-deps/include',
-              ],
-            'library_dirs': [
-              './node_modules/native-graphics-deps/lib/windows/glfw'
-              ],
-            'libraries': [
-              'glfw3dll.lib'
-            ],
-            'defines' : [
-              'WIN32_LEAN_AND_MEAN',
-              'VC_EXTRALEAN'
-            ],
-            'msvs_settings' : {
-              'VCCLCompilerTool' : {
-                'AdditionalOptions' : ['/O2','/Oy','/GL','/GF','/Gm-','/EHsc','/MT','/GS','/Gy','/GR-','/Gd']
-              },
-              'VCLinkerTool' : {
-                'AdditionalOptions' : ['/OPT:REF','/OPT:ICF','/LTCG']
-              },
-            },
-            'copies': [
-              {
-                'destination': './build/Release/',
-                'files': [
-                  './node_modules/native-graphics-deps/lib/windows/glfw/glfw3.dll'
-                 ]
-              }
-            ],
-          }
-        ],
-      ],
-    },
-    {
       "target_name": "gles3",
       "sources": [ "src/node-gles3.cpp" ],
       'include_dirs': [
@@ -136,6 +70,73 @@
         ],
       ],
     },
+    {
+      "target_name": "glfw3",
+      "sources": [ "src/node-glfw3.cpp" ],
+      'include_dirs': [
+        'src', 'src/include'
+      ],
+      'cflags':[],
+      'conditions': [
+        ['OS=="mac"',
+          {
+            'libraries': [
+              '-framework Cocoa',
+              '../node_modules/native-graphics-deps/lib/macos/glfw/libglfw3.a'
+            ],
+            'include_dirs': [
+              './node_modules/native-graphics-deps/include'
+            ],
+            'library_dirs': [
+            ],
+            'xcode_settings': {
+              'MACOSX_DEPLOYMENT_TARGET': '10.13',
+              'OTHER_CFLAGS': [
+                "-Wno-unused-but-set-variable","-Wno-unused-parameter","-Wno-unused-variable"
+              ],
+            }
+          }
+        ],
+        ['OS=="linux"', {
+          'libraries': []
+          }
+        ],
+        ['OS=="win"',
+          {
+            'include_dirs': [
+              './node_modules/native-graphics-deps/include',
+              ],
+            'library_dirs': [
+              './node_modules/native-graphics-deps/lib/windows/glfw'
+              ],
+            'libraries': [
+              'glfw3dll.lib'
+            ],
+            'defines' : [
+              'WIN32_LEAN_AND_MEAN',
+              'VC_EXTRALEAN'
+            ],
+            'msvs_settings' : {
+              'VCCLCompilerTool' : {
+                'AdditionalOptions' : ['/O2','/Oy','/GL','/GF','/Gm-','/EHsc','/MT','/GS','/Gy','/GR-','/Gd']
+              },
+              'VCLinkerTool' : {
+                'AdditionalOptions' : ['/OPT:REF','/OPT:ICF','/LTCG']
+              },
+            },
+            'copies': [
+              {
+                'destination': './build/Release/',
+                'files': [
+                  './node_modules/native-graphics-deps/lib/windows/glfw/glfw3.dll'
+                 ]
+              }
+            ],
+          }
+        ],
+      ],
+    },
+    
     {
       "target_name": "openvr",
       "sources": [ "src/node-openvr.cpp" ],

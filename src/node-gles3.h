@@ -60,7 +60,7 @@ napi_value ClearBufferfv(napi_env env, napi_callback_info info) {
 	GLfloat rgba[4];
 	napi_value rgba_value[4];
 	for (int i=0; i<4; i++) {
-		assert(napi_ok == napi_get_element(env, args[2], i, &rgba_value[i]));
+		napi_get_element(env, args[2], i, &rgba_value[i]);
 		rgba[i] = getDouble(env, rgba_value[i]);
 	}
 	glClearBufferfv(buffer, drawbuffer, rgba);

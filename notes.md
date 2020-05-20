@@ -11,3 +11,5 @@ Compare:
 
 Completeness is tested from the GLES3 headers
 
+,
+              './node_modules/native-graphics-deps/lib/windows/glfw'
