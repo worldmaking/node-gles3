@@ -137,6 +137,75 @@
           }
         ],
       ],
+    },
+    {
+      "target_name": "openvr",
+      "sources": [ "src/node-openvr.cpp" ],
+      'include_dirs': [
+        'src', 'src/include'
+      ],
+      'cflags':[],
+      'conditions': [
+        ['OS=="mac"',
+          {
+            'libraries': [
+            ],
+            'include_dirs': [
+              './node_modules/native-graphics-deps/include'
+            ],
+            'library_dirs': [
+            ],
+            'xcode_settings': {
+              'MACOSX_DEPLOYMENT_TARGET': '10.13',
+              'OTHER_CFLAGS': [
+                "-Wno-unused-but-set-variable","-Wno-unused-parameter","-Wno-unused-variable","-Wno-int-to-void-pointer-cast"
+              ],
+            }
+          }
+        ],
+        ['OS=="linux"', {
+          'libraries': [
+            '-lGLEW','-lGL']
+          }
+        ],
+        ['OS=="win"',
+          {
+            'include_dirs': [
+              './node_modules/native-graphics-deps/include',
+              ],
+            'library_dirs': [
+              './node_modules/native-graphics-deps/lib/windows/glew',
+              'lib/<(target_arch)',
+              ],
+            'libraries': [
+              'glew32.lib',
+              'openvr_api.lib',
+              'opengl32.lib'
+              ],
+            'defines' : [
+              'WIN32_LEAN_AND_MEAN',
+              'VC_EXTRALEAN'
+            ],
+            'msvs_settings' : {
+              'VCCLCompilerTool' : {
+                'AdditionalOptions' : ['/O2','/Oy','/GL','/GF','/Gm-','/EHsc','/MT','/GS','/Gy','/GR-','/Gd']
+              },
+              'VCLinkerTool' : {
+                'AdditionalOptions' : ['/OPT:REF','/OPT:ICF','/LTCG']
+              },
+            },
+            'copies': [
+              {
+                'destination': './build/Release/',
+                'files': [
+                  './node_modules/native-graphics-deps/lib/windows/glew/glew32.dll',
+                  './lib/<(target_arch)/openvr_api.dll'
+                 ]
+              }
+            ],
+          }
+        ],
+      ],
     }
   ]
 }
