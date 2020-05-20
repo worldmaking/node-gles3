@@ -1343,8 +1343,13 @@ napi_value SetCharModsCallback(napi_env env, napi_callback_info info) {
 // since there's no userdata here, the only way we could get this to work is to 
 // stash a singleton user handler in the napi_env itself somehow
 // I'm not sure how to do that yet.
-napi_value glfwSetErrorCallback(napi_env env, napi_callback_info info) {
-	return nullptr ;
+napi_value SetErrorCallback(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[1];
+	size_t argc = checkArgCount(env, info, args, 1, 1);
+	GLFWerrorfun cbfun;
+	// GLFWerrorfun glfwSetErrorCallback(GLFWerrorfun cbfun)
+	return nullptr;
 }
 
 // with these functions we can cache a userdata pointer in the monitor

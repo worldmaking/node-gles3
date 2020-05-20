@@ -29,15 +29,6 @@ napi_value InitHint(napi_env env, napi_callback_info info) {
 	return NULL;
 }
 
-napi_value SetErrorCallback(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[1];
-	size_t argc = checkArgCount(env, info, args, 1, 1);
-	GLFWerrorfun cbfun;
-	// GLFWerrorfun glfwSetErrorCallback(GLFWerrorfun cbfun)
-	GLFWerrorfun result = glfwSetErrorCallback(cbfun);
-}
-
 napi_value SetGamma(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
 	napi_value args[2];
@@ -870,7 +861,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "setKeyCallback", 0, SetKeyCallback, 0, 0, 0, napi_default, 0 },
 		{ "setCharCallback", 0, SetCharCallback, 0, 0, 0, napi_default, 0 },
 		{ "setCharModsCallback", 0, SetCharModsCallback, 0, 0, 0, napi_default, 0 },
-		{ "glfwSetErrorCallback", 0, glfwSetErrorCallback, 0, 0, 0, napi_default, 0 },
+		{ "setErrorCallback", 0, SetErrorCallback, 0, 0, 0, napi_default, 0 },
 		{ "setMonitorUserPointer", 0, SetMonitorUserPointer, 0, 0, 0, napi_default, 0 },
 		{ "getMonitorUserPointer", 0, GetMonitorUserPointer, 0, 0, 0, napi_default, 0 },
 		{ "setWindowUserPointer", 0, SetWindowUserPointer, 0, 0, 0, napi_default, 0 },
@@ -883,7 +874,6 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "init", 0, Init, 0, 0, 0, napi_default, 0 },
 		{ "terminate", 0, Terminate, 0, 0, 0, napi_default, 0 },
 		{ "initHint", 0, InitHint, 0, 0, 0, napi_default, 0 },
-		{ "setErrorCallback", 0, SetErrorCallback, 0, 0, 0, napi_default, 0 },
 		{ "setGamma", 0, SetGamma, 0, 0, 0, napi_default, 0 },
 		{ "setGammaRamp", 0, SetGammaRamp, 0, 0, 0, napi_default, 0 },
 		{ "defaultWindowHints", 0, DefaultWindowHints, 0, 0, 0, napi_default, 0 },
@@ -943,7 +933,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "extensionSupported", 0, ExtensionSupported, 0, 0, 0, napi_default, 0 },
 		{ "getProcAddress", 0, GetProcAddress, 0, 0, 0, napi_default, 0 }
 	};
-	status = napi_define_properties(env, exports, 104, properties);
+	status = napi_define_properties(env, exports, 103, properties);
 	//assert(status == napi_ok);
 	return exports;
 }
