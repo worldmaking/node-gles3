@@ -43,6 +43,14 @@ if (!window) {
 	process.exit(-1);
 }
 
+glfw.setWindowPosCallback(window, function(w, x, y) {
+	console.log("window moved", w, x, y)
+	return 1;
+})
+
+glfw.setMouseButtonCallback(window, function(...args) {
+	console.log("mouse button", args);
+})
 
 glfw.makeContextCurrent(window);
 console.log(gl.glewInit());

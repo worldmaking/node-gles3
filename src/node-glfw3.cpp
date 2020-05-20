@@ -442,126 +442,6 @@ napi_value SetWindowAttrib(napi_env env, napi_callback_info info) {
 	return NULL;
 }
 
-napi_value SetWindowSizeCallback(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLFWwindow* window = nullptr;
-	napi_valuetype window_type;
-	status = napi_typeof(env, args[0], &window_type);
-	if (status != napi_ok || window_type != napi_external) return nullptr;
-	status = napi_get_value_external(env, args[0], (void **)&window);
-	if (status != napi_ok) return nullptr;
-	GLFWwindowsizefun cbfun;
-	// GLFWwindowsizefun glfwSetWindowSizeCallback(GLFWwindow* window, GLFWwindowsizefun cbfun)
-	GLFWwindowsizefun result = glfwSetWindowSizeCallback(window, cbfun);
-}
-
-napi_value SetWindowCloseCallback(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLFWwindow* window = nullptr;
-	napi_valuetype window_type;
-	status = napi_typeof(env, args[0], &window_type);
-	if (status != napi_ok || window_type != napi_external) return nullptr;
-	status = napi_get_value_external(env, args[0], (void **)&window);
-	if (status != napi_ok) return nullptr;
-	GLFWwindowclosefun cbfun;
-	// GLFWwindowclosefun glfwSetWindowCloseCallback(GLFWwindow* window, GLFWwindowclosefun cbfun)
-	GLFWwindowclosefun result = glfwSetWindowCloseCallback(window, cbfun);
-}
-
-napi_value SetWindowRefreshCallback(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLFWwindow* window = nullptr;
-	napi_valuetype window_type;
-	status = napi_typeof(env, args[0], &window_type);
-	if (status != napi_ok || window_type != napi_external) return nullptr;
-	status = napi_get_value_external(env, args[0], (void **)&window);
-	if (status != napi_ok) return nullptr;
-	GLFWwindowrefreshfun cbfun;
-	// GLFWwindowrefreshfun glfwSetWindowRefreshCallback(GLFWwindow* window, GLFWwindowrefreshfun cbfun)
-	GLFWwindowrefreshfun result = glfwSetWindowRefreshCallback(window, cbfun);
-}
-
-napi_value SetWindowFocusCallback(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLFWwindow* window = nullptr;
-	napi_valuetype window_type;
-	status = napi_typeof(env, args[0], &window_type);
-	if (status != napi_ok || window_type != napi_external) return nullptr;
-	status = napi_get_value_external(env, args[0], (void **)&window);
-	if (status != napi_ok) return nullptr;
-	GLFWwindowfocusfun cbfun;
-	// GLFWwindowfocusfun glfwSetWindowFocusCallback(GLFWwindow* window, GLFWwindowfocusfun cbfun)
-	GLFWwindowfocusfun result = glfwSetWindowFocusCallback(window, cbfun);
-}
-
-napi_value SetWindowIconifyCallback(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLFWwindow* window = nullptr;
-	napi_valuetype window_type;
-	status = napi_typeof(env, args[0], &window_type);
-	if (status != napi_ok || window_type != napi_external) return nullptr;
-	status = napi_get_value_external(env, args[0], (void **)&window);
-	if (status != napi_ok) return nullptr;
-	GLFWwindowiconifyfun cbfun;
-	// GLFWwindowiconifyfun glfwSetWindowIconifyCallback(GLFWwindow* window, GLFWwindowiconifyfun cbfun)
-	GLFWwindowiconifyfun result = glfwSetWindowIconifyCallback(window, cbfun);
-}
-
-napi_value SetWindowMaximizeCallback(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLFWwindow* window = nullptr;
-	napi_valuetype window_type;
-	status = napi_typeof(env, args[0], &window_type);
-	if (status != napi_ok || window_type != napi_external) return nullptr;
-	status = napi_get_value_external(env, args[0], (void **)&window);
-	if (status != napi_ok) return nullptr;
-	GLFWwindowmaximizefun cbfun;
-	// GLFWwindowmaximizefun glfwSetWindowMaximizeCallback(GLFWwindow* window, GLFWwindowmaximizefun cbfun)
-	GLFWwindowmaximizefun result = glfwSetWindowMaximizeCallback(window, cbfun);
-}
-
-napi_value SetFramebufferSizeCallback(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLFWwindow* window = nullptr;
-	napi_valuetype window_type;
-	status = napi_typeof(env, args[0], &window_type);
-	if (status != napi_ok || window_type != napi_external) return nullptr;
-	status = napi_get_value_external(env, args[0], (void **)&window);
-	if (status != napi_ok) return nullptr;
-	GLFWframebuffersizefun cbfun;
-	// GLFWframebuffersizefun glfwSetFramebufferSizeCallback(GLFWwindow* window, GLFWframebuffersizefun cbfun)
-	GLFWframebuffersizefun result = glfwSetFramebufferSizeCallback(window, cbfun);
-}
-
-napi_value SetWindowContentScaleCallback(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLFWwindow* window = nullptr;
-	napi_valuetype window_type;
-	status = napi_typeof(env, args[0], &window_type);
-	if (status != napi_ok || window_type != napi_external) return nullptr;
-	status = napi_get_value_external(env, args[0], (void **)&window);
-	if (status != napi_ok) return nullptr;
-	GLFWwindowcontentscalefun cbfun;
-	// GLFWwindowcontentscalefun glfwSetWindowContentScaleCallback(GLFWwindow* window, GLFWwindowcontentscalefun cbfun)
-	GLFWwindowcontentscalefun result = glfwSetWindowContentScaleCallback(window, cbfun);
-}
-
 napi_value PollEvents(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
 	// void glfwPollEvents(void)
@@ -754,111 +634,6 @@ napi_value SetCursor(napi_env env, napi_callback_info info) {
 	// void glfwSetCursor(GLFWwindow* window, GLFWcursor* cursor)
 	glfwSetCursor(window, cursor);
 	return NULL;
-}
-
-napi_value SetKeyCallback(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLFWwindow* window = nullptr;
-	napi_valuetype window_type;
-	status = napi_typeof(env, args[0], &window_type);
-	if (status != napi_ok || window_type != napi_external) return nullptr;
-	status = napi_get_value_external(env, args[0], (void **)&window);
-	if (status != napi_ok) return nullptr;
-	GLFWkeyfun cbfun;
-	// GLFWkeyfun glfwSetKeyCallback(GLFWwindow* window, GLFWkeyfun cbfun)
-	GLFWkeyfun result = glfwSetKeyCallback(window, cbfun);
-}
-
-napi_value SetCharCallback(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLFWwindow* window = nullptr;
-	napi_valuetype window_type;
-	status = napi_typeof(env, args[0], &window_type);
-	if (status != napi_ok || window_type != napi_external) return nullptr;
-	status = napi_get_value_external(env, args[0], (void **)&window);
-	if (status != napi_ok) return nullptr;
-	GLFWcharfun cbfun;
-	// GLFWcharfun glfwSetCharCallback(GLFWwindow* window, GLFWcharfun cbfun)
-	GLFWcharfun result = glfwSetCharCallback(window, cbfun);
-}
-
-napi_value SetCharModsCallback(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLFWwindow* window = nullptr;
-	napi_valuetype window_type;
-	status = napi_typeof(env, args[0], &window_type);
-	if (status != napi_ok || window_type != napi_external) return nullptr;
-	status = napi_get_value_external(env, args[0], (void **)&window);
-	if (status != napi_ok) return nullptr;
-	GLFWcharmodsfun cbfun;
-	// GLFWcharmodsfun glfwSetCharModsCallback(GLFWwindow* window, GLFWcharmodsfun cbfun)
-	GLFWcharmodsfun result = glfwSetCharModsCallback(window, cbfun);
-}
-
-napi_value SetMouseButtonCallback(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLFWwindow* window = nullptr;
-	napi_valuetype window_type;
-	status = napi_typeof(env, args[0], &window_type);
-	if (status != napi_ok || window_type != napi_external) return nullptr;
-	status = napi_get_value_external(env, args[0], (void **)&window);
-	if (status != napi_ok) return nullptr;
-	GLFWmousebuttonfun cbfun;
-	// GLFWmousebuttonfun glfwSetMouseButtonCallback(GLFWwindow* window, GLFWmousebuttonfun cbfun)
-	GLFWmousebuttonfun result = glfwSetMouseButtonCallback(window, cbfun);
-}
-
-napi_value SetCursorPosCallback(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLFWwindow* window = nullptr;
-	napi_valuetype window_type;
-	status = napi_typeof(env, args[0], &window_type);
-	if (status != napi_ok || window_type != napi_external) return nullptr;
-	status = napi_get_value_external(env, args[0], (void **)&window);
-	if (status != napi_ok) return nullptr;
-	GLFWcursorposfun cbfun;
-	// GLFWcursorposfun glfwSetCursorPosCallback(GLFWwindow* window, GLFWcursorposfun cbfun)
-	GLFWcursorposfun result = glfwSetCursorPosCallback(window, cbfun);
-}
-
-napi_value SetCursorEnterCallback(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLFWwindow* window = nullptr;
-	napi_valuetype window_type;
-	status = napi_typeof(env, args[0], &window_type);
-	if (status != napi_ok || window_type != napi_external) return nullptr;
-	status = napi_get_value_external(env, args[0], (void **)&window);
-	if (status != napi_ok) return nullptr;
-	GLFWcursorenterfun cbfun;
-	// GLFWcursorenterfun glfwSetCursorEnterCallback(GLFWwindow* window, GLFWcursorenterfun cbfun)
-	GLFWcursorenterfun result = glfwSetCursorEnterCallback(window, cbfun);
-}
-
-napi_value SetScrollCallback(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLFWwindow* window = nullptr;
-	napi_valuetype window_type;
-	status = napi_typeof(env, args[0], &window_type);
-	if (status != napi_ok || window_type != napi_external) return nullptr;
-	status = napi_get_value_external(env, args[0], (void **)&window);
-	if (status != napi_ok) return nullptr;
-	GLFWscrollfun cbfun;
-	// GLFWscrollfun glfwSetScrollCallback(GLFWwindow* window, GLFWscrollfun cbfun)
-	GLFWscrollfun result = glfwSetScrollCallback(window, cbfun);
 }
 
 napi_value SetDropCallback(napi_env env, napi_callback_info info) {
@@ -1080,6 +855,21 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "getWindowContentScale", 0, GetWindowContentScale, 0, 0, 0, napi_default, 0 },
 		{ "setWindowMonitor", 0, SetWindowMonitor, 0, 0, 0, napi_default, 0 },
 		{ "setWindowPosCallback", 0, SetWindowPosCallback, 0, 0, 0, napi_default, 0 },
+		{ "setWindowSizeCallback", 0, SetWindowSizeCallback, 0, 0, 0, napi_default, 0 },
+		{ "setWindowCloseCallback", 0, SetWindowCloseCallback, 0, 0, 0, napi_default, 0 },
+		{ "setWindowRefreshCallback", 0, SetWindowRefreshCallback, 0, 0, 0, napi_default, 0 },
+		{ "setWindowFocusCallback", 0, SetWindowFocusCallback, 0, 0, 0, napi_default, 0 },
+		{ "setWindowIconifyCallback", 0, SetWindowIconifyCallback, 0, 0, 0, napi_default, 0 },
+		{ "setWindowMaximizeCallback", 0, SetWindowMaximizeCallback, 0, 0, 0, napi_default, 0 },
+		{ "setFramebufferSizeCallback", 0, SetFramebufferSizeCallback, 0, 0, 0, napi_default, 0 },
+		{ "setWindowContentScaleCallback", 0, SetWindowContentScaleCallback, 0, 0, 0, napi_default, 0 },
+		{ "setMouseButtonCallback", 0, SetMouseButtonCallback, 0, 0, 0, napi_default, 0 },
+		{ "setCursorPosCallback", 0, SetCursorPosCallback, 0, 0, 0, napi_default, 0 },
+		{ "setCursorEnterCallback", 0, SetCursorEnterCallback, 0, 0, 0, napi_default, 0 },
+		{ "setScrollCallback", 0, SetScrollCallback, 0, 0, 0, napi_default, 0 },
+		{ "setKeyCallback", 0, SetKeyCallback, 0, 0, 0, napi_default, 0 },
+		{ "setCharCallback", 0, SetCharCallback, 0, 0, 0, napi_default, 0 },
+		{ "setCharModsCallback", 0, SetCharModsCallback, 0, 0, 0, napi_default, 0 },
 		{ "glfwSetErrorCallback", 0, glfwSetErrorCallback, 0, 0, 0, napi_default, 0 },
 		{ "setMonitorUserPointer", 0, SetMonitorUserPointer, 0, 0, 0, napi_default, 0 },
 		{ "getMonitorUserPointer", 0, GetMonitorUserPointer, 0, 0, 0, napi_default, 0 },
@@ -1120,14 +910,6 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "getWindowMonitor", 0, GetWindowMonitor, 0, 0, 0, napi_default, 0 },
 		{ "getWindowAttrib", 0, GetWindowAttrib, 0, 0, 0, napi_default, 0 },
 		{ "setWindowAttrib", 0, SetWindowAttrib, 0, 0, 0, napi_default, 0 },
-		{ "setWindowSizeCallback", 0, SetWindowSizeCallback, 0, 0, 0, napi_default, 0 },
-		{ "setWindowCloseCallback", 0, SetWindowCloseCallback, 0, 0, 0, napi_default, 0 },
-		{ "setWindowRefreshCallback", 0, SetWindowRefreshCallback, 0, 0, 0, napi_default, 0 },
-		{ "setWindowFocusCallback", 0, SetWindowFocusCallback, 0, 0, 0, napi_default, 0 },
-		{ "setWindowIconifyCallback", 0, SetWindowIconifyCallback, 0, 0, 0, napi_default, 0 },
-		{ "setWindowMaximizeCallback", 0, SetWindowMaximizeCallback, 0, 0, 0, napi_default, 0 },
-		{ "setFramebufferSizeCallback", 0, SetFramebufferSizeCallback, 0, 0, 0, napi_default, 0 },
-		{ "setWindowContentScaleCallback", 0, SetWindowContentScaleCallback, 0, 0, 0, napi_default, 0 },
 		{ "pollEvents", 0, PollEvents, 0, 0, 0, napi_default, 0 },
 		{ "waitEvents", 0, WaitEvents, 0, 0, 0, napi_default, 0 },
 		{ "waitEventsTimeout", 0, WaitEventsTimeout, 0, 0, 0, napi_default, 0 },
@@ -1143,13 +925,6 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "createStandardCursor", 0, CreateStandardCursor, 0, 0, 0, napi_default, 0 },
 		{ "destroyCursor", 0, DestroyCursor, 0, 0, 0, napi_default, 0 },
 		{ "setCursor", 0, SetCursor, 0, 0, 0, napi_default, 0 },
-		{ "setKeyCallback", 0, SetKeyCallback, 0, 0, 0, napi_default, 0 },
-		{ "setCharCallback", 0, SetCharCallback, 0, 0, 0, napi_default, 0 },
-		{ "setCharModsCallback", 0, SetCharModsCallback, 0, 0, 0, napi_default, 0 },
-		{ "setMouseButtonCallback", 0, SetMouseButtonCallback, 0, 0, 0, napi_default, 0 },
-		{ "setCursorPosCallback", 0, SetCursorPosCallback, 0, 0, 0, napi_default, 0 },
-		{ "setCursorEnterCallback", 0, SetCursorEnterCallback, 0, 0, 0, napi_default, 0 },
-		{ "setScrollCallback", 0, SetScrollCallback, 0, 0, 0, napi_default, 0 },
 		{ "setDropCallback", 0, SetDropCallback, 0, 0, 0, napi_default, 0 },
 		{ "joystickPresent", 0, JoystickPresent, 0, 0, 0, napi_default, 0 },
 		{ "setJoystickUserPointer", 0, SetJoystickUserPointer, 0, 0, 0, napi_default, 0 },
