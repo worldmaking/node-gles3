@@ -1,8 +1,7 @@
-//const glfw = require("node-glfw")
-const EventEmitter = require('events');
+
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
-const gl = require('./index.js') 
-const glfw = gl.glfw //require("glfw-raub")
+const gl = require('./gles3.js') 
+const glfw = require('./glfw3.js')
 const glutils = require('./glutils.js');
 
 
@@ -21,21 +20,8 @@ glfw.windowHint(glfw.CONTEXT_VERSION_MINOR, 3);
 glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
 glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
 
-let emitter = new EventEmitter(); 
-emitter.on('keydown',function(evt) {
-	console.log("[keydown] ", (evt));
-});
-emitter.on('mousemove',function(evt) {
-	console.log("[mousemove] "+evt.x+", "+evt.y);
-});
-emitter.on('mousewheel',function(evt) {
-	console.log("[mousewheel] "+evt.position);
-});
-emitter.on('resize',function(evt){
-	console.log("[resize] "+evt.width+", "+evt.height);
-});
 
-let window = glfw.createWindow(720, 480, { emit: (t, e) => emitter.emit(t, e) }, "Test");
+let window = glfw.createWindow(720, 480, "Test");
 if (!window) {
 	console.log("Failed to open GLFW window");
 	glfw.terminate();
@@ -169,7 +155,7 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 	gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
 	gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
 
-	gl.viewport(0, 0, dim.width, dim.height);
+	gl.viewport(0, 0, dim[0], dim[1]);
 	gl.clearColor(0.2, 0.2, 0.2, 1);
 	gl.clear(gl.COLOR_BUFFER_BIT);
 
@@ -182,7 +168,7 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 	let viewmatrix = mat4.create();
 	let projmatrix = mat4.create();
 	mat4.lookAt(viewmatrix, [0, 0, 1], [0, 0, 0], [0, 1, 0]);
-	mat4.perspective(projmatrix, Math.PI/2, dim.width/dim.height, 0.01, 10);
+	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 10);
 
     // Tell it to use our program (pair of shaders)
     gl.useProgram(program);
@@ -191,7 +177,7 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
     gl.bindVertexArray(vao);
 
 	// Set the matrix.
-	gl.uniform1f(pixelSizeLocation, 3.);
+	gl.uniform1f(pixelSizeLocation, 1.);
     gl.uniformMatrix4fv(viewmatrixLocation, false, viewmatrix);
     gl.uniformMatrix4fv(projmatrixLocation, false, projmatrix);
 

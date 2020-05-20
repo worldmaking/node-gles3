@@ -1,8 +1,7 @@
-//const glfw = require("node-glfw")
-const EventEmitter = require('events');
-const glfw = require("glfw-raub")
+
+const glfw = require("./glfw3.js")
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
-const gl = require('./index.js') 
+const gl = require('./gles3.js') 
 const glutils = require('./glutils.js');
 
 if (!glfw.init()) {
@@ -40,20 +39,6 @@ function createWindow(title="", width=640, height=480, x=30, y=30) {
 	glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
 	glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
 
-	let emitter = new EventEmitter(); 
-	emitter.on('keydown',function(evt) {
-		console.log("[keydown] ", (evt));
-	});
-	emitter.on('mousemove',function(evt) {
-		console.log("[mousemove] "+evt.x+", "+evt.y);
-	});
-	emitter.on('mousewheel',function(evt) {
-		console.log("[mousewheel] "+evt.position);
-	});
-	emitter.on('resize',function(evt){
-		console.log("[resize] "+evt.width+", "+evt.height);
-	});
-
 	glfw.windowHint(glfw.RESIZABLE, 1);
 	glfw.windowHint(glfw.VISIBLE, 1);
 	glfw.windowHint(glfw.DECORATED, 1);
@@ -63,7 +48,7 @@ function createWindow(title="", width=640, height=480, x=30, y=30) {
 	glfw.windowHint(glfw.DEPTH_BITS, 24);
 	glfw.windowHint(glfw.REFRESH_RATE, 0);
 
-	let window=glfw.createWindow(width, height, { emit: (t, e) => emitter.emit(t, e) }, title); //, monitors.length-1);
+	let window=glfw.createWindow(width, height, title); //, monitors.length-1);
 	if (!window) {
 		console.log("Failed to open glfw window");
 		glfw.terminate();

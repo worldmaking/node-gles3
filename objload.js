@@ -1,8 +1,7 @@
-//const glfw = require("node-glfw")
-const EventEmitter = require('events');
-const glfw = require("glfw-raub")
+
+const glfw = require("./glfw3.js")
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
-const gl = require('./index.js') 
+const gl = require('./gles3.js') 
 const glutils = require('./glutils.js');
 
 if (!glfw.init()) {
@@ -20,21 +19,7 @@ glfw.windowHint(glfw.CONTEXT_VERSION_MINOR, 3);
 glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
 glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
 
-let emitter = new EventEmitter(); 
-emitter.on('keydown',function(evt) {
-	console.log("[keydown] ", (evt));
-});
-emitter.on('mousemove',function(evt) {
-	console.log("[mousemove] "+evt.x+", "+evt.y);
-});
-emitter.on('mousewheel',function(evt) {
-	console.log("[mousewheel] "+evt.position);
-});
-emitter.on('resize',function(evt){
-	console.log("[resize] "+evt.width+", "+evt.height);
-});
-
-let window = glfw.createWindow(720, 480, { emit: (t, e) => emitter.emit(t, e) }, "Test");
+let window = glfw.createWindow(720, 480, "Test");
 if (!window) {
 	console.log("Failed to open GLFW window");
 	glfw.terminate();
@@ -114,7 +99,7 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 	let projmatrix = mat4.create();
 	let modelmatrix = mat4.create();
 	mat4.lookAt(viewmatrix, [0, 0, 3], [0, 0, 0], [0, 1, 0]);
-	mat4.perspective(projmatrix, Math.PI*3/2, dim.width/dim.height, 0.01, 10);
+	mat4.perspective(projmatrix, Math.PI*3/2, dim[0]/dim[1], 0.01, 10);
 
 	//mat4.identity(modelmatrix);
 	let axis = vec3.fromValues(Math.sin(t), 1., 0.);
@@ -125,7 +110,7 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 
 
 
-	gl.viewport(0, 0, dim.width, dim.height);
+	gl.viewport(0, 0, dim[0], dim[1]);
 	gl.enable(gl.DEPTH_TEST)
 	gl.depthMask(true)
 	gl.clearColor(0.2, 0.2, 0.2, 1);
