@@ -1,6 +1,27 @@
 const fs = require("fs"), 
 	path = require("path");
 
+let blacklist = {
+	// blacklisted because they are not in the libglfw3.dll that is shipped in native-graphics-deps
+	glfwInitHint:true,
+	glfwJoystickIsGamepad: true,
+	glfwRequestWindowAttention: true,
+	glfwSetWindowContentScaleCallback: true,
+	glfwGetKeyScancode: true,
+	glfwSetWindowAttrib: true,
+	glfwGetWindowContentScale: true,
+	glfwWindowHintString: true,
+	glfwGetError: true,
+	glfwGetWindowOpacity: true,
+	glfwGetGamepadState: true,
+	glfwSetJoystickUserPointer: true,
+	glfwGetJoystickUserPointer: true,
+	glfwSetWindowMaximizeCallback: true,
+	glfwUpdateGamepadMappings: true,
+	glfwSetWindowOpacity: true,
+	glfwGetMonitorContentScale: true,
+}
+
 function generate_handler(name, s_name, ret, arg, out_blocks) {
 
 	let args = arg.split(",").map(s=>s.replace(/const/g, '').trim())
@@ -259,7 +280,7 @@ function generate_handler(name, s_name, ret, arg, out_blocks) {
 			const ret = match[1], name = match[2], arg = match[3];
 			const s_name = name.substring(2);
 
-			if (!out_function_names.find(s=>s==s_name)) {
+			if (!out_function_names.find(s=>s==s_name) && !blacklist[name]) {
 				generate_handler(name, s_name, ret, arg, out_blocks);
 				out_function_names.push(s_name);
 			}
@@ -333,7 +354,7 @@ function generate_handler(name, s_name, ret, arg, out_blocks) {
 		while (match = regex.exec(header)) {
 			const ret = match[1], name = match[2], arg = match[3];
 			const s_name = name.substring(4);
-			if (!out_function_names.find(s=>s==s_name)) {
+			if (!out_function_names.find(s=>s==s_name) && !blacklist[name]) {
 				generate_handler(name, s_name, ret, arg, out_blocks);
 				out_function_names.push(s_name);
 			}
@@ -406,7 +427,7 @@ function generate_handler(name, s_name, ret, arg, out_blocks) {
 	// 	while (match = regex.exec(header)) {
 	// 		const ret = match[1], name = match[2], arg = match[3];
 	// 		const s_name = name.substring(4);
-	// 		if (!out_function_names.find(s=>s==s_name)) {
+	// 		if (!out_function_names.find(s=>s==s_name) && !blacklist[name]) {
 	// 			generate_handler(name, s_name, ret, arg, out_blocks);
 	// 			out_function_names.push(s_name);
 	// 		}
