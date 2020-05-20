@@ -214,7 +214,7 @@ function generate_handler(name, s_name, ret, arg, out_blocks) {
 {
 	const modulename = "gles3"
 	const header = fs.readFileSync(path.join(__dirname, "..", "src", "GLES3", "gl3.h"), "utf-8")
-	const module_header = fs.readFileSync(path.join(__dirname, "..", "src", `node-gles3.h`), "utf-8")
+	const module_header = fs.readFileSync(path.join(__dirname, "..", "src", `node-${modulename}.h`), "utf-8")
 
 	
 	let out_defines = [
@@ -289,7 +289,7 @@ function generate_handler(name, s_name, ret, arg, out_blocks) {
 {
 	const modulename = "glfw3"
 	const header = fs.readFileSync(path.join(__dirname, "..", "node_modules", "native-graphics-deps", "include", "GLFW", "glfw3.h"), "utf-8")
-	const module_header = fs.readFileSync(path.join(__dirname, "..", "src", "node-glfw3.h"), "utf-8")
+	const module_header = fs.readFileSync(path.join(__dirname, "..", "src", `node-${modulename}.h`), "utf-8")
 	
 
 	let out_defines = [
@@ -339,6 +339,79 @@ function generate_handler(name, s_name, ret, arg, out_blocks) {
 			}
 		}
 	}
+
+	//{ "${s}", 0, ${s}, 0, 0, 0, napi_default, 0 }
+	//out_function_names.map(s => out_properties.push(`{ "${s}", 0, ${s}, 0, 0, 0, napi_default, 0 }`));
+	out_function_names.map(s => out_properties.push(`{ "${s.charAt(0).toLowerCase()}${s.substring(1)}", 0, ${s}, 0, 0, 0, napi_default, 0 }`));
+	out_blocks.push([
+	`napi_value init(napi_env env, napi_value exports) {`,
+	`	napi_status status;`,
+	`	napi_property_descriptor properties[] = {`,
+	`		${out_properties.join(",\n\t\t")}`,
+	`	};`,
+	`	status = napi_define_properties(env, exports, ${out_properties.length}, properties);`,
+	`	//assert(status == napi_ok);`,
+	`	return exports;`,
+	`}`,
+	`NAPI_MODULE(NODE_GYP_MODULE_NAME, init)`].join("\n"));
+
+	fs.writeFileSync(path.join(__dirname,"..", "src", `node-${modulename}.cpp`), out_blocks.join("\n\n"), "utf-8");
+	fs.writeFileSync(path.join(__dirname,"..", `${modulename}.js`), out_defines.join("\n"), "utf-8");
+}
+
+
+{
+	const modulename = "openvr"
+	//const header = fs.readFileSync(path.join(__dirname, "..", "node_modules", "native-graphics-deps", "include", "GLFW", "glfw3.h"), "utf-8")
+	const module_header = fs.readFileSync(path.join(__dirname, "..", "src", `node-${modulename}.h`), "utf-8")
+
+	let out_defines = [
+	`/* THIS IS A GENERATED FILE -- DO NOT EDIT!! */`,
+	`const ${modulename} = require('bindings')('${modulename}.node');`,
+	`module.exports = ${modulename};`
+	];
+
+	let out_blocks = [
+		`/* THIS IS A GENERATED FILE -- DO NOT EDIT!! */`,
+		`#include "node-${modulename}.h"`,
+	];
+
+	let out_function_names = [];
+	let out_properties = [];
+	
+	// {
+	// 	// GLFW defines 
+	// 	const regex = /#define\s+(GLFW_[A-Za-z_]+)\s+([-a-z0-9x_]+)/g
+	// 	let match
+	// 	while (match = regex.exec(header)) {
+	// 		const name = match[1], val = match[2]
+	// 		out_defines.push(`${modulename}.${name.substring(5)} = ${val};`);
+	// 	}
+	// }
+
+	{
+		// capture the napi functions already defined in the hand-written header:
+		const regex = /napi_value\s+([A-Za-z0-9_]+)\(/g
+		let match
+		while (match = regex.exec(module_header)) {
+			const name = match[1]
+			out_function_names.push(name)
+		}
+	}
+
+	// {
+	// 	// capture the GLFWAPI <ret> <name> (<args...) functions
+	// 	const regex = /GLFWAPI\s+([A-Za-z_*]+)\s+([A-Za-z0-9_]+)\s*\(([^)]+)/g
+	// 	let match
+	// 	while (match = regex.exec(header)) {
+	// 		const ret = match[1], name = match[2], arg = match[3];
+	// 		const s_name = name.substring(4);
+	// 		if (!out_function_names.find(s=>s==s_name)) {
+	// 			generate_handler(name, s_name, ret, arg, out_blocks);
+	// 			out_function_names.push(s_name);
+	// 		}
+	// 	}
+	// }
 
 	//{ "${s}", 0, ${s}, 0, 0, 0, napi_default, 0 }
 	//out_function_names.map(s => out_properties.push(`{ "${s}", 0, ${s}, 0, 0, 0, napi_default, 0 }`));

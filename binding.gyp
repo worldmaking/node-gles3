@@ -110,7 +110,6 @@
               ],
             'libraries': [
               'glew32.lib',
-              'openvr_api.lib',
               'opengl32.lib'
               ],
             'defines' : [
@@ -129,8 +128,7 @@
               {
                 'destination': './build/Release/',
                 'files': [
-                  './node_modules/native-graphics-deps/lib/windows/glew/glew32.dll',
-                  './lib/<(target_arch)/openvr_api.dll'
+                  './node_modules/native-graphics-deps/lib/windows/glew/glew32.dll'
                  ]
               }
             ],
@@ -174,13 +172,10 @@
               './node_modules/native-graphics-deps/include',
               ],
             'library_dirs': [
-              './node_modules/native-graphics-deps/lib/windows/glew',
               'lib/<(target_arch)',
-              ],
+            ],
             'libraries': [
-              'glew32.lib',
-              'openvr_api.lib',
-              'opengl32.lib'
+              'openvr_api.lib'
               ],
             'defines' : [
               'WIN32_LEAN_AND_MEAN',
@@ -198,7 +193,6 @@
               {
                 'destination': './build/Release/',
                 'files': [
-                  './node_modules/native-graphics-deps/lib/windows/glew/glew32.dll',
                   './lib/<(target_arch)/openvr_api.dll'
                  ]
               }
