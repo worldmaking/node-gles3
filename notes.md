@@ -9,7 +9,14 @@ Compare:
 - https://github.com/node-3d/webgl-raub / https://github.com/node-3d/glfw-raub has a similar approach, but webgl1 only, and uses Document/Canvas interface that isn't really needed (and is part of a bigger Node3D project that has a lot of other things going on)
 - https://www.npmjs.com/package/exokit 
 
-Completeness is tested from the GLES3 headers
 
-,
-              './node_modules/native-graphics-deps/lib/windows/glfw'
+# differences
+
+The gl context is not created from a canvas, but loaded from a module
+
+gl = canvas.getContext("webgl2"); => gl = require("./gles3.js")
+
+Instead of canvas, it needs a rendering surface, such as a GLFW window
+
+gl.canvas does not exist
+
