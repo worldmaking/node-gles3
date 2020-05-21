@@ -2,6 +2,7 @@
 #define AL_NODE_API_HELPERS
 
 #include <node_api.h>
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h> // calloc
 #include <string>

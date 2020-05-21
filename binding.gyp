@@ -201,6 +201,34 @@
           }
         ],
       ],
+    },
+    {
+      "target_name": "k4a",
+      "defines": [],
+      "cflags": ["-std=c++11", "-Wall", "-pedantic"],
+      "dependencies": [],
+      "conditions": [
+          ['OS=="win"', {
+            "sources": [ "src/node-k4a.cpp" ],
+            "include_dirs": [
+              "C:/Program Files/Azure Kinect SDK v1.4.0/sdk/include"
+            ],
+            "libraries": [
+              "C:/Program Files/Azure Kinect SDK v1.4.0/sdk/windows-desktop/amd64/release/lib/k4a.lib",
+              "C:/Program Files/Azure Kinect SDK v1.4.0/sdk/windows-desktop/amd64/release/lib/k4arecord.lib"
+            ],
+            "copies": [{
+                'destination': './build/Release',
+                'files': [
+                  "C:/Program Files/Azure Kinect SDK v1.4.0/sdk/windows-desktop/amd64/release/bin/k4a.dll",
+                  "C:/Program Files/Azure Kinect SDK v1.4.0/sdk/windows-desktop/amd64/release/bin/depthengine_2_0.dll",
+                  "C:/Program Files/Azure Kinect SDK v1.4.0/sdk/windows-desktop/amd64/release/bin/k4arecord.dll"
+                ]
+            }],
+          }],
+          ['OS=="mac"', {}],
+          ['OS=="linux"', {}],
+      ],
     }
   ]
 }
