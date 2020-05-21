@@ -4,9 +4,9 @@
   "description": "native node bindings to OpenGLES3",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "preinstall": "node tools/gen.js",
-    "postinstall": "node rotatingCube3.js"
+    "install": "node-gyp rebuild",
+    "postinstall": "node rotatingCube.js"
   },
   "gypfile": true,
   "author": "",
@@ -14,7 +14,6 @@
   "dependencies": {
     "bindings": "^1.5.0",
     "gl-matrix": "^3.0.0",
-    "glfw-raub": "^3.1.3",
     "native-graphics-deps": "0.0.20"
   }
 }
