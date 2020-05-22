@@ -6,7 +6,7 @@
   "scripts": {
     "preinstall": "node tools/gen.js",
     "install": "node-gyp rebuild",
-    "postinstall": "node rotatingCube.js"
+    "postinstall": "node vr-test.js"
   },
   "gypfile": true,
   "author": "",
