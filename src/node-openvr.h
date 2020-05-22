@@ -1,7 +1,5 @@
 #include "node-api-helpers.h"
-#include <GLFW/glfw3.h>
-
-
+#include <GL/glew.h>
 #include "vr.h"
 
 Hmd hmd;

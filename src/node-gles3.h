@@ -1,6 +1,4 @@
 #include "node-api-helpers.h"
-
-//#include <GLES3/gl3.h>
 #include <GL/glew.h>
 
 #define BIGSTRLEN 4096*64
