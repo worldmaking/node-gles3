@@ -19,4 +19,3 @@ gl = canvas.getContext("webgl2"); => gl = require("./gles3.js")
 Instead of canvas, it needs a rendering surface, such as a GLFW window
 
 gl.canvas does not exist
-

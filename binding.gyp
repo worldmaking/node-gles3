@@ -141,16 +141,15 @@
       "target_name": "openvr",
       "sources": [ "src/node-openvr.cpp" ],
       'include_dirs': [
+        './node_modules/native-graphics-deps/include',
+        './node_modules/native-openvr-deps/headers',
         'src', 'src/include'
       ],
-      'cflags':[],
+      "cflags": ["-std=c++11", "-Wall", "-pedantic"],
       'conditions': [
         ['OS=="mac"',
           {
             'libraries': [
-            ],
-            'include_dirs': [
-              './node_modules/native-graphics-deps/include'
             ],
             'library_dirs': [
             ],
@@ -169,11 +168,8 @@
         ],
         ['OS=="win"',
           {
-            'include_dirs': [
-              './node_modules/native-graphics-deps/include',
-              ],
             'library_dirs': [
-              'lib/<(target_arch)',
+              './node_modules/native-openvr-deps/lib/win64',
             ],
             'libraries': [
               'openvr_api.lib'
@@ -194,7 +190,7 @@
               {
                 'destination': './build/Release/',
                 'files': [
-                  './lib/<(target_arch)/openvr_api.dll'
+                  './node_modules/native-openvr-deps/bin/win64/openvr_api.dll'
                  ]
               }
             ],

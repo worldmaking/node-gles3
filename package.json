@@ -6,7 +6,7 @@
   "scripts": {
     "preinstall": "node tools/gen.js",
     "install": "node-gyp rebuild",
-    "postinstall": "node rotatingCube.js"
+    "postinstall": "node vr-test.js"
   },
   "gypfile": true,
   "author": "",
@@ -14,6 +14,7 @@
   "dependencies": {
     "bindings": "^1.5.0",
     "gl-matrix": "^3.0.0",
-    "native-graphics-deps": "0.0.20"
+    "native-graphics-deps": "0.0.20",
+    "native-openvr-deps": "0.0.19"
   }
 }
