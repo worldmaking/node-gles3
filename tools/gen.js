@@ -386,6 +386,9 @@ function generate_handler(name, s_name, ret, arg, out_blocks) {
 	//const header = fs.readFileSync(path.join(__dirname, "..", "node_modules", "native-graphics-deps", "include", "GLFW", "glfw3.h"), "utf-8")
 	const module_header = fs.readFileSync(path.join(__dirname, "..", "src", `node-${modulename}.h`), "utf-8")
 
+	// Handily, the entire openvr API is also exposed as a JSON file
+	const openvr_api = JSON.parse(fs.readFileSync(path.join(__dirname, "../", "node_modules", "native-openvr-deps", "headers", "openvr_api.json"), "utf-8"));
+
 	let out_defines = [
 	`/* THIS IS A GENERATED FILE -- DO NOT EDIT!! */`,
 	`const ${modulename} = require('bindings')('${modulename}.node');`,
@@ -399,6 +402,67 @@ function generate_handler(name, s_name, ret, arg, out_blocks) {
 
 	let out_function_names = [];
 	let out_properties = [];
+	
+
+	for (let o of openvr_api.typedefs) {
+		let name = o.typedef;
+		// o.type
+	}
+
+	for (let o of openvr_api.enums) {
+		let e = {}
+		for (let v of o.values) {
+			e[+v.value] = v.name 
+		}
+		let name = o.enumname
+		
+	}
+
+	for (let o of openvr_api.consts) {
+		let name = o.constname;
+		//assert(!used[name], name)
+		//used[name] = true;
+		// o.consttype
+		// o.constval
+	  
+		//json[name] = (typeof +o.constval == "number") ? +o.constval : o.constval
+	  }
+
+	for (let o of openvr_api.structs) {
+		let name = o.struct;
+		if (name == "vr::(anonymous)") continue;
+		// o.fields = []
+	}
+
+	
+	for (let o of openvr_api.methods) {
+		let name = `${o.classname}_${o.methodname}`
+		if (name == "vr::(anonymous)") continue;
+		/*
+		used[name] = true;
+	
+		let params = []
+		for (let i in o.params) {
+			let p = o.params[i]
+			// p.paramname
+			// p.paramtype
+			params[i] = p
+		}
+		
+		functions[name] = {
+			classname: o.classname,
+			methodname: o.methodname,
+			returntype: o.returntype,
+			params: params
+		}
+	
+		
+		Generate a Napi method for this function
+		*/
+	
+
+	}
+
 	
 	// {
 	// 	// GLFW defines 

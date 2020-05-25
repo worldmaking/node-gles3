@@ -145,7 +145,7 @@
         './node_modules/native-openvr-deps/headers',
         'src', 'src/include'
       ],
-      'cflags':[],
+      "cflags": ["-std=c++11", "-Wall", "-pedantic"],
       'conditions': [
         ['OS=="mac"',
           {
