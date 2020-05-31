@@ -207,7 +207,8 @@
           ['OS=="win"', {
             "sources": [ "src/node-k4a.cpp" ],
             "include_dirs": [
-              "C:/Program Files/Azure Kinect SDK v1.4.0/sdk/include"
+              "C:/Program Files/Azure Kinect SDK v1.4.0/sdk/include",
+              "src"
             ],
             "libraries": [
               "C:/Program Files/Azure Kinect SDK v1.4.0/sdk/windows-desktop/amd64/release/lib/k4a.lib",

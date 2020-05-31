@@ -6,7 +6,7 @@
   "scripts": {
     "preinstall": "node tools/gen.js",
     "install": "node-gyp rebuild",
-    "postinstall": "node vr-test.js"
+    "postinstall": "node azure-test.js"
   },
   "gypfile": true,
   "author": "",

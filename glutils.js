@@ -101,6 +101,7 @@ function makeBuffer(gl, vertices) {
     return buffer;
 }
 
+// only works in the browser
 function loadTexture(gl, url, flipY=false, premultiply=false) {
 
     let tex = {
@@ -157,7 +158,6 @@ function loadTexture(gl, url, flipY=false, premultiply=false) {
         }
     };
     image.src = url;
-  
     return tex;
 }
 
@@ -175,6 +175,7 @@ function createPixelTexture(gl, width, height, floatingpoint=false) {
         format: gl.RGBA,
         dataType: floatingpoint ? gl.FLOAT : gl.UNSIGNED_BYTE,  // type of data we are supplying,
         
+        // only works in the browser
         load(url) {
             if (!this.data) this.allocate();
 

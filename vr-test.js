@@ -290,6 +290,7 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 }
 
 // Close OpenGL window and terminate GLFW
+
 glfw.destroyWindow(window);
 glfw.terminate();
 

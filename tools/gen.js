@@ -516,3 +516,49 @@ function generate_handler(name, s_name, ret, arg, out_blocks) {
 	fs.writeFileSync(path.join(__dirname,"..", "src", `node-${modulename}.cpp`), out_blocks.join("\n\n"), "utf-8");
 	fs.writeFileSync(path.join(__dirname,"..", `${modulename}.js`), out_defines.join("\n"), "utf-8");
 }
+
+
+{
+	const modulename = "k4a"
+	const module_header = fs.readFileSync(path.join(__dirname, "..", "src", `node-${modulename}.h`), "utf-8")
+
+	let out_defines = [
+	`/* THIS IS A GENERATED FILE -- DO NOT EDIT!! */`,
+	`const ${modulename} = require('bindings')('${modulename}.node');`,
+	`module.exports = ${modulename};`
+	];
+
+	let out_blocks = [
+		`/* THIS IS A GENERATED FILE -- DO NOT EDIT!! */`,
+		`#include "node-${modulename}.h"`,
+	];
+
+	let out_function_names = [];
+	let out_properties = [];
+	
+	{
+		// capture the napi functions already defined in the hand-written header:
+		const regex = /napi_value\s+([A-Za-z0-9_]+)\(/g
+		let match
+		while (match = regex.exec(module_header)) {
+			const name = match[1]
+			out_function_names.push(name)
+		}
+	}
+
+	out_function_names.map(s => out_properties.push(`{ "${s.charAt(0).toLowerCase()}${s.substring(1)}", 0, ${s}, 0, 0, 0, napi_default, 0 }`));
+	out_blocks.push([
+	`napi_value init(napi_env env, napi_value exports) {`,
+	`	napi_status status;`,
+	`	napi_property_descriptor properties[] = {`,
+	`		${out_properties.join(",\n\t\t")}`,
+	`	};`,
+	`	status = napi_define_properties(env, exports, ${out_properties.length}, properties);`,
+	`	//assert(status == napi_ok);`,
+	`	return exports;`,
+	`}`,
+	`NAPI_MODULE(NODE_GYP_MODULE_NAME, init)`].join("\n"));
+
+	fs.writeFileSync(path.join(__dirname,"..", "src", `node-${modulename}.cpp`), out_blocks.join("\n\n"), "utf-8");
+	fs.writeFileSync(path.join(__dirname,"..", `${modulename}.js`), out_defines.join("\n"), "utf-8");
+}
