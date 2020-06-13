@@ -9,7 +9,6 @@ const glutils = require('./glutils.js');
 
 let numdevices = k4a.device_get_installed_count()
 console.log("kinect devices:", numdevices)
-
 let kinect = k4a.device_open()
 assert(kinect, "failed to open kinect device")
 console.log("kinect azure serial:", k4a.device_get_serialnum(kinect))
@@ -82,7 +81,7 @@ uniform mat4 u_viewmatrix;
 uniform mat4 u_projmatrix;
 uniform float u_pixelSize;
 in vec3 a_position;
-in vec2 a_texcoord;
+in vec2 a_texCoord;
 out vec4 v_color;
 out vec2 v_texcoord;
 
@@ -107,7 +106,7 @@ void main() {
 	fade *= 1. - sqrt(viewdist) * 0.1 * 0.05;
 	v_color.a *= fade;
 
-	v_texcoord = a_texcoord;
+	v_texcoord = a_texCoord;
 
 }
 `,
@@ -168,13 +167,13 @@ gl.bufferData(gl.ARRAY_BUFFER, vtexcoords, gl.STATIC_DRAW);
 }
 {
 	// tell the position attribute how to pull data out of the current ARRAY_BUFFER
-	gl.enableVertexAttribArray(gl.getAttribLocation(cloudprogram.id, "a_texcoord"));
+	gl.enableVertexAttribArray(gl.getAttribLocation(cloudprogram.id, "a_texCoord"));
 	let elementsPerVertex = 2; // for vec2
 	let normalize = false;
 	let stride = 0;
 	let offset = 0;
 	gl.bindBuffer(gl.ARRAY_BUFFER, tbuffer);
-	gl.vertexAttribPointer(gl.getAttribLocation(cloudprogram.id, "a_texcoord"), elementsPerVertex, gl.FLOAT, normalize, stride, offset);
+	gl.vertexAttribPointer(gl.getAttribLocation(cloudprogram.id, "a_texCoord"), elementsPerVertex, gl.FLOAT, normalize, stride, offset);
 }
 
 let colourTex = glutils.createPixelTexture(gl, 640, 576)
@@ -237,6 +236,17 @@ colourTex.bind().submit().unbind()
 
 let t = glfw.getTime();
 let fps = 60;
+let updating = true;
+
+let kaxis = vec3.fromValues(0, -1, 0);
+let ky = 0; // height above ground
+
+glfw.setKeyCallback(window, function(window, k, c, down) {
+	if (down && k==32) {
+		updating = !updating;
+	}
+})
+
 while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) {
 	let t1 = glfw.getTime();
 	let dt = t1-t;
@@ -246,60 +256,70 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 	let dim = glfw.getFramebufferSize(window);
 	glfw.setWindowTitle(window, `fps ${fps} dim ${dim[0]}c${dim[1]}`);
 
-	
+	if (updating) {
 
-	if (k4a.device_capture(kinect, 0)) {
-		let cloud2world = mat4.create();
-		let correction = mat4.create();
-		
-		// get cloud data:
-		vertices = k4a.device_get_cloud(kinect);
-		//console.log(vertices.length)
-		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
+		if (k4a.device_capture(kinect, 0)) {
+			let world2cloud = mat4.create();
+			let correction = mat4.create();
+			
+			// get cloud data:
+			vertices = k4a.device_get_cloud(kinect);
+			//console.log(vertices.length)
+			gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+			gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
 
-		let colour = k4a.device_get_color(kinect);
-		colourTex.data.set(colour, 0)
-		colourTex.bind().submit().unbind()
+			// // let's try to find the lowest point
+			// // by iterating the Y coordinates
+			// // the negative of this will give us the camera height
+			// let miny = 1e6;
+			// for (let i=1; i<vertices.length; i+=3) {
+			// 	let y = vertices[i];
+			// 	miny = isNaN(y) ? miny : Math.min(miny, y);
+			// }
+			// ky -= Math.min(miny, 0.01)
+			// console.log("ky", ky)
+			// didn't work, I guess there's some spurious data
+			// need a more robust way to find lowest *plane* in cloud>?
 
-
-		let acc = k4a.device_get_acc(kinect);
-		// imu coordinate space: up is -Z, cam direction is -X, cam right is -Y
-		vec3.set(acc, acc[1], acc[2], -acc[0]);
-		//console.log("acc", acc)
-		// normalize it
-		vec3.normalize(acc, acc);
-		let ref = [0, -1, 0];
-		let rad = vec3.angle(acc, ref);
-		// angle of rotation is angle between acc & ref
-		// axis of rotation is perp to both acc and ref (assuming angle > 0)
-		//console.log(rad)
-		if (Math.abs(rad) > 0.) {
-			let axis = vec3.cross(vec3.create(), acc, ref);
-			vec3.normalize(axis, axis);
-			//console.log("axis", axis);
+			let colour = k4a.device_get_color(kinect);
+			colourTex.data.set(colour, 0)
+			colourTex.bind().submit().unbind()
 
 
-			//correction = mat4.fromRotation(correction, -rad, axis);
-			//mat4.invert(cloud2world, cloud2world);
-			//mat4.rotate(cloud2world, cloud2world, t, [0, 1, 0]);
-			//console.log(cloud2world)
+			let acc = k4a.device_get_acc(kinect);
+			vec3.normalize(acc, acc);
+			// imu coordinate space: up is -Z, cam direction is -X, cam right is -Y
+			//vec3.set(acc, acc[1], acc[2], -acc[0]);
+			//console.log("acc", acc)
+			// normalize it
+			let ref = [0, -1, 0];
+			let rad = vec3.angle(acc, ref);
+			// angle of rotation is angle between acc & ref
+			// axis of rotation is perp to both acc and ref (assuming angle > 0)
+			//console.log(rad)
+			if (Math.abs(rad) > 0.) {
+				let axis = vec3.cross(vec3.create(), ref, acc);
+				// TODO: average this over time
+				vec3.normalize(axis, axis);
 
-			correction = mat4.fromRotation(correction, rad, axis);
-		}
-		//mat4.multiply(cloud2world, correction, cloud2world);
-		//mat4.multiply(cloud2world, cloud2world, correction);
+				vec3.lerp(kaxis, kaxis, axis, 0.01)
+				
+				correction = mat4.fromRotation(correction, rad, kaxis);
+			}
+			
 
-		
+			// move pivot 2m into the cloud
+			mat4.multiply(world2cloud, correction, world2cloud);
+			mat4.translate(world2cloud, world2cloud, [0, -1.05, -2]);
+			// rotate scene:
+			mat4.rotate(world2cloud, world2cloud, t, [0, 1, 0]);
+			// now step back 1m to view it
+			mat4.translate(world2cloud, world2cloud, [0, 0, 1]);
 
-		mat4.multiply(cloud2world, correction, cloud2world);
-		//mat4.translate(cloud2world, cloud2world, [0, 0, -1]);
-		//mat4.rotate(cloud2world, cloud2world, t, [0, 1, 0]);
-		mat4.translate(cloud2world, cloud2world, [0, 0, 1]);
-
-		k4a.device_set_matrix(kinect, cloud2world);
-	} 
-
+			
+			k4a.device_set_matrix(kinect, world2cloud);
+		} 
+	}
 
 	// // update scene:
 	// for (let i=0; i<NUM_POINTS/10; i++) {
@@ -309,13 +329,10 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 	
 	// Compute the matrix
 	let viewmatrix = mat4.create();
+	let modelmatrix = mat4.create();
 	let projmatrix = mat4.create();
 	mat4.lookAt(viewmatrix, [0, 0, 1], [0, 0, 0], [0, 1, 0]);
 	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 10);
-	let modelmatrix = mat4.create();
-	let axis = vec3.fromValues(Math.sin(t), 1., 0.);
-	vec3.normalize(axis, axis);
-	//mat4.rotate(modelmatrix, modelmatrix, t, axis)
 
 	gl.viewport(0, 0, dim[0], dim[1]);
 	gl.clearColor(0., 0., 0., 1);
@@ -336,8 +353,6 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 	// depthquadprogram.end();
 	// gl.bindTexture(gl.TEXTURE_2D, null);
 
-	// particles
-	// update GPU buffers:
 	if (1) {
 		gl.enable(gl.BLEND);
 		gl.blendFunc(gl.SRC_ALPHA, gl.ONE);

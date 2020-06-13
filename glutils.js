@@ -551,16 +551,16 @@ function createVao(gl, geom, program) {
         },
         draw(count=0) {
 			if (geom.indices) gl.drawElements(gl.TRIANGLES, count ? count : geom.indices.length, gl.UNSIGNED_SHORT, 0);
-			else gl.drawArrays(gl.TRIANGLES, 0, count ? count : geom.vertices.length);
+			else gl.drawArrays(gl.TRIANGLES, 0, count ? count : geom.vertices.length/3);  // actually should be length/3 for vec3's
 			return this;
         },
         drawLines(count=0) {
 			if (geom.indices) gl.drawElements(gl.LINES, count ? count : geom.indices.length, gl.UNSIGNED_SHORT, 0);
-			else gl.drawArrays(gl.LINES, 0, count ? count : geom.vertices.length);
+			else gl.drawArrays(gl.LINES, 0, count ? count : geom.vertices.length/3); // actually should be length/3 for vec3's
 			return this;
         },
-        drawPoints(count = 1) {
-			gl.drawArrays(gl.POINTS, 0, count);
+        drawPoints(count=0) {
+			gl.drawArrays(gl.POINTS, 0, count ? count : geom.vertices.length/3);
 			return this;
         },
         drawInstanced(instanceCount=1) {

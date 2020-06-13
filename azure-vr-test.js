@@ -3,10 +3,19 @@ const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 
 const gl = require("./gles3.js"),
 	glfw = require("./glfw3.js"),
-	vr = require("./openvr.js");
+	vr = require("./openvr.js"),
+	k4a = require("./k4a.js");
 	
 const glutils = require('./glutils.js');
 
+
+let numdevices = k4a.device_get_installed_count()
+console.log("kinect devices:", numdevices)
+let kinect = k4a.device_open()
+assert(kinect, "failed to open kinect device")
+console.log("kinect azure serial:", k4a.device_get_serialnum(kinect))
+assert(!k4a.device_start_cameras(kinect) )   // returns true on error
+assert(!k4a.device_start_imu(kinect) )   // returns true on error
 
 
 if (!glfw.init()) {
@@ -75,6 +84,7 @@ in vec3 a_position;
 in vec3 a_normal;
 in vec2 a_texCoord;
 out vec4 v_color;
+out vec3 v_pos;
 
 void main() {
 	// Multiply the position by the matrix.
@@ -83,22 +93,33 @@ void main() {
 
 	v_color = vec4(a_normal*0.25+0.25, 1.);
 	v_color += vec4(a_texCoord*0.5, 0., 1.);
+	v_color *= 0.5;
+
+	v_pos = a_position.xyz;
 }
 `,
 `#version 330
 precision mediump float;
 
 in vec4 v_color;
+in vec3 v_pos;
 out vec4 outColor;
 
 void main() {
 	outColor = v_color;
+	if (mod((v_pos.x + 2.25) * 8., 1.) < 0.95 
+	 && mod((v_pos.y + 2.25) * 8., 1.) < 0.95 
+	 && mod((v_pos.z + 2.25) * 8., 1.) < 0.95) {
+		discard;
+	}
 }
 `);
 let geomcube = glutils.makeCube();
 // push down 1 meter:
-for (i=1; i<geomcube.vertices.length; i+=3) {
-	geomcube.vertices[i] -= 1;
+for (i=0; i<geomcube.vertices.length; i+=3) {
+	geomcube.vertices[i+0] *= 2;
+	geomcube.vertices[i+2] *= 2;
+	geomcube.vertices[i+1] += 1;
 }
 let cube = glutils.createVao(gl, geomcube, cubeprogram.id);
 
@@ -109,7 +130,9 @@ uniform mat4 u_viewmatrix;
 uniform mat4 u_projmatrix;
 uniform float u_pixelSize;
 in vec3 a_position;
+in vec2 a_texCoord;
 out vec4 v_color;
+out vec2 v_texcoord;
 
 
 void main() {
@@ -128,57 +151,74 @@ void main() {
 	v_color = mix(v_color, vec4(1.), 0.95);
 
 	// fade for near clip:
-	float fade = min(max((viewdist-0.25)/0.25, 0.), 1.);
+	float fade = clamp((viewdist-0.2)/0.2, 0., 1.);
 	// for distance:
 	fade *= 1. - sqrt(viewdist) * 0.1 * 0.05;
 	v_color.a *= fade;
+
+	v_texcoord = a_texCoord;
 
 }
 `,
 `#version 330
 precision mediump float;
-
+uniform sampler2D u_tex;
 in vec4 v_color;
+in vec2 v_texcoord;
 out vec4 outColor;
 
 void main() {
 	// get normalized -1..1 point coordinate
 	vec2 pc = (gl_PointCoord - 0.5) * 2.0;
 	// convert to distance:
-	float dist = max(0., min(1., 0.1 + 1.5*(1.0 - length(pc))));
+	//float dist = max(0., min(1., 0.1 + 1.5*(1.0 - length(pc))));
+	float dist = clamp(0.1 + 1.5*(1.0 - length(pc)), 0.1, 1.);
 	// paint
 	outColor = vec4(dist) * v_color;
+
+	// paint
+	outColor *= texture(u_tex, v_texcoord).bgra;
 }
 `);
 
-const NUM_POINTS = 1e6;
-const points = [];
+const NUM_POINTS = 640 * 576 * 3;
+const vertices = [];
+const texCoords = [];
 for (let index = 0; index < NUM_POINTS; index++) {
-  points.push((Math.random() - 0.5) * 100);
-  points.push((Math.random() - 0.5) * 100);
-  points.push((Math.random() - 0.5) * 100);
+	vertices.push((Math.random() - 0.5) * 2);
+	vertices.push((Math.random()) * 2);
+	vertices.push((Math.random() - 0.5) * 2);
+
+	texCoords.push((index % 640) / 640);
+	texCoords.push((Math.floor(index / 640)) / 576);
 }
-let cloud = glutils.createVao(gl, { vertices: points }, cloudprogram.id);
+
+let cloud = glutils.createVao(gl, { vertices: new Float32Array(vertices), texCoords: new Float32Array(texCoords) }, cloudprogram.id);
 
 
-// Create a buffer.
-let vertices = new Float32Array(points);
-let buffer = gl.createBuffer();
-gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
+// // Create a buffer.
+// let vertices = new Float32Array(points);
+// let buffer = gl.createBuffer();
+// gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+// gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
 
-// Create set of attributes
-let vao = gl.createVertexArray();
-gl.bindVertexArray(vao);
+// // Create set of attributes
+// let vao = gl.createVertexArray();
+// gl.bindVertexArray(vao);
 
-// tell the position attribute how to pull data out of the current ARRAY_BUFFER
-let positionLocation = gl.getAttribLocation(cloudprogram.id, "a_position");
-gl.enableVertexAttribArray(positionLocation);
-let elementsPerVertex = 3; // for vec2
-let normalize = false;
-let stride = 0;
-let offset = 0;
-gl.vertexAttribPointer(positionLocation, elementsPerVertex, gl.FLOAT, normalize, stride, offset);
+// // tell the position attribute how to pull data out of the current ARRAY_BUFFER
+// let positionLocation = gl.getAttribLocation(cloudprogram.id, "a_position");
+// gl.enableVertexAttribArray(positionLocation);
+// let elementsPerVertex = 3; // for vec2
+// let normalize = false;
+// let stride = 0;
+// let offset = 0;
+// gl.vertexAttribPointer(positionLocation, elementsPerVertex, gl.FLOAT, normalize, stride, offset);
+
+let colourTex = glutils.createPixelTexture(gl, 640, 576)
+//fill with random values:
+colourTex.data.forEach((e, i, a) => { a[i] = Math.random() * 255; });
+colourTex.bind().submit().unbind()
 
 assert(vr.connect(true), "vr failed to connect");
 vr.update()
@@ -187,27 +227,62 @@ let fbo = glutils.makeFboWithDepth(gl, vrdim[0], vrdim[1])
 
 let t = glfw.getTime();
 let fps = 60;
+let updating = true
+let kaxis = vec3.fromValues(0, -1, 0);
+
+glfw.setKeyCallback(window, function(window, k, c, down) {
+	if (down && k==32) {
+		updating = !updating;
+	}
+})
+
 while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) {
 	let t1 = glfw.getTime();
 	let dt = t1-t;
 	fps += 0.1*((1/dt)-fps);
 	t = t1;
-	glfw.setWindowTitle(window, `fps ${fps}`);
+	glfw.setWindowTitle(window, `fps ${fps.toFixed(0)} @time ${t.toFixed(2)}`);
 
 	
-	// update scene:
-	for (let i=0; i<NUM_POINTS/10; i++) {
-		let idx = Math.floor(Math.random() * vertices.length);
-		vertices[idx] += (Math.random()-0.5) * 0.01;
+	if (updating) {
+		if (k4a.device_capture(kinect, 0)) {
+			// update colour texture
+			let colour = k4a.device_get_color(kinect);
+			colourTex.data.set(colour, 0)
+			colourTex.bind().submit().unbind()
+
+			// get cloud data:
+			let vertices = k4a.device_get_cloud(kinect);
+			//console.log(vertices.length)
+			gl.bindBuffer(gl.ARRAY_BUFFER, cloud.vertexBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
+
+			if (t < 10) {
+
+				let world2cloud = mat4.create();
+				let correction = mat4.create();
+				let acc = vec3.normalize(vec3.create(), k4a.device_get_acc(kinect));
+				let ref = [0, -1, 0];
+				let rad = vec3.angle(acc, ref);
+				if (Math.abs(rad) > 0.) {
+					let axis = vec3.normalize(vec3.create(), vec3.cross(vec3.create(), ref, acc));
+					vec3.lerp(kaxis, kaxis, axis, 0.05)
+					correction = mat4.fromRotation(correction, rad, kaxis);
+				}
+				// move pivot 2m into the cloud
+				mat4.multiply(world2cloud, correction, world2cloud);
+				mat4.translate(world2cloud, world2cloud, [-0.65, -2.3, -2.15]);
+				// rotate scene:
+				mat4.rotate(world2cloud, world2cloud, 2 + Math.PI, [0, 1, 0]);
+				// now step back 1m to view it
+				//mat4.translate(world2cloud, world2cloud, [0, 0, 1]);
+				k4a.device_set_matrix(kinect, world2cloud);
+			}
+		}
 	}
-	// update GPU buffers:
-	gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-	gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
-
-	//if(wsize) console.log("FB size: "+wsize.width+', '+wsize.height);
+	
 	vr.update();
-	
-	
+
 	// render to our targetTexture by binding the framebuffer
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.id);
 	{
@@ -245,19 +320,14 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 			gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
 			gl.depthMask(false)
 
+			colourTex.bind();
+
 			cloudprogram.begin();
 			cloudprogram.uniform("u_modelmatrix", modelmatrix);
 			cloudprogram.uniform("u_viewmatrix", viewmatrix);
 			cloudprogram.uniform("u_projmatrix", projmatrix);
-			cloudprogram.uniform("u_pixelSize", fbo.height/50);
-			//cloud.bind().drawPoints().unbind();
-
-			// Bind the attribute/buffer set we want.
-			gl.bindVertexArray(vao);
-			// Draw the geometry.
-			let count = NUM_POINTS;
-			gl.drawArrays(gl.POINTS, 0, count);
-			gl.bindVertexArray(null);
+			cloudprogram.uniform("u_pixelSize", fbo.height/500);
+			cloud.bind().drawPoints().unbind();
 			cloudprogram.end();
 
 
@@ -278,7 +348,7 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 	// render the cube with the texture we just rendered to
-    gl.bindTexture(gl.TEXTURE_2D, fbo.colorTexture);
+	gl.bindTexture(gl.TEXTURE_2D, fbo.colorTexture);
 	quadprogram.begin();
 	quadprogram.uniform("u_scale", 1, 1);
 	quad.bind().draw().unbind();
@@ -290,8 +360,6 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 }
 
 // Close OpenGL window and terminate GLFW
-
-vr.connect(false)
 
 glfw.destroyWindow(window);
 glfw.terminate();

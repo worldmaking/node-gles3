@@ -57,7 +57,8 @@ struct KinectAzure {
 	uint32_t point_count;
 
 	k4a_imu_sample_t imu_sample;
-	glm::mat4 cloud2world;
+	glm::vec3 acc; // accelerometer corrected for world coordinate system
+	glm::mat4 world2cloud, cloud2world;
 
 	char * serial;
 	uint32_t device_count;
@@ -151,6 +152,8 @@ struct KinectAzure {
 			printf("timed out waiting for capture\n");
 		} else if (res == K4A_WAIT_RESULT_SUCCEEDED) {
 
+			// convert imu coordinate system into cloud coordinate system:
+			acc = glm::vec3(imu_sample.acc_sample.xyz.y, imu_sample.acc_sample.xyz.z, -imu_sample.acc_sample.xyz.x);
 			return true;
 		}
 		return false;
@@ -184,12 +187,11 @@ struct KinectAzure {
 							-xy_table_data[i].y * depth_m,
 							-depth_m
 						);
+						//point_cloud_data[i] = transform(cloud2world, v);
 
-						// point_cloud_data[i].xyz.x = -0.001f * xy_table_data[i].xy.x * (float)depth_data[i];
-						// point_cloud_data[i].xyz.y = -0.001f * xy_table_data[i].xy.y * (float)depth_data[i];
-						// point_cloud_data[i].xyz.z = -0.001f * (float)depth_data[i];
-
-						point_cloud_data[i] = transform(cloud2world, v);
+						point_cloud_data[i] = glm::vec3(cloud2world * glm::vec4(v, 1.f));
+						
+						//point_cloud_data[i] = glm::vec3(glm::vec4(v, 1.f) * cloud2world);
 
 						point_count++;
 					} else {
@@ -329,7 +331,9 @@ napi_value device_set_matrix(napi_env env, const napi_callback_info info) {
 	if (state) {
 		float * value = glm::value_ptr(state->azure.cloud2world);
 		assert(napi_ok == getTypedArray(env, argv[1], value));
-		memcpy(glm::value_ptr(state->azure.cloud2world), value, sizeof(glm::mat4));
+		memcpy(glm::value_ptr(state->azure.world2cloud), value, sizeof(glm::mat4));
+
+		state->azure.cloud2world = glm::inverse(state->azure.world2cloud);
 	}
 	return result;
 }
@@ -449,7 +453,7 @@ napi_value device_get_acc(napi_env env, const napi_callback_info info) {
 		state->azure.get_imu(0);
 
 		napi_value ab;
-		assert(napi_ok == napi_create_external_arraybuffer(env, &state->azure.imu_sample.acc_sample.xyz.x, 3 * sizeof(float), nullptr, nullptr, &ab));
+		assert(napi_ok == napi_create_external_arraybuffer(env, &state->azure.acc.x, 3 * sizeof(float), nullptr, nullptr, &ab));
 		assert(napi_ok == napi_create_typedarray(env, napi_float32_array, 3, ab, 0, &nresult));
 	}
 	return nresult;
