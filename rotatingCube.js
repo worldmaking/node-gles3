@@ -192,7 +192,13 @@ let cube = glutils.createVao(gl, glutils.makeCube(), cubeprogram.id);
 
 let t = glfw.getTime();
 let fps = 60;
-while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)){
+
+function animate() {
+	if(glfw.windowShouldClose(window) || glfw.getKey(window, glfw.KEY_ESCAPE)) {
+		shutdown();
+	} else {
+		setImmediate(animate)
+	}
 
 	let t1 = glfw.getTime();
 	let dt = t1-t;
@@ -259,8 +265,12 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)){
 	
 }
 
-// Close OpenGL window and terminate GLFW
-glfw.destroyWindow(window);
-glfw.terminate();
+function shutdown() {
+	// Close OpenGL window and terminate GLFW
+	glfw.destroyWindow(window);
+	glfw.terminate();
 
-process.exit(0);
+	process.exit(0);
+}
+
+animate();
