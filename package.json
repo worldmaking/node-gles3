@@ -14,7 +14,9 @@
   "dependencies": {
     "bindings": "^1.5.0",
     "gl-matrix": "^3.0.0",
+    "load-bmfont": "^1.4.0",
     "native-graphics-deps": "0.0.20",
-    "native-openvr-deps": "0.0.19"
+    "native-openvr-deps": "0.0.19",
+    "png-js": "^1.0.0"
   }
 }

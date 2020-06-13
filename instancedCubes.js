@@ -1,5 +1,3 @@
-//const glfw = require("node-glfw")
-const EventEmitter = require('events');
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 const gl = require('./gles3.js') 
 const glfw = require('./glfw3.js')
@@ -20,21 +18,6 @@ glfw.windowHint(glfw.CONTEXT_VERSION_MAJOR, 3);
 glfw.windowHint(glfw.CONTEXT_VERSION_MINOR, 3);
 glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
 glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
-
-
-// let emitter = new EventEmitter(); 
-// emitter.on('keydown',function(evt) {
-// 	console.log("[keydown] ", (evt));
-// });
-// emitter.on('mousemove',function(evt) {
-// 	console.log("[mousemove] "+evt.x+", "+evt.y);
-// });
-// emitter.on('mousewheel',function(evt) {
-// 	console.log("[mousewheel] "+evt.position);
-// });
-// emitter.on('resize',function(evt){
-// 	console.log("[resize] "+evt.width+", "+evt.height);
-// });
 
 let window = glfw.createWindow(720, 480, "Test");
 if (!window) {
