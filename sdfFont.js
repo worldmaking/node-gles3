@@ -84,7 +84,10 @@ uniform mat4 u_projmatrix;
 // instanced variable:
 in vec4 i_fontbounds;
 in vec4 i_fontcoord;
+
+in vec4 i_quat;
 in vec3 i_pos;
+in vec2 i_scale;
 
 in vec3 a_position;
 in vec3 a_normal;
@@ -92,12 +95,23 @@ in vec2 a_texCoord;
 out vec4 v_color;
 out vec2 v_uv;
 
+// http://www.geeks3d.com/20141201/how-to-rotate-a-vertex-by-a-quaternion-in-glsl/
+vec3 applyQuaternionToVector( vec4 q, vec3 v ){
+    return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v );
+}
+vec4 applyQuaternionToVector( vec4 q, vec4 v ){
+    return vec4(v.xyz + 2.0 * cross( q.xyz, cross( q.xyz, v.xyz ) + q.w * v.xyz), v.w );
+}
+
 void main() {
 	// 2D bounded coordinates of quadInstance:
 	vec2 p = a_position.xy*i_fontbounds.zw + i_fontbounds.xy; 
 	
 	// Multiply the position by the matrix.
-	vec4 vertex = u_modelmatrix * vec4(p, 0., 1.);
+	vec4 vertex = vec4(p, 0., 1.);
+	vertex.xy *= i_scale;
+	vertex = applyQuaternionToVector(i_quat, vertex);
+	vertex = u_modelmatrix * vertex;
 	vertex.xyz += i_pos;
 	gl_Position = u_projmatrix * u_viewmatrix * vertex;
 
@@ -152,6 +166,18 @@ let quadInstanceInstanceFields = [
 		type: gl.FLOAT,
 		byteoffset: 8*4 // *4 for float32
 	},
+	{ 
+		name: "i_quat",
+		components: 4,
+		type: gl.FLOAT,
+		byteoffset: 12*4 // *4 for float32
+	},
+	{ 
+		name: "i_scale",
+		components: 2,
+		type: gl.FLOAT,
+		byteoffset: 16*4 // *4 for float32
+	},
 ]
 let quadInstanceInstanceByteStride = quadInstanceInstanceFields[quadInstanceInstanceFields.length-1].byteoffset + quadInstanceInstanceFields[quadInstanceInstanceFields.length-1].components*4 // *4 for float32
 let quadInstanceInstanceStride = quadInstanceInstanceByteStride / 4; // 4 bytes per float
@@ -191,9 +217,16 @@ for (let i=0; i<quadInstanceInstanceTotal; i++) {
 	//let scalar = fontchar.xadvance / fontjson.common.scaleH;
 	let scalar = 1 / fontjson.common.lineHeight;//fontchar.xadvance / fontjson.common.scaleH;
 
+	// position of the anchor for the text
 	obj.i_pos[0] = -3;
 	obj.i_pos[1] = 0; 
 	obj.i_pos[2] = 0;
+	obj.i_scale[0] = 1;
+	obj.i_scale[1] = 1;
+	obj.i_quat[0] = 0;
+	obj.i_quat[1] = 0;
+	obj.i_quat[2] = 0;
+	obj.i_quat[3] = 1;
 	// normalized quadInstance bounds:
 	obj.i_fontbounds[0] = x + fontchar.xoffset * scalar; 
 	obj.i_fontbounds[1] = (fontjson.common.base - fontchar.yoffset) * scalar; 

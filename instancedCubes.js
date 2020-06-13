@@ -58,6 +58,7 @@ in vec3 a_normal;
 in vec2 a_texCoord;
 out vec4 v_color;
 
+
 void main() {
 	// Multiply the position by the matrix.
 	vec4 vertex = u_modelmatrix * vec4(a_position, 1.);
