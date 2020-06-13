@@ -698,10 +698,9 @@ function makeCube(options) {
     let opt = options || {}
     let min = opt.min; if (min == undefined) min = -1;
     let max = opt.max; if (max == undefined) max = +1;
-    let span = max-min;
     let div = opt.div; if (div == undefined) div = 1;
+    let span = max-min;
     let step = 1/div;
-
     let vertices = [];
     let normals = [];
     let texCoords = [];
@@ -881,21 +880,59 @@ function makeCube(options) {
 	}
 }
 
-function makeQuad() {
+function makeQuad(options) {
+    let opt = options || {}
+    let min = opt.min; if (min == undefined) min = -1;
+    let max = opt.max; if (max == undefined) max = +1;
+    let div = opt.div; if (div == undefined) div = 1;
+    let span = max-min;
+    let step = 1/div;
+    let vertices = [];
+    let normals = [];
+    let texCoords = [];
+    let indices = [];
+    for (let y=0; y<div; y++) {
+        let ay = step * y;
+        let by = ay + step;
+        let vay = min + ay*span;
+        let vby = min + by*span;
+        for (let x=0; x<div; x++) {
+            let ax = step * x;
+            let bx = ax + step;
+            let vax = min + ax*span;
+            let vbx = min + bx*span;
+            let idx = vertices.length/3;
+            vertices.push(
+                vax, vay, 0,
+                vbx, vay, 0,
+                vbx, vby, 0,
+                vax, vby, 0
+            );
+            texCoords.push(
+                ax, ay,
+                bx, ay,
+                bx, by,
+                ax, by
+            );
+            normals.push(
+                0, 0, 1,
+                0, 0, 1,
+                0, 0, 1,
+                0, 0, 1
+            );
+            indices.push(
+                idx+0, idx+1, idx+2,
+                idx+2, idx+3, idx+0
+            );
+        }
+    }
+
 	return {
-		vertexComponents: 2,
-		vertices: new Float32Array([
-			-1, -1,		1, -1,
-			1, 1, 		-1, 1,
-		]),
-		texCoords: new Float32Array([
-			0, 0,		1, 0,
-			1, 1, 		0, 1,
-		]),
-		indices: new Uint16Array([
-			0, 			1, 			2,
-			2, 			3, 			0,
-		]),
+		vertexComponents: 3,
+		vertices: new Float32Array(vertices),
+		normals: new Float32Array(normals),
+		texCoords: new Float32Array(texCoords),
+		indices: new Uint16Array(indices),
 	}
 }
 
