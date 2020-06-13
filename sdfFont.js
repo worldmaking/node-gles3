@@ -9,7 +9,7 @@ const glfw = require('./glfw3.js')
 const vr = require('./openvr.js')
 const glutils = require('./glutils.js');
 const PNG = require("png-js")
-const bm_loadFont = require('load-bmfont');
+
 
 if (!glfw.init()) {
 	console.log("Failed to initialize GLFW");
@@ -51,17 +51,6 @@ console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '
 // Enable vertical sync (on cards that support it)
 glfw.swapInterval(1); // 0 for vsync off
 
-const fontdata = bm_loadFont("CONSOLA.TTF-msdf.json", function(err, font) {
-	if (err)
-	  throw err
-	
-	//The BMFont spec in JSON form
-	// console.log(font.common.lineHeight)
-	// console.log(font.info)
-	// console.log(font.chars)
-	// console.log(font.kernings)
-})
-
 const fontpng = PNG.load("CONSOLATTF.png")
 const fontjson = JSON.parse(fs.readFileSync("CONSOLA.TTF-msdf.json", "utf8"))
 let fontTexture = glutils.createPixelTexture(gl, fontpng.width, fontpng.height);
@@ -74,6 +63,8 @@ fontpng.decode(function(pixels) {
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 	fontTexture.unbind();
 })
+
+
 
 let quadInstanceprogram = glutils.makeProgram(gl,
 `#version 330
@@ -241,6 +232,7 @@ for (let i=0; i<quadInstanceInstanceTotal; i++) {
 	x += fontchar.xadvance * scalar; 
 	
 }
+console.log("ok")
 let quadInstanceInstanceBuffer = gl.createBuffer()
 gl.bindBuffer(gl.ARRAY_BUFFER, quadInstanceInstanceBuffer)
 gl.bufferData(gl.ARRAY_BUFFER, quadInstanceInstanceData, gl.DYNAMIC_DRAW)
