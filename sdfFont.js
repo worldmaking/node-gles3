@@ -1,15 +1,14 @@
 
 const assert = require("assert"),
-	fs = require("fs"),
-	path = require("path");
+fs = require("fs"),
+path = require("path");
 
+const glfw = require("./glfw3.js")
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 const gl = require('./gles3.js') 
-const glfw = require('./glfw3.js')
-const vr = require('./openvr.js')
 const glutils = require('./glutils.js');
-const PNG = require("png-js")
 
+const PNG = require("png-js")
 
 if (!glfw.init()) {
 	console.log("Failed to initialize GLFW");
@@ -32,27 +31,41 @@ if (!window) {
 	glfw.terminate();
 	process.exit(-1);
 }
-
-glfw.setWindowPosCallback(window, function(w, x, y) {
-	console.log("window moved", w, x, y)
-	return 1;
-})
-
-glfw.setMouseButtonCallback(window, function(...args) {
-	console.log("mouse button", args);
-})
-
 glfw.makeContextCurrent(window);
 console.log(gl.glewInit());
 
 //can only be called after window creation!
-console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MINOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_REVISION) + " Core Profile?: " + (glfw.getWindowAttrib(window, glfw.OPENGL_PROFILE)==glfw.OPENGL_CORE_PROFILE));
+console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MINOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_REVISION) + " Profile: " + glfw.getWindowAttrib(window, glfw.OPENGL_PROFILE));
 
 // Enable vertical sync (on cards that support it)
 glfw.swapInterval(1); // 0 for vsync off
 
+
+
+let quadprogram = glutils.makeProgram(gl,
+`#version 330
+in vec4 a_position;
+in vec2 a_texCoord;
+uniform vec2 u_scale;
+out vec2 v_texCoord;
+void main() {
+    gl_Position = a_position;
+    vec2 adj = vec2(1, -1);
+    gl_Position.xy = (gl_Position.xy + adj)*u_scale.xy - adj;
+	v_texCoord = a_texCoord;
+}`,
+`#version 330
+precision mediump float;
+in vec2 v_texCoord;
+out vec4 outColor;
+
+void main() {
+	outColor = vec4(v_texCoord, 0., 1.);
+}
+`);
+let quad = glutils.createVao(gl, glutils.makeQuad(), quadprogram.id);
+
 const fontpng = PNG.load("CONSOLATTF.png")
-const fontjson = JSON.parse(fs.readFileSync("CONSOLA.TTF-msdf.json", "utf8"))
 let fontTexture = glutils.createPixelTexture(gl, fontpng.width, fontpng.height);
 fontpng.decode(function(pixels) {
 	assert(pixels.length == fontTexture.data.length);
@@ -64,7 +77,7 @@ fontpng.decode(function(pixels) {
 	fontTexture.unbind();
 })
 
-
+const fontjson = JSON.parse(fs.readFileSync("CONSOLA.TTF-msdf.json", "utf8"))
 
 let quadInstanceprogram = glutils.makeProgram(gl,
 `#version 330
@@ -88,10 +101,10 @@ out vec2 v_uv;
 
 // http://www.geeks3d.com/20141201/how-to-rotate-a-vertex-by-a-quaternion-in-glsl/
 vec3 applyQuaternionToVector( vec4 q, vec3 v ){
-    return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v );
+	return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v );
 }
 vec4 applyQuaternionToVector( vec4 q, vec4 v ){
-    return vec4(v.xyz + 2.0 * cross( q.xyz, cross( q.xyz, v.xyz ) + q.w * v.xyz), v.w );
+	return vec4(v.xyz + 2.0 * cross( q.xyz, cross( q.xyz, v.xyz ) + q.w * v.xyz), v.w );
 }
 
 void main() {
@@ -121,11 +134,11 @@ in vec2 v_uv;
 out vec4 outColor;
 
 float median(float r, float g, float b) {
-  	return max(min(r, g), min(max(r, g), b));
+		return max(min(r, g), min(max(r, g), b));
 }
 float aastep(float threshold, float value) {
-    float afwidth = length(vec2(dFdx(value), dFdy(value))) * 0.70710678118654757;
-    return smoothstep(threshold-afwidth, threshold+afwidth, value);
+	float afwidth = length(vec2(dFdx(value), dFdy(value))) * 0.70710678118654757;
+	return smoothstep(threshold-afwidth, threshold+afwidth, value);
 }
 
 void main() {
@@ -136,6 +149,91 @@ void main() {
 }
 `);
 let quadInstance = glutils.createVao(gl, glutils.makeQuad({ min:0., max:1, div:8 }), quadInstanceprogram.id);
+
+function sizeForType(gltype) {
+	switch (gltype) {
+		case gl.BYTE:
+		case gl.UNSIGNED_BYTE: return 1;
+		case gl.SHORT:
+		case gl.UNSIGNED_SHORT: 
+		case gl.HALF_FLOAT: return 2;
+		case gl.INT:
+		case gl.UNSIGNED_INT: 
+		case gl.FLOAT: return 4;
+		default: console.error("unknown gl datatype in sizeForType()")
+	}
+}
+
+// fields is an array [
+//	{ name:<string>, components:<int>, type:<gl.FLOAT etc.> }
+//]
+function createInstances(gl, fields, count) {
+	assert(fields, "missing instance fields template");
+	// generate byte offsets for the fields
+	let bytestride = 0;
+	for (let field of fields) {
+		field.type = field.type || gl.FLOAT;
+		field.componnts = field.components || 1;
+		field.byteoffset = bytestride;
+		bytestride += field.components * sizeForType(field.type);
+	}
+
+	let instances = {
+		count: count,
+		fields: fields,
+		bytestride: bytestride,
+		instances: [],
+		data: null,
+
+		allocate() {
+			this.data = new ArrayBuffer(this.bytestride * this.count);
+			// create interfaces for the instances:
+			for (let i=0; i<count; i++) {
+				let byteoffset = i * this.bytestride;
+				let obj = {
+					index: i,
+					byteoffset: byteoffset,
+				}
+				for (let field of this.fields) {
+					obj[field.name] = new Float32Array(this.buffer, byteoffset + field.byteoffset, field.components);
+				}
+				this.instances[i] = obj;
+			}
+			this.instances.length = count;
+			return this;
+		}
+	}
+
+	instances.allocate();
+}
+
+let charInstances = createInstances(gl, [
+	{ 
+		name: "i_fontbounds",
+		components: 4,
+		type: gl.FLOAT
+	},
+	{ 
+		name: "i_fontcoord",
+		components: 4,
+		type: gl.FLOAT
+	},
+	{ 
+		name: "i_pos",
+		components: 4,
+		type: gl.FLOAT
+	},
+	{ 
+		name: "i_quat",
+		components: 4,
+		type: gl.FLOAT
+	},
+	{ 
+		name: "i_scale",
+		components: 2,
+		type: gl.FLOAT
+	},
+])
 
 // instancing:
 let quadInstanceInstanceFields = [
@@ -173,7 +271,6 @@ let quadInstanceInstanceFields = [
 let quadInstanceInstanceByteStride = quadInstanceInstanceFields[quadInstanceInstanceFields.length-1].byteoffset + quadInstanceInstanceFields[quadInstanceInstanceFields.length-1].components*4 // *4 for float32
 let quadInstanceInstanceStride = quadInstanceInstanceByteStride / 4; // 4 bytes per float
 // create some instances:
-
 let message = "Good morning!";
 let quadInstanceInstanceTotal = message.length;
 let quadInstanceInstanceData = new Float32Array(quadInstanceInstanceStride * quadInstanceInstanceTotal)
@@ -232,39 +329,10 @@ for (let i=0; i<quadInstanceInstanceTotal; i++) {
 	x += fontchar.xadvance * scalar; 
 	
 }
-console.log("ok")
 let quadInstanceInstanceBuffer = gl.createBuffer()
 gl.bindBuffer(gl.ARRAY_BUFFER, quadInstanceInstanceBuffer)
 gl.bufferData(gl.ARRAY_BUFFER, quadInstanceInstanceData, gl.DYNAMIC_DRAW)
 quadInstance.bind().setAttributes(quadInstanceInstanceBuffer, quadInstanceInstanceByteStride, quadInstanceInstanceFields, true).unbind()
-
-
-// background:
-let quadprogram = glutils.makeProgram(gl,
-`#version 330
-in vec4 a_position;
-in vec2 a_texCoord;
-uniform vec2 u_scale;
-out vec2 v_texCoord;
-void main() {
-	gl_Position = a_position;
-	vec2 adj = vec2(1, -1);
-	gl_Position.xy = (gl_Position.xy + adj)*u_scale.xy - adj;
-	v_texCoord = a_texCoord;
-}`,
-`#version 330
-precision mediump float;
-in vec2 v_texCoord;
-out vec4 outColor;
-
-void main() {
-	float y = v_texCoord.y;
-	vec3 c1 = vec3(0.2, 0., 0.);
-	vec3 c0 = vec3(0.8, 0.1, 0.3);
-	outColor = vec4(mix(c0, c1, y), 1.);
-}
-`);
-let quad = glutils.createVao(gl, glutils.makeQuad(), quadprogram.id);
 
 let t = glfw.getTime();
 let fps = 60;
@@ -283,9 +351,8 @@ function animate() {
 	glfw.setWindowTitle(window, `fps ${fps}`);
 	// Get window size (may be different than the requested size)
 	let dim = glfw.getFramebufferSize(window);
+	//if(wsize) console.log("FB size: "+wsize.width+', '+wsize.height);
 
-	
-	
 	// Compute the matrix
 	let viewmatrix = mat4.create();
 	let projmatrix = mat4.create();
@@ -296,23 +363,24 @@ function animate() {
 	//mat4.identity(modelmatrix);
 	let axis = vec3.fromValues(Math.sin(t), 1., 0.);
 	vec3.normalize(axis, axis);
-	mat4.rotate(modelmatrix, modelmatrix, Math.sin(t)*0.1, axis)
+	mat4.rotate(modelmatrix, modelmatrix, t, axis)
 
 	gl.viewport(0, 0, dim[0], dim[1]);
-	gl.clearColor(0.6, 0., 0., 1);
+	gl.clearColor(0.2, 0.2, 0.2, 1);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-	// background:
+	gl.enable(gl.DEPTH_TEST)
 	gl.depthMask(false)
+
+	// background 
 	quadprogram.begin();
 	quadprogram.uniform("u_scale", 1, 1);
 	quad.bind().draw().unbind();
 	quadprogram.end();
-	gl.depthMask(true)
 
-	gl.enable(gl.DEPTH_TEST)
+	
 	gl.enable(gl.BLEND);
 	gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+	gl.depthMask(false)
 
 	// text:
 	fontTexture.bind(0)
@@ -325,11 +393,9 @@ function animate() {
 
 	gl.disable(gl.BLEND);
 	gl.depthMask(true)
-
 	// Swap buffers
 	glfw.swapBuffers(window);
 	glfw.pollEvents();
-	
 }
 
 function shutdown() {
