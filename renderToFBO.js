@@ -49,7 +49,7 @@ void main() {
     gl_Position = a_position;
     vec2 adj = vec2(1, -1);
     gl_Position.xy = (gl_Position.xy + adj)*u_scale.xy - adj;
-    v_texCoord = a_texCoord;
+	v_texCoord = a_texCoord;
 }`,
 `#version 330
 precision mediump float;
@@ -79,6 +79,9 @@ void main() {
 	vec3 vertex = a_position.xyz;
 	gl_Position = u_projmatrix * u_viewmatrix * u_modelmatrix * vec4(vertex, 1);
 
+	// in case rendering with gl.POINTS:
+	gl_PointSize = 4.;
+
 	v_color = vec4(a_normal*0.25+0.25, 1.);
 	v_color += vec4(a_texCoord*0.5, 0., 1.);
 }
@@ -93,7 +96,7 @@ void main() {
 	outColor = v_color;
 }
 `);
-let cube = glutils.createVao(gl, glutils.makeCube(), cubeprogram.id);
+let cube = glutils.createVao(gl, glutils.makeCube({ div: 8 }), cubeprogram.id);
 
 let t = glfw.getTime();
 let fps = 60;
@@ -127,14 +130,16 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 		gl.viewport(0, 0, fbo.width, fbo.height);
 		gl.enable(gl.DEPTH_TEST)
 		gl.depthMask(true)
-		gl.clearColor(0, 0, 1, 1);
+		gl.clearColor(0, 0, 0, 1);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 		cubeprogram.begin();
 		cubeprogram.uniform("u_modelmatrix", modelmatrix);
 		cubeprogram.uniform("u_viewmatrix", viewmatrix);
 		cubeprogram.uniform("u_projmatrix", projmatrix);
+		//cube.bind().drawPoints().unbind();
 		cube.bind().draw().unbind();
+		cube.unbind();
 		cubeprogram.end();
 	}
 	//fbo.end();

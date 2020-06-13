@@ -226,7 +226,7 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)){
 	cubeprogram.uniform("u_modelmatrix", modelmatrix);
 	cubeprogram.uniform("u_viewmatrix", viewmatrix);
 	cubeprogram.uniform("u_projmatrix", projmatrix);
-	cube.bind().draw().unbind();
+	cube.bind().drawPoints().unbind();
 	cubeprogram.end();
 
 	gl.enable(gl.BLEND);

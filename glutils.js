@@ -430,6 +430,7 @@ function createVao(gl, geom, program) {
         init(program) {
             this.bind();
             if (geom) {
+                if (!geom.vertexComponents) geom.vertexComponents = 3;
                 if (geom.vertices) {
                     let buffer = gl.createBuffer();
                     // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
@@ -440,7 +441,7 @@ function createVao(gl, geom, program) {
                     // Turn on the attribute
                     gl.enableVertexAttribArray(attrLoc);
                     // Tell the attribute how to get data out of buffer (ARRAY_BUFFER)
-                    let size = geom.vertexComponents ? geom.vertexComponents : 3;  // how many components per vertex (e.g. 2D, 3D geometry)
+                    let size = geom.vertexComponents;  // how many components per vertex (e.g. 2D, 3D geometry)
                     let type = gl.FLOAT;   // the data is 32bit floats
                     let normalize = false; // don't normalize the data
                     let stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
@@ -550,21 +551,22 @@ function createVao(gl, geom, program) {
         },
         draw(count=0) {
 			if (geom.indices) gl.drawElements(gl.TRIANGLES, count ? count : geom.indices.length, gl.UNSIGNED_SHORT, 0);
-			else gl.drawArrays(gl.TRIANGLES, 0, count ? count : geom.vertices.length);
+			else gl.drawArrays(gl.TRIANGLES, 0, count ? count : geom.vertices.length/geom.vertexComponents);
 			return this;
         },
         drawLines(count=0) {
 			if (geom.indices) gl.drawElements(gl.LINES, count ? count : geom.indices.length, gl.UNSIGNED_SHORT, 0);
-			else gl.drawArrays(gl.LINES, 0, count ? count : geom.vertices.length);
+			else gl.drawArrays(gl.LINES, 0, count ? count : geom.vertices.length/geom.vertexComponents);
 			return this;
         },
-        drawPoints(count = 1) {
-			gl.drawArrays(gl.POINTS, 0, count);
+        drawPoints(count=0) {
+            // not using drawElements() here because points don't need them like triangles do
+            gl.drawArrays(gl.POINTS, 0, count ? count : geom.vertices.length/geom.vertexComponents);
 			return this;
         },
         drawInstanced(instanceCount=1) {
             if (geom.indices) gl.drawElementsInstanced(gl.TRIANGLES, geom.indices.length, gl.UNSIGNED_SHORT, 0, instanceCount);
-            else gl.drawArraysInstanced(gl.TRIANGLES, 0, geom.vertices.length, instanceCount)
+            else gl.drawArraysInstanced(gl.TRIANGLES, 0, geom.vertices.length/geom.vertexComponents, instanceCount)
 			return this;
         },
     }
@@ -692,139 +694,190 @@ void main() {
     return self;
 }
 
-function makeCube(min=-1, max=1) {
+function makeCube(options) {
+    let opt = options || {}
+    let min = opt.min; if (min == undefined) min = -1;
+    let max = opt.max; if (max == undefined) max = +1;
+    let span = max-min;
+    let div = opt.div; if (div == undefined) div = 1;
+    let step = 1/div;
+
+    let vertices = [];
+    let normals = [];
+    let texCoords = [];
+    let indices = [];
+    for (let y=0; y<div; y++) {
+        let ay = step * y;
+        let by = ay + step;
+        let vay = min + ay*span;
+        let vby = min + by*span;
+        for (let x=0; x<div; x++) {
+            let ax = step * x;
+            let bx = ax + step;
+            let vax = min + ax*span;
+            let vbx = min + bx*span;
+            let idx = vertices.length/3;
+            vertices.push(
+                // front:
+                vax, vay, max,
+                vbx, vay, max,
+                vbx, vby, max,
+                vax, vby, max,
+                // back:
+                vax, vay, min,
+                vbx, vay, min,
+                vbx, vby, min,
+                vax, vby, min
+            );
+            texCoords.push(
+                // front:
+                ax, ay,
+                bx, ay,
+                bx, by,
+                ax, by,
+                // back:
+                ax, ay,
+                bx, ay,
+                bx, by,
+                ax, by
+            );
+            normals.push(
+                // front:
+                0, 0, 1,
+                0, 0, 1,
+                0, 0, 1,
+                0, 0, 1,
+                // back:
+                0, 0, -1,
+                0, 0, -1,
+                0, 0, -1,
+                0, 0, -1,
+            );
+            indices.push(
+                idx+0, idx+1, idx+2,
+                idx+2, idx+3, idx+0,
+                idx+4, idx+5, idx+6,
+                idx+6, idx+7, idx+4
+            );
+        }
+    }
+    for (let y=0; y<div; y++) {
+        let ay = step * y;
+        let by = ay + step;
+        let vay = min + ay*span;
+        let vby = min + by*span;
+        for (let x=0; x<div; x++) {
+            let ax = step * x;
+            let bx = ax + step;
+            let vax = min + ax*span;
+            let vbx = min + bx*span;
+            let idx = vertices.length/3;
+            vertices.push(
+                // up:
+                vax, max, vay, 
+                vbx, max, vay, 
+                vbx, max, vby,
+                vax, max, vby,
+                // down:
+                vax, min, vay, 
+                vbx, min, vay,
+                vbx, min, vby, 
+                vax, min, vby
+            );
+            texCoords.push(
+                // up:
+                ax, ay,
+                bx, ay,
+                bx, by,
+                ax, by,
+                // down:
+                ax, ay,
+                bx, ay,
+                bx, by,
+                ax, by
+            );
+            normals.push(
+                // up:
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                0, 1, 0,
+                // down:
+                0, -1, 0,
+                0, -1, 0,
+                0, -1, 0,
+                0, -1, 0
+            );
+            indices.push(
+                idx+0, idx+1, idx+2,
+                idx+2, idx+3, idx+0,
+                idx+4, idx+5, idx+6,
+                idx+6, idx+7, idx+4
+            );
+        }
+    }
+
+    for (let y=0; y<div; y++) {
+        let ay = step * y;
+        let by = ay + step;
+        let vay = min + ay*span;
+        let vby = min + by*span;
+        for (let x=0; x<div; x++) {
+            let ax = step * x;
+            let bx = ax + step;
+            let vax = min + ax*span;
+            let vbx = min + bx*span;
+            let idx = vertices.length/3;
+            vertices.push(
+                // right:
+                max, vax, vay, 
+                max, vbx, vay, 
+                max, vbx, vby,
+                max, vax, vby,
+                // left:
+                min, vax, vay, 
+                min, vbx, vay,
+                min, vbx, vby, 
+                min, vax, vby
+            );
+            texCoords.push(
+                // right:
+                ax, ay,
+                bx, ay,
+                bx, by,
+                ax, by,
+                // left:
+                ax, ay,
+                bx, ay,
+                bx, by,
+                ax, by
+            );
+            normals.push(
+                // right:
+                1, 0, 0,
+                1, 0, 0,
+                1, 0, 0,
+                1, 0, 0,
+                // left:
+                -1, 0, 0,
+                -1, 0, 0,
+                -1, 0, 0,
+                -1, 0, 0
+            );
+            indices.push(
+                idx+0, idx+1, idx+2,
+                idx+2, idx+3, idx+0,
+                idx+4, idx+5, idx+6,
+                idx+6, idx+7, idx+4
+            );
+        }
+    }
 	return {
 		vertexComponents: 3,
-		vertices: new Float32Array([
-			// front
-			min, min,  max,
-			max, min,  max,
-			max,  max,  max,
-			min,  max,  max,
-
-			// back
-			min, min, min,
-			min,  max, min,
-			max,  max, min,
-			max, min, min,
-
-			// up
-			min,  max, min,
-			min,  max,  max,
-			max,  max,  max,
-			max,  max, min,
-
-			// down
-			min, min, min,
-			max, min, min,
-			max, min,  max,
-			min, min,  max,
-
-			// right
-			max, min, min,
-			max,  max, min,
-			max,  max,  max,
-			max, min,  max,
-
-			// left
-			min, min, min,
-			min, min,  max,
-			min,  max,  max,
-			min,  max, min
-		]),
-		normals: new Float32Array([
-			// front
-			0.0,  0.0,  1.0,
-			0.0,  0.0,  1.0,
-			0.0,  0.0,  1.0,
-			0.0,  0.0,  1.0,
-
-			// back
-			0.0,  0.0, -1.0,
-			0.0,  0.0, -1.0,
-			0.0,  0.0, -1.0,
-			0.0,  0.0, -1.0,
-
-			// upside
-			0.0,  1.0,  0.0,
-			0.0,  1.0,  0.0,
-			0.0,  1.0,  0.0,
-			0.0,  1.0,  0.0,
-
-			// downside
-			0.0, -1.0,  0.0,
-			0.0, -1.0,  0.0,
-			0.0, -1.0,  0.0,
-			0.0, -1.0,  0.0,
-
-			// right
-			1.0,  0.0,  0.0,
-			1.0,  0.0,  0.0,
-			1.0,  0.0,  0.0,
-			1.0,  0.0,  0.0,
-
-			// left
-			-1.0,  0.0,  0.0,
-			-1.0,  0.0,  0.0,
-			-1.0,  0.0,  0.0,
-			-1.0,  0.0,  0.0,
-		]),
-		texCoords: new Float32Array([
-			// front
-			0.0,  0.0,  
-			1.0,  0.0,
-			1.0,  1.0, 
-			0.0,  0.1, 
-
-			// back
-			0.0,  0.0,  
-			1.0,  0.0,
-			1.0,  1.0, 
-			0.0,  0.1, 
-
-			// upside
-			0.0,  0.0,  
-			1.0,  0.0,
-			1.0,  1.0, 
-			0.0,  0.1, 
-
-			// downside
-			0.0,  0.0,  
-			1.0,  0.0,
-			1.0,  1.0, 
-			0.0,  0.1, 
-
-			// right
-			0.0,  0.0,  
-			1.0,  0.0,
-			1.0,  1.0, 
-			0.0,  0.1, 
-
-			// left
-			0.0,  0.0,  
-			1.0,  0.0,
-			1.0,  1.0, 
-			0.0,  0.1, 
-		]),
-		indices: new Uint16Array([
-			0, 1, 2,
-			2, 3, 0,
-
-			4, 5, 6,
-			6, 7, 4,
-
-			8, 9, 10,
-			10, 11, 8,
-
-			12, 13, 14, 
-			14, 15, 12,
-
-			16, 17, 18,
-			18, 19, 16,
-
-			20, 21, 22,
-			22, 23, 20,
-		]),
+		vertices: new Float32Array(vertices),
+		normals: new Float32Array(normals),
+		texCoords: new Float32Array(texCoords),
+		indices: new Uint16Array(indices),
 	}
 }
 
