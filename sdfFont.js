@@ -185,7 +185,8 @@ function createInstances(gl, fields, count) {
 		instances: [],
 		data: null,
 
-		allocate() {
+		allocate(count) {
+			assert(count > 0, "allocation requires an instance count")
 			this.data = new ArrayBuffer(this.bytestride * this.count);
 			// create interfaces for the instances:
 			for (let i=0; i<count; i++) {
@@ -204,7 +205,7 @@ function createInstances(gl, fields, count) {
 		}
 	}
 
-	instances.allocate();
+	if (count) instances.allocate();
 }
 
 let charInstances = createInstances(gl, [
