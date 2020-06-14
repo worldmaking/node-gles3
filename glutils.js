@@ -1,3 +1,19 @@
+const assert = require("assert")
+
+// utility to get byte size of various GL types:
+function byteSizeForGLType(gl, gltype) {
+	switch (gltype) {
+		case gl.BYTE:
+		case gl.UNSIGNED_BYTE: return 1;
+		case gl.SHORT:
+		case gl.UNSIGNED_SHORT: 
+		case gl.HALF_FLOAT: return 2;
+		case gl.INT:
+		case gl.UNSIGNED_INT: 
+		case gl.FLOAT: return 4;
+		default: console.error("unknown gl datatype in sizeForType()")
+	}
+}
 
 // utility to help turn shader code into a shader object:
 function createShader(gl, type, source) {
@@ -526,17 +542,24 @@ function createVao(gl, geom, program) {
         setAttributes(buffer, bytestride, bufferFields, instanced) {
             gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
             for (let field of bufferFields) {
-                let attrLoc = gl.getAttribLocation(this.program, field.name);
-                gl.enableVertexAttribArray(attrLoc);
+                const attrLoc = gl.getAttribLocation(this.program, field.name);
                 const normalize = false;
-                gl.vertexAttribPointer(attrLoc, field.components, field.type, normalize, bytestride, field.byteoffset);
-                if (instanced) {
-                    gl.vertexAttribDivisor(attrLoc, 1);
-                } else {
-                    gl.vertexAttribDivisor(attrLoc, 0);
+                const bytesize = field.bytesize / field.components;
+                // watch out: if field.componnents > 4, it occupies several attribute slots
+                // need to enable and bind each of them in turn:
+                for (let i=0; i<field.components; i+=4) {
+                    const loc = attrLoc + i/4; 
+                    const byteoffset = field.byteoffset + (i * bytesize);
+                    const components = Math.min(4, field.components - i);
+                    gl.enableVertexAttribArray(loc);
+                    gl.vertexAttribPointer(loc, components, field.type, normalize, bytestride, byteoffset);
+                    if (instanced) {
+                        gl.vertexAttribDivisor(loc, 1);
+                    } else {
+                        gl.vertexAttribDivisor(loc, 0);
+                    }
+                    //console.log("set attr", field.name, loc, components, instanced, bytestride, byteoffset)
                 }
-
-                //console.log("set attr", field.name, attrLoc, instanced, bytestride, field.byteoffset)
             }
             return this;
         },
@@ -645,6 +668,85 @@ function createQuadVao(gl, program) {
     if (program) self.init(program);
 
     return self;
+}
+
+
+// fields is an array [
+//	{ name:<string>, components:<int>, type:<gl.FLOAT etc.> }
+//]
+function createInstances(gl, fields, count=0) {
+	assert(fields, "missing instance fields template");
+	// generate byte offsets for the fields
+	let bytestride = 0;
+	for (let field of fields) {
+		field.type = field.type || gl.FLOAT;
+		field.componnts = field.components || 1;
+		field.byteoffset = bytestride;
+		field.bytesize = field.components * byteSizeForGLType(gl, field.type);
+		bytestride += field.bytesize;
+	}
+
+	let instances = {
+		id: gl.createBuffer(),
+		count: count,
+		fields: fields,
+		bytestride: bytestride,
+		instances: [],
+		data: null,
+
+        // this will (re)allocate memory as needed for the count
+        // if there was existing data in the arraybuffer, it will be copied over
+		allocate(count=1) {
+            assert(count > 0, "allocation requires an instance count")
+            const existingdata = this.data;
+            this.count = count;
+            this.data = new ArrayBuffer(this.bytestride * this.count);
+            if (existingdata) {
+                // copy existing data:
+                //console.log("extending instance data", existingdata.byteLength, this.data.byteLength);
+                new Uint8Array(this.data).set(new Uint8Array(existingdata));
+            }
+			// create interfaces for the instances:
+			for (let i=0; i<count; i++) {
+				let byteoffset = i * this.bytestride;
+				let obj = {
+					index: i,
+					byteoffset: byteoffset,
+				}
+				for (let field of this.fields) {
+					obj[field.name] = new Float32Array(this.data, byteoffset + field.byteoffset, field.components);
+				}
+				this.instances[i] = obj;
+			}
+			this.instances.length = count;
+			return this;
+		},
+
+		bind() {
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.id)
+			return this;
+		},
+
+		// bind first:
+		submit() {
+			gl.bufferData(gl.ARRAY_BUFFER, this.data, gl.DYNAMIC_DRAW);
+			return this;
+		},
+
+		unbind() {
+			gl.bindBuffer(gl.ARRAY_BUFFER, null);
+			return this;
+		},
+
+		attachTo(vao) {
+			vao.bind().setAttributes(this.id, this.bytestride, this.fields, true).unbind();
+			return this;
+		},
+	}
+
+	if (count) instances.allocate(count);
+
+	return instances;
 }
 
 function createSlab(gl, fragCode, uniforms) {
@@ -1077,7 +1179,8 @@ module.exports = {
 	createCheckerTexture: createCheckerTexture,
 
 	createVao: createVao,
-	createQuadVao: createQuadVao,
+    createQuadVao: createQuadVao,
+    createInstances: createInstances,
 
 	makeFboWithDepth: makeFboWithDepth,
 	createFBO: createFBO,

@@ -1,3 +1,4 @@
+const assert = require("assert")
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 const gl = require('./gles3.js') 
 const glfw = require('./glfw3.js')
@@ -46,26 +47,37 @@ glfw.swapInterval(1); // 0 for vsync off
 
 let cubeprogram = glutils.makeProgram(gl,
 `#version 330
-uniform mat4 u_modelmatrix;
 uniform mat4 u_viewmatrix;
 uniform mat4 u_projmatrix;
 
 // instanced variable:
-in vec3 i_pos;
+in vec4 i_pos;
+in vec4 i_quat;
 
 in vec3 a_position;
 in vec3 a_normal;
 in vec2 a_texCoord;
 out vec4 v_color;
+out vec3 v_normal;
 
+// http://www.geeks3d.com/20141201/how-to-rotate-a-vertex-by-a-quaternion-in-glsl/
+vec3 quat_rotate( vec4 q, vec3 v ){
+	return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v );
+}
+vec4 quat_rotate( vec4 q, vec4 v ){
+	return vec4(v.xyz + 2.0 * cross( q.xyz, cross( q.xyz, v.xyz ) + q.w * v.xyz), v.w );
+}
 
 void main() {
 	// Multiply the position by the matrix.
-	vec4 vertex = u_modelmatrix * vec4(a_position, 1.);
-	vertex.xyz += i_pos;
+	vec4 vertex = vec4(a_position, 1.);
+	vertex = quat_rotate(i_quat, vertex);
+	vertex.xyz += i_pos.xyz;
 	gl_Position = u_projmatrix * u_viewmatrix * vertex;
 
-	v_color = vec4(a_normal*0.25+0.25, 1.);
+	v_normal = quat_rotate(i_quat, a_normal);
+
+	v_color = vec4(v_normal*0.25+0.25, 1.);
 	v_color += vec4(a_texCoord*0.5, 0., 1.);
 }
 `,
@@ -73,53 +85,41 @@ void main() {
 precision mediump float;
 
 in vec4 v_color;
+in vec3 v_normal;
 out vec4 outColor;
 
 void main() {
 	outColor = v_color;
 }
 `);
+// create a VAO from a basic geometry and shader
 let cube = glutils.createVao(gl, glutils.makeCube({ min:-0.1, max:0.1, div: 8 }), cubeprogram.id);
 
-// instancing:
-let cubeInstanceFields = [
-	{ 
-		name: "i_pos",
-		components: 4,
-		type: gl.FLOAT,
-		byteoffset: 0*4 // *4 for float32
-	},
-]
-let cubeInstanceByteStride = cubeInstanceFields[cubeInstanceFields.length-1].byteoffset + cubeInstanceFields[cubeInstanceFields.length-1].components*4 // *4 for float32
-let cubeInstanceStride = cubeInstanceByteStride / 4; // 4 bytes per float
-// create some instances:
-let cubeInstanceTotal = 500;
-let cubeInstanceData = new Float32Array(cubeInstanceStride * cubeInstanceTotal)
+// create a VBO & friendly interface for the instances:
+// TODO: could perhaps derive the fields from the vertex shader GLSL?
+let cubes = glutils.createInstances(gl, [
+	{ name:"i_pos", components:4 },
+	{ name:"i_quat", components:4 },
+], 100)
 
-// a friendlier JS interface to the underlying data:
-let cubeInstances = []
-// iterate over each instance
-for (let i=0; i<cubeInstanceTotal; i++) {
-	let b = i*cubeInstanceByteStride;
-	// make a  interface for this:
-	let obj = {
-		index: i,
-		byteoffset: b,
-	}
-	for (let i in cubeInstanceFields) {
-		let field = cubeInstanceFields[i];
-		obj[field.name] = new Float32Array(cubeInstanceData.buffer, b + field.byteoffset, field.components)
-	}
-	cubeInstances = obj;
+// the .instances provides a convenient interface to the underlying arraybuffer
+cubes.instances.forEach(obj => {
+	// each field is exposed as a corresponding typedarray view
+	// making it easy to use other libraries such as gl-matrix
+	// this is all writing into one contiguous block of binary memory for all instances (fast)
+	vec4.set(obj.i_pos, 
+		(Math.random()-0.5) * 5,
+		(Math.random()-0.5) * 5,
+		(Math.random()-0.5) * 5,
+		1
+	);
+	quat.random(obj.i_quat);
+})
+cubes.bind().submit().unbind();
 
-	obj.i_pos[0] = (Math.random() - 0.5) * 5;
-	obj.i_pos[1] = (Math.random() - 0.5) * 5;
-	obj.i_pos[2] = (Math.random() - 0.5) * 5;
-}
-let cubeInstanceBuffer = gl.createBuffer()
-gl.bindBuffer(gl.ARRAY_BUFFER, cubeInstanceBuffer)
-gl.bufferData(gl.ARRAY_BUFFER, cubeInstanceData, gl.DYNAMIC_DRAW)
-cube.bind().setAttributes(cubeInstanceBuffer, cubeInstanceByteStride, cubeInstanceFields, true).unbind()
+// attach these instances to an existing VAO:
+cubes.attachTo(cube);
+
 
 let t = glfw.getTime();
 let fps = 60;
@@ -139,19 +139,21 @@ function animate() {
 	// Get window size (may be different than the requested size)
 	let dim = glfw.getFramebufferSize(window);
 
-	
-	
+	// update scene:
+
+	// pick a random instance:
+	let obj = cubes.instances[Math.floor(Math.random() * cubes.count)];
+	// change its orientation:
+	quat.random(obj.i_quat);
+	// submit to GPU:
+	cubes.bind().submit().unbind()
+
 	// Compute the matrix
 	let viewmatrix = mat4.create();
 	let projmatrix = mat4.create();
 	let modelmatrix = mat4.create();
 	mat4.lookAt(viewmatrix, [0, 0, 3], [0, 0, 0], [0, 1, 0]);
 	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 10);
-
-	//mat4.identity(modelmatrix);
-	let axis = vec3.fromValues(Math.sin(t), 1., 0.);
-	vec3.normalize(axis, axis);
-	mat4.rotate(modelmatrix, modelmatrix, t, axis)
 
 	gl.viewport(0, 0, dim[0], dim[1]);
 	gl.clearColor(0.2, 0.2, 0.2, 1);
@@ -160,11 +162,9 @@ function animate() {
 	gl.enable(gl.DEPTH_TEST)
 
 	cubeprogram.begin();
-	cubeprogram.uniform("u_modelmatrix", modelmatrix);
 	cubeprogram.uniform("u_viewmatrix", viewmatrix);
 	cubeprogram.uniform("u_projmatrix", projmatrix);
-	//cube.bind().draw().unbind();
-	cube.bind().drawInstanced(cubeInstanceTotal).unbind()
+	cube.bind().drawInstanced(cubes.count).unbind()
 	cubeprogram.end();
 
 	// Swap buffers

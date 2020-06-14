@@ -8,7 +8,7 @@ const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 const gl = require('./gles3.js') 
 const glutils = require('./glutils.js');
 
-const PNG = require("png-js")
+const PNG = require("png-js");
 
 if (!glfw.init()) {
 	console.log("Failed to initialize GLFW");
@@ -33,6 +33,8 @@ if (!window) {
 }
 glfw.makeContextCurrent(window);
 console.log(gl.glewInit());
+
+glfw.setWindowPos(window, 30, 30)
 
 //can only be called after window creation!
 console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MINOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_REVISION) + " Profile: " + glfw.getWindowAttrib(window, glfw.OPENGL_PROFILE));
@@ -60,68 +62,97 @@ in vec2 v_texCoord;
 out vec4 outColor;
 
 void main() {
-	outColor = vec4(v_texCoord, 0., 1.);
+	outColor = vec4(v_texCoord * 0.2, 0., 1.);
 }
 `);
 let quad = glutils.createVao(gl, glutils.makeQuad(), quadprogram.id);
 
-const fontpng = PNG.load("CONSOLATTF.png")
-let fontTexture = glutils.createPixelTexture(gl, fontpng.width, fontpng.height);
-fontpng.decode(function(pixels) {
-	assert(pixels.length == fontTexture.data.length);
-	fontTexture.data = pixels;
-	console.log("submitting texture")
-	fontTexture.bind().submit()
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-	fontTexture.unbind();
-})
+function createSDFFont(gl, pngpath, jsonpath) {
+	let png = PNG.load(pngpath);
+	let json = JSON.parse(fs.readFileSync(jsonpath, "utf8"));
+	let font = {
+		png: png,
+		json: json,
+		texture: glutils.createPixelTexture(gl, png.width, png.height),
+		// add to json a quick lookup table by character:
+		lookup: {},
+		// add a quick scalar factor:
+		scale: 1 / json.info.size,
+	}
+	json.chars.forEach(char => { 
+		font.lookup[char.char.toString()] = char; 
+		// cache UVs here:
+		char.texCoords = vec4.set(vec4.create(),
+			char.x / json.common.scaleW,
+			char.y / json.common.scaleH,
+			(char.x + char.width) / json.common.scaleW,
+			(char.y + char.height) / json.common.scaleH
+		);	
+		// cache quad bounds here:
+		char.quad = vec4.set(vec4.create(),
+			char.xoffset * font.scale,
+			(json.common.base - char.yoffset) * font.scale,
+			char.width * font.scale,
+			-char.height * font.scale
+		); 
+	})
 
-const fontjson = JSON.parse(fs.readFileSync("CONSOLA.TTF-msdf.json", "utf8"))
+	png.decode(pixels => {
+		assert(pixels.length == font.texture.data.length);
+		font.texture.data = pixels;
+		font.texture.bind().submit()
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		font.texture.unbind();
+	})
 
-let quadInstanceprogram = glutils.makeProgram(gl,
+	return font;
+}
+
+let font = createSDFFont(gl, "CONSOLATTF.png", "CONSOLA.TTF-msdf.json")
+
+
+let textquadprogram = glutils.makeProgram(gl,
 `#version 330
-uniform mat4 u_modelmatrix;
 uniform mat4 u_viewmatrix;
 uniform mat4 u_projmatrix;
 
 // instanced variable:
+in mat4 i_modelmatrix;
 in vec4 i_fontbounds;
 in vec4 i_fontcoord;
+//in vec4 i_color;
 
-in vec4 i_quat;
-in vec3 i_pos;
-in vec2 i_scale;
-
+// geometry variables:
 in vec3 a_position;
 in vec3 a_normal;
 in vec2 a_texCoord;
+
 out vec4 v_color;
 out vec2 v_uv;
 
 // http://www.geeks3d.com/20141201/how-to-rotate-a-vertex-by-a-quaternion-in-glsl/
-vec3 applyQuaternionToVector( vec4 q, vec3 v ){
+vec3 quat_rotate( vec4 q, vec3 v ){
 	return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v );
 }
-vec4 applyQuaternionToVector( vec4 q, vec4 v ){
+vec4 quat_rotate( vec4 q, vec4 v ){
 	return vec4(v.xyz + 2.0 * cross( q.xyz, cross( q.xyz, v.xyz ) + q.w * v.xyz), v.w );
 }
 
 void main() {
-	// 2D bounded coordinates of quadInstance:
+	// 2D bounded coordinates of textquad:
 	vec2 p = a_position.xy*i_fontbounds.zw + i_fontbounds.xy; 
 	
 	// Multiply the position by the matrix.
-	vec4 vertex = vec4(p, 0., 1.);
-	vertex.xy *= i_scale;
-	vertex = applyQuaternionToVector(i_quat, vertex);
-	vertex = u_modelmatrix * vertex;
-	vertex.xyz += i_pos;
+	vec4 vertex = i_modelmatrix * vec4(p, 0., 1.);
 	gl_Position = u_projmatrix * u_viewmatrix * vertex;
 
-	//v_color = vec4(a_normal*0.25+0.25, 1.);
-	//v_color += vec4(a_texCoord*0.5, 0., 1.);
-	v_color = vec4(1., a_texCoord.y, 1., 1.);
+	// if needed:
+	// v_normal = (i_modelmatrix * vec4(0., 0., 1., 1.)).xyz;
+
+	v_color = vec4(1.);
+	// if needed:
+//	v_color = i_color;
 
 	v_uv = mix(i_fontcoord.xy, i_fontcoord.zw, a_texCoord); 
 }
@@ -145,195 +176,74 @@ void main() {
 	vec3 sample = texture(u_texture, v_uv).rgb;
 	float sigDist = median(sample.r, sample.g, sample.b) - 0.5;
 	float alpha = clamp(sigDist/fwidth(sigDist) + 0.5, 0.0, 1.0);
-	outColor = vec4(alpha) * v_color;
+	outColor = v_color * alpha;
 }
 `);
-let quadInstance = glutils.createVao(gl, glutils.makeQuad({ min:0., max:1, div:8 }), quadInstanceprogram.id);
+let textquad = glutils.createVao(gl, glutils.makeQuad({ min:0., max:1, div:8 }), textquadprogram.id);
 
-function sizeForType(gltype) {
-	switch (gltype) {
-		case gl.BYTE:
-		case gl.UNSIGNED_BYTE: return 1;
-		case gl.SHORT:
-		case gl.UNSIGNED_SHORT: 
-		case gl.HALF_FLOAT: return 2;
-		case gl.INT:
-		case gl.UNSIGNED_INT: 
-		case gl.FLOAT: return 4;
-		default: console.error("unknown gl datatype in sizeForType()")
-	}
-}
-
-// fields is an array [
-//	{ name:<string>, components:<int>, type:<gl.FLOAT etc.> }
-//]
-function createInstances(gl, fields, count) {
-	assert(fields, "missing instance fields template");
-	// generate byte offsets for the fields
-	let bytestride = 0;
-	for (let field of fields) {
-		field.type = field.type || gl.FLOAT;
-		field.componnts = field.components || 1;
-		field.byteoffset = bytestride;
-		bytestride += field.components * sizeForType(field.type);
-	}
-
-	let instances = {
-		count: count,
-		fields: fields,
-		bytestride: bytestride,
-		instances: [],
-		data: null,
-
-		allocate(count) {
-			assert(count > 0, "allocation requires an instance count")
-			this.data = new ArrayBuffer(this.bytestride * this.count);
-			// create interfaces for the instances:
-			for (let i=0; i<count; i++) {
-				let byteoffset = i * this.bytestride;
-				let obj = {
-					index: i,
-					byteoffset: byteoffset,
-				}
-				for (let field of this.fields) {
-					obj[field.name] = new Float32Array(this.buffer, byteoffset + field.byteoffset, field.components);
-				}
-				this.instances[i] = obj;
-			}
-			this.instances.length = count;
-			return this;
-		}
-	}
-
-	if (count) instances.allocate();
-}
-
-let charInstances = createInstances(gl, [
-	{ 
-		name: "i_fontbounds",
-		components: 4,
-		type: gl.FLOAT
-	},
-	{ 
-		name: "i_fontcoord",
-		components: 4,
-		type: gl.FLOAT
-	},
-	{ 
-		name: "i_pos",
-		components: 4,
-		type: gl.FLOAT
-	},
-	{ 
-		name: "i_quat",
-		components: 4,
-		type: gl.FLOAT
-	},
-	{ 
-		name: "i_scale",
-		components: 2,
-		type: gl.FLOAT
-	},
+// create a VBO & friendly interface for the instances:
+// TODO: could perhaps derive the fields from the vertex shader GLSL?
+let textquads = glutils.createInstances(gl, [
+	{ name: "i_modelmatrix", components: 16 },
+	{ name: "i_fontbounds", components: 4 },
+	{ name: "i_fontcoord", components: 4 },
+//	{ name: "i_color", components: 4 },
 ])
 
-// instancing:
-let quadInstanceInstanceFields = [
-	{ 
-		name: "i_fontbounds",
-		components: 4,
-		type: gl.FLOAT,
-		byteoffset: 0*4 // *4 for float32
-	},
-	{ 
-		name: "i_fontcoord",
-		components: 4,
-		type: gl.FLOAT,
-		byteoffset: 4*4 // *4 for float32
-	},
-	{ 
-		name: "i_pos",
-		components: 4,
-		type: gl.FLOAT,
-		byteoffset: 8*4 // *4 for float32
-	},
-	{ 
-		name: "i_quat",
-		components: 4,
-		type: gl.FLOAT,
-		byteoffset: 12*4 // *4 for float32
-	},
-	{ 
-		name: "i_scale",
-		components: 2,
-		type: gl.FLOAT,
-		byteoffset: 16*4 // *4 for float32
-	},
-]
-let quadInstanceInstanceByteStride = quadInstanceInstanceFields[quadInstanceInstanceFields.length-1].byteoffset + quadInstanceInstanceFields[quadInstanceInstanceFields.length-1].components*4 // *4 for float32
-let quadInstanceInstanceStride = quadInstanceInstanceByteStride / 4; // 4 bytes per float
-// create some instances:
-let message = "Good morning!";
-let quadInstanceInstanceTotal = message.length;
-let quadInstanceInstanceData = new Float32Array(quadInstanceInstanceStride * quadInstanceInstanceTotal)
+// bind instance VBO to VAO:
+textquads.attachTo(textquad);
 
-// a friendlier JS interface to the underlying data:
-let quadInstanceInstances = []
-// iterate over each instance
-let x = 0;//-(message.length+1)/2;
-for (let i=0; i<quadInstanceInstanceTotal; i++) {
-	let char = message[i];
-
-	// TODO: cache a reverse-lookup for this to avoid the find:
-	let fontchar = fontjson.chars.find((e)=>{ return e.char===char })
-
-	let b = i*quadInstanceInstanceByteStride;
-	// make a  interface for this:
-	let obj = {
-		index: i,
-		byteoffset: b,
+// message is a string
+// idx is the instance index to start adding character at (allows appending strings)
+const mat4_idenity = mat4.create();
+function setMessage(message, modelmatrix=mat4_idenity, idx=0) {
+	const min_count = idx + message.length;
+	// reallocate if necessary:
+	if (min_count > textquads.count) textquads.allocate(min_count);
+	// the .instances provides a convenient interface to the underlying arraybuffer
+	let x = 0;
+	let y = 0;
+	for (var i = 0; i < message.length; i++) {
+		let c = message.charAt(i).toString();
+		// space characters don't render, just update cursor:
+		if (c === " ") {
+			x += font.lookup[" "].xadvance * font.scale;
+		} else if (c === "\t") {
+			x += font.lookup[" "].xadvance * font.scale * 3;
+		} else if (c === "\n") {
+			x = 0;
+			y -= font.json.common.lineHeight * font.scale;
+		} else {
+			const char = font.lookup[c];
+			if (!char) {
+				console.error("couldn't find character: ", c, typeof(c));
+				continue;
+			}
+			// get instance interface for this character:
+			let obj = textquads.instances[idx];
+			// the anchor coordinate system for the text:
+			mat4.copy(obj.i_modelmatrix, modelmatrix);
+			// color:
+//			vec4.set(obj.i_color, 1, 1, 1, 1)
+			// bounding coordinates of the quad for this character:
+			vec4.copy(obj.i_fontbounds, char.quad);
+			// offset by character location:
+			obj.i_fontbounds[0] += x;
+			obj.i_fontbounds[1] += y;
+			// UV coordinates for this character:	
+			vec4.copy(obj.i_fontcoord, char.texCoords);
+			// next instance:
+			idx++; 
+			// update cursor:
+			x += char.xadvance * font.scale;
+		}
 	}
-	for (let i in quadInstanceInstanceFields) {
-		let field = quadInstanceInstanceFields[i];
-		obj[field.name] = new Float32Array(quadInstanceInstanceData.buffer, b + field.byteoffset, field.components)
-	}
-	quadInstanceInstances = obj;
+	// submit VBO and attach to VAO:
+	textquads.bind().submit().unbind()
 
-	// Y is flipped
-	// something about fontjson.lineHeight and fontjson.base
-
-	// compute a scalar to GL units
-	// by default, this should make the line height ~1m?
-	//let scalar = fontchar.xadvance / fontjson.common.scaleH;
-	let scalar = 1 / fontjson.common.lineHeight;//fontchar.xadvance / fontjson.common.scaleH;
-
-	// position of the anchor for the text
-	obj.i_pos[0] = -3;
-	obj.i_pos[1] = 0; 
-	obj.i_pos[2] = 0;
-	obj.i_scale[0] = 1;
-	obj.i_scale[1] = 1;
-	obj.i_quat[0] = 0;
-	obj.i_quat[1] = 0;
-	obj.i_quat[2] = 0;
-	obj.i_quat[3] = 1;
-	// normalized quadInstance bounds:
-	obj.i_fontbounds[0] = x + fontchar.xoffset * scalar; 
-	obj.i_fontbounds[1] = (fontjson.common.base - fontchar.yoffset) * scalar; 
-	obj.i_fontbounds[2] = fontchar.width * scalar; 
-	obj.i_fontbounds[3] = -fontchar.height * scalar; 
-	// UV coordinates:
-	obj.i_fontcoord[0] = fontchar.x / fontjson.common.scaleW;
-	obj.i_fontcoord[1] = fontchar.y / fontjson.common.scaleH;
-	obj.i_fontcoord[2] = (fontchar.x + fontchar.width) / fontjson.common.scaleW;
-	obj.i_fontcoord[3] = (fontchar.y + fontchar.height) / fontjson.common.scaleH;
-	
-	x += fontchar.xadvance * scalar; 
-	
+	// return the used instance count so we know how many to render
+	return idx;
 }
-let quadInstanceInstanceBuffer = gl.createBuffer()
-gl.bindBuffer(gl.ARRAY_BUFFER, quadInstanceInstanceBuffer)
-gl.bufferData(gl.ARRAY_BUFFER, quadInstanceInstanceData, gl.DYNAMIC_DRAW)
-quadInstance.bind().setAttributes(quadInstanceInstanceBuffer, quadInstanceInstanceByteStride, quadInstanceInstanceFields, true).unbind()
 
 let t = glfw.getTime();
 let fps = 60;
@@ -361,10 +271,16 @@ function animate() {
 	mat4.lookAt(viewmatrix, [0, 0, 3], [0, 0, 0], [0, 1, 0]);
 	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 100);
 
-	//mat4.identity(modelmatrix);
+	mat4.fromTranslation(modelmatrix, [-4, 1, 0]);
 	let axis = vec3.fromValues(Math.sin(t), 1., 0.);
 	vec3.normalize(axis, axis);
-	mat4.rotate(modelmatrix, modelmatrix, t, axis)
+	mat4.rotate(modelmatrix, modelmatrix, 0.1*Math.cos(t*3), axis)
+
+
+	let message_count = setMessage("hello\nworld")
+	// append with newline:
+	message_count = setMessage(`fps ${fps}`, modelmatrix, message_count);
+	
 
 	gl.viewport(0, 0, dim[0], dim[1]);
 	gl.clearColor(0.2, 0.2, 0.2, 1);
@@ -384,13 +300,13 @@ function animate() {
 	gl.depthMask(false)
 
 	// text:
-	fontTexture.bind(0)
-	quadInstanceprogram.begin();
-	quadInstanceprogram.uniform("u_modelmatrix", modelmatrix);
-	quadInstanceprogram.uniform("u_viewmatrix", viewmatrix);
-	quadInstanceprogram.uniform("u_projmatrix", projmatrix);
-	quadInstance.bind().drawInstanced(quadInstanceInstanceTotal).unbind()
-	quadInstanceprogram.end();
+	font.texture.bind(0)
+	textquadprogram.begin();
+	//textquadprogram.uniform("u_modelmatrix", modelmatrix);
+	textquadprogram.uniform("u_viewmatrix", viewmatrix);
+	textquadprogram.uniform("u_projmatrix", projmatrix);
+	textquad.bind().drawInstanced(message_count).unbind()
+	textquadprogram.end();
 
 	gl.disable(gl.BLEND);
 	gl.depthMask(true)
