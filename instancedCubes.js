@@ -26,20 +26,9 @@ if (!window) {
 	glfw.terminate();
 	process.exit(-1);
 }
-
-glfw.setWindowPosCallback(window, function(w, x, y) {
-	console.log("window moved", w, x, y)
-	return 1;
-})
-
-glfw.setMouseButtonCallback(window, function(...args) {
-	console.log("mouse button", args);
-})
-
+glfw.setWindowPos(window, 32, 32)
 glfw.makeContextCurrent(window);
 console.log(gl.glewInit());
-
-//can only be called after window creation!
 console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MINOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_REVISION) + " Core Profile?: " + (glfw.getWindowAttrib(window, glfw.OPENGL_PROFILE)==glfw.OPENGL_CORE_PROFILE));
 
 // Enable vertical sync (on cards that support it)

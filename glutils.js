@@ -587,9 +587,9 @@ function createVao(gl, geom, program) {
             gl.drawArrays(gl.POINTS, 0, count ? count : geom.vertices.length/geom.vertexComponents);
 			return this;
         },
-        drawInstanced(instanceCount=1) {
-            if (geom.indices) gl.drawElementsInstanced(gl.TRIANGLES, geom.indices.length, gl.UNSIGNED_SHORT, 0, instanceCount);
-            else gl.drawArraysInstanced(gl.TRIANGLES, 0, geom.vertices.length/geom.vertexComponents, instanceCount)
+        drawInstanced(instanceCount=1, primitive=gl.TRIANGLES) {
+            if (geom.indices) gl.drawElementsInstanced(primitive, geom.indices.length, gl.UNSIGNED_SHORT, 0, instanceCount);
+            else gl.drawArraysInstanced(primitive, 0, geom.vertices.length/geom.vertexComponents, instanceCount)
 			return this;
         },
     }
@@ -688,7 +688,8 @@ function createInstances(gl, fields, count=0) {
 
 	let instances = {
 		id: gl.createBuffer(),
-		count: count,
+        count: count, // how many to render
+        allocated: 0, // how many are allocated
 		fields: fields,
 		bytestride: bytestride,
 		instances: [],
@@ -696,29 +697,34 @@ function createInstances(gl, fields, count=0) {
 
         // this will (re)allocate memory as needed for the count
         // if there was existing data in the arraybuffer, it will be copied over
-		allocate(count=1) {
-            assert(count > 0, "allocation requires an instance count")
-            const existingdata = this.data;
-            this.count = count;
-            this.data = new ArrayBuffer(this.bytestride * this.count);
-            if (existingdata) {
-                // copy existing data:
-                //console.log("extending instance data", existingdata.byteLength, this.data.byteLength);
-                new Uint8Array(this.data).set(new Uint8Array(existingdata));
-            }
-			// create interfaces for the instances:
-			for (let i=0; i<count; i++) {
-				let byteoffset = i * this.bytestride;
-				let obj = {
-					index: i,
-					byteoffset: byteoffset,
-				}
-				for (let field of this.fields) {
-					obj[field.name] = new Float32Array(this.data, byteoffset + field.byteoffset, field.components);
-				}
-				this.instances[i] = obj;
-			}
-			this.instances.length = count;
+		allocate(qty=1) {
+            assert(qty > 0, "allocation requires an instance count")
+            if (qty > this.allocated) {
+                // need to allocate more space:
+                const existingdata = this.data;
+                this.data = new ArrayBuffer(this.bytestride * qty);
+                this.allocated = qty;
+                // copy any existing data:
+                if (existingdata) {
+                    new Uint8Array(this.data).set(new Uint8Array(existingdata));
+                }
+
+                // create interfaces for the instances:
+                for (let i=0; i<this.allocated; i++) {
+                    let byteoffset = i * this.bytestride;
+                    let obj = {
+                        index: i,
+                        byteoffset: byteoffset,
+                    }
+                    for (let field of this.fields) {
+                        obj[field.name] = new Float32Array(this.data, byteoffset + field.byteoffset, field.components);
+                    }
+                    this.instances[i] = obj;
+                }
+                this.instances.length = this.allocated;
+            } 
+            // can't render more than we have:
+            this.count = Math.min(this.count, this.allocated);
 			return this;
 		},
 
@@ -1003,12 +1009,12 @@ function makeQuad(options) {
             let bx = ax + step;
             let vax = min + ax*span;
             let vbx = min + bx*span;
-            let idx = vertices.length/3;
+            let idx = vertices.length/2;
             vertices.push(
-                vax, vay, 0,
-                vbx, vay, 0,
-                vbx, vby, 0,
-                vax, vby, 0
+                vax, vay,
+                vbx, vay,
+                vbx, vby,
+                vax, vby
             );
             texCoords.push(
                 ax, ay,
@@ -1030,9 +1036,55 @@ function makeQuad(options) {
     }
 
 	return {
-		vertexComponents: 3,
+		vertexComponents: 2,
 		vertices: new Float32Array(vertices),
 		normals: new Float32Array(normals),
+		texCoords: new Float32Array(texCoords),
+		indices: new Uint16Array(indices),
+	}
+}
+
+// by default, a simple line segment from [0,0,0] to [1,0,0]
+function makeLine(options) {
+    let opt = options || {}
+    let min = opt.min; if (min == undefined) min = 0;
+    let max = opt.max; if (max == undefined) max = 1;
+    let div = opt.div; if (div == undefined) div = 1;
+    let span = max-min;
+    let step = 1/div;
+    let vertices = [];
+    let normals = [];
+    let texCoords = [];
+    let indices = [];
+        for (let x=0; x<div; x++) {
+            let a = step * x;
+            let b = a + step;
+            let va = min + a*span;
+            let vb = min + b*span;
+            let idx = vertices.length/1;
+            vertices.push(
+                va,
+                vb
+            );
+            texCoords.push(
+                a, a,
+                b, a
+            );
+            // do normals even make sense?
+            // perhaps it needs tangents also... 
+            // normals.push(
+            //     0, 1, 0,
+            //     0, 1, 0
+            // );
+            indices.push(
+                idx+0, idx+1
+            );
+        }
+
+	return {
+		vertexComponents: 1,
+		vertices: new Float32Array(vertices),
+		//normals: new Float32Array(normals),
 		texCoords: new Float32Array(texCoords),
 		indices: new Uint16Array(indices),
 	}
@@ -1188,6 +1240,7 @@ module.exports = {
 
 	makeCube: makeCube,
     makeQuad: makeQuad,
+    makeLine: makeLine,
     geomFromOBJ: geomFromOBJ,
 
 	quat_rotate: quat_rotate,

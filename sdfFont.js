@@ -197,9 +197,8 @@ textquads.attachTo(textquad);
 // idx is the instance index to start adding character at (allows appending strings)
 const mat4_idenity = mat4.create();
 function setMessage(message, modelmatrix=mat4_idenity, idx=0) {
-	const min_count = idx + message.length;
 	// reallocate if necessary:
-	if (min_count > textquads.count) textquads.allocate(min_count);
+	textquads.allocate(idx + message.length);
 	// the .instances provides a convenient interface to the underlying arraybuffer
 	let x = 0;
 	let y = 0;
@@ -277,11 +276,10 @@ function animate() {
 	mat4.rotate(modelmatrix, modelmatrix, 0.1*Math.cos(t*3), axis)
 
 
-	let message_count = setMessage("hello\nworld")
+	textquads.count = setMessage("hello\nworld")
 	// append with newline:
-	message_count = setMessage(`fps ${fps}`, modelmatrix, message_count);
+	textquads.count = setMessage(`fps ${fps}`, modelmatrix, textquads.count);
 	
-
 	gl.viewport(0, 0, dim[0], dim[1]);
 	gl.clearColor(0.2, 0.2, 0.2, 1);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -305,7 +303,7 @@ function animate() {
 	//textquadprogram.uniform("u_modelmatrix", modelmatrix);
 	textquadprogram.uniform("u_viewmatrix", viewmatrix);
 	textquadprogram.uniform("u_projmatrix", projmatrix);
-	textquad.bind().drawInstanced(message_count).unbind()
+	textquad.bind().drawInstanced(textquads.count).unbind()
 	textquadprogram.end();
 
 	gl.disable(gl.BLEND);
