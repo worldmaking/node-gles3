@@ -5,6 +5,11 @@ const glfw = require('./glfw3.js')
 const vr = require('./openvr.js')
 const glutils = require('./glutils.js');
 
+/*
+	TODO: 
+	- another example using screen-aligned ribbon strips instead
+*/
+
 if (!glfw.init()) {
 	console.log("Failed to initialize GLFW");
 	process.exit(-1);
@@ -19,6 +24,8 @@ glfw.windowHint(glfw.CONTEXT_VERSION_MAJOR, 3);
 glfw.windowHint(glfw.CONTEXT_VERSION_MINOR, 3);
 glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
 glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
+
+glfw.windowHint(glfw.SAMPLES, 4)
 
 let window = glfw.createWindow(720, 480, "Test");
 if (!window) {
@@ -36,6 +43,7 @@ console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '
 
 // Enable vertical sync (on cards that support it)
 glfw.swapInterval(1); // 0 for vsync off
+gl.enable(gl.MULTISAMPLE)
 
 
 let quadprogram = glutils.makeProgram(gl,
@@ -86,7 +94,7 @@ void main() {
 }
 `);
 // create a VAO from a basic geometry and shader
-let quad = glutils.createVao(gl, glutils.makeQuad({ min:-0.05, max:0.05, div: 8 }), quadprogram.id);
+let quad = glutils.createVao(gl, glutils.makeQuad({ min:-0.03, max:0.03, div: 8 }), quadprogram.id);
 
 // create a VBO & friendly interface for the instances:
 // TODO: could perhaps derive the fields from the vertex shader GLSL?
@@ -130,6 +138,7 @@ in float a_position; // not actually used...
 in vec2 a_texCoord;
 
 out vec4 v_color;
+out float v_t;
 
 vec3 quat_rotate(vec4 q, vec3 v) {
 	return v + 2.0*cross(q.xyz, cross(q.xyz, v) + q.w*v);
@@ -139,10 +148,15 @@ vec4 quat_rotate(vec4 q, vec4 v) {
 }
 
 vec3 bezier(float t, vec3 v0, vec3 v1, vec3 v2, vec3 v3) {
-    float t2 = t * t;
-    float rt = 1.0 - t;
-    float rt2 = rt * rt;
-    return (v0*rt2*rt + v1*3.0*t*rt2 + v2*3.0*t2*rt + v3*t2*t);
+	// interp the 3 line segments:
+	vec3 v01 = mix(v0, v1, t);
+	vec3 v12 = mix(v1, v2, t);
+	vec3 v23 = mix(v2, v3, t);
+	// interp those:
+	vec3 v012 = mix(v01, v12, t);
+	vec3 v123 = mix(v12, v23, t);
+	// interp those:
+	return mix(v012, v123, t);
 }
 
 float smootherstep(float edge0, float edge1, float x) {
@@ -165,18 +179,31 @@ void main() {
 	gl_Position = u_projmatrix * u_viewmatrix * vertex;
 
 	// line intensity stronger near end points:
-	float alpha = clamp(1. - 0.414*sin(3.141592653589793 * t), 0., 1.);
-	v_color = i_color * alpha;
+	v_color = i_color;
+	v_t = t;
+
+	// it might be nice to estimate the length of the bezier curve, for patterning purposes
+	// however there is no analytic solution to this
+	// we could estimate the local scaling factor (between t and object space) 
+	// by computing two bezier points near the current point and getting the distance
 }
 `,
 `#version 330
 precision mediump float;
 
 in vec4 v_color;
+in float v_t;
 out vec4 outColor;
 
 void main() {
 	outColor = v_color;
+
+	// stippling:
+	// float stipplerate = 1.; // 1.0
+	// float stippleclamp = 0.; 
+	// float stipple = 1. - 0.372*smoothstep(stippleclamp, 1.-stippleclamp, abs(sin(3.141592653589793 * v_t * stipplerate)));
+	float stipple = smoothstep(0., 1., 0.5+abs(v_t - 0.5));
+	outColor *= v_color * stipple;
 }
 `);
 // create a VAO from a basic geometry and shader
@@ -269,6 +296,7 @@ function animate() {
 	lineprogram.uniform("u_viewmatrix", viewmatrix);
 	lineprogram.uniform("u_projmatrix", projmatrix);
 	lineprogram.uniform("u_stiffness", 0.5)
+	// consider gl.LINE_STRIP with simpler geometry
 	line.bind().drawInstanced(lines.count, gl.LINES).unbind()
 	lineprogram.end();
 
