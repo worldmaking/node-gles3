@@ -93,7 +93,7 @@ let quad = glutils.createVao(gl, glutils.makeQuad({ min:-0.05, max:0.05, div: 8 
 let quads = glutils.createInstances(gl, [
 	{ name:"i_pos", components:4 },
 	{ name:"i_quat", components:4 },
-], 10)
+], 100)
 
 // the .instances provides a convenient interface to the underlying arraybuffer
 quads.instances.forEach(obj => {
@@ -119,15 +119,14 @@ uniform mat4 u_viewmatrix;
 uniform mat4 u_projmatrix;
 uniform float u_stiffness;
 
-// instanced variable:
+// instance variables:
 in vec4 i_color;
-in vec3 i_pos;
-in vec3 i_pos1;
-in vec4 i_quat;
+in vec4 i_quat0;
 in vec4 i_quat1;
+in vec3 i_pos0;
+in vec3 i_pos1;
 
-in float a_position;
-in vec3 a_normal;
+in float a_position; // not actually used...
 in vec2 a_texCoord;
 
 out vec4 v_color;
@@ -154,14 +153,14 @@ float smootherstep(float edge0, float edge1, float x) {
 void main() {
 	// control points:
 	float stiffness = u_stiffness;
-	vec3 c0 = i_pos + quat_rotate(i_quat, vec3(0., 0., stiffness));
+	vec3 c0 = i_pos0 + quat_rotate(i_quat0, vec3(0., 0., stiffness));
 	vec3 c1 = i_pos1 + quat_rotate(i_quat1, vec3(0., 0., stiffness));
 
 	// bias t's distribution toward end points where curvature is greatest
 	float t = smoothstep(0., 1., a_texCoord.x);
 
 	// derive point from bezier:
-	vec4 vertex = vec4(bezier(t, i_pos, c0, c1, i_pos1), 1.);
+	vec4 vertex = vec4(bezier(t, i_pos0, c0, c1, i_pos1), 1.);
 	
 	gl_Position = u_projmatrix * u_viewmatrix * vertex;
 
@@ -187,25 +186,20 @@ let line = glutils.createVao(gl, glutils.makeLine({ min:0, max:1, div: 24 }), li
 // TODO: could perhaps derive the fields from the vertex shader GLSL?
 let lines = glutils.createInstances(gl, [
 	{ name:"i_color", components:4 },
-	{ name:"i_pos", components:4 },
-	{ name:"i_pos1", components:4 },
-	{ name:"i_quat", components:4 },
+	{ name:"i_quat0", components:4 },
 	{ name:"i_quat1", components:4 },
+	{ name:"i_pos0", components:3 },
+	{ name:"i_pos1", components:3 },
 ], quads.count)
 
 // the .instances provides a convenient interface to the underlying arraybuffer
 lines.instances.forEach((obj, i) => {
-	let quad = quads.instances[i]
-	let quad1 = quads.instances[(i+1) % quads.count]
-
+	// pick a color:
 	vec4.set(obj.i_color, 1, 1, 1, 1);
-
-	vec3.copy(obj.i_pos, quad.i_pos);
-	quat.copy(obj.i_quat, quad.i_quat);
-
-	//vec3.set(obj.i_pos1, 0, 0, 0)
-	vec3.copy(obj.i_pos1, quad1.i_pos);
-	quat.copy(obj.i_quat1, quad1.i_quat);
+	// pick two quads to connect:
+	obj.from = i;
+	obj.to = i > 1 ? Math.floor(Math.random()*i) : quads.count-1;
+	// the rest of the instance vars are set in the animate() loop
 })
 lines.bind().submit().unbind();
 
@@ -231,12 +225,19 @@ function animate() {
 	// Get window size (may be different than the requested size)
 	let dim = glfw.getFramebufferSize(window);
 
-	// update scene:s
+	// update scene:
 	quads.instances.forEach((obj, i) => {
 		quat.slerp(obj.i_quat, obj.i_quat, quat.random(quat.create()), 0.01);
-		quat.copy(lines.instances[i].i_quat, obj.i_quat);
+		quat.normalize(obj.i_quat, obj.i_quat);
 	})
-	
+	lines.instances.forEach((obj, i) => {
+		let a = quads.instances[obj.from]
+		let b = quads.instances[obj.to]
+		quat.copy(obj.i_quat0, a.i_quat);
+		quat.copy(obj.i_quat1, b.i_quat);
+		vec3.copy(obj.i_pos0, a.i_pos);
+		vec3.copy(obj.i_pos1, b.i_pos);
+	}) 
 	// submit to GPU:
 	quads.bind().submit().unbind()
 	lines.bind().submit().unbind()
