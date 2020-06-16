@@ -42,7 +42,7 @@ console.log(gl.glewInit());
 console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MINOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_REVISION) + " Core Profile?: " + (glfw.getWindowAttrib(window, glfw.OPENGL_PROFILE)==glfw.OPENGL_CORE_PROFILE));
 
 // Enable vertical sync (on cards that support it)
-glfw.swapInterval(1); // 0 for vsync off
+glfw.swapInterval(0); // 0 for vsync off
 gl.enable(gl.MULTISAMPLE)
 
 
@@ -222,7 +222,7 @@ let lines = glutils.createInstances(gl, [
 // the .instances provides a convenient interface to the underlying arraybuffer
 lines.instances.forEach((obj, i) => {
 	// pick a color:
-	vec4.set(obj.i_color, 1, 1, 1, 1);
+	vec4.set(obj.i_color, 0.75, 1, 1, 0.75);
 	// pick two quads to connect:
 	obj.from = i;
 	obj.to = i > 1 ? Math.floor(Math.random()*i) : quads.count-1;
@@ -253,10 +253,13 @@ function animate() {
 	let dim = glfw.getFramebufferSize(window);
 
 	// update scene:
-	quads.instances.forEach((obj, i) => {
-		quat.slerp(obj.i_quat, obj.i_quat, quat.random(quat.create()), 0.01);
+	//quads.instances.forEach((obj, i) => 
+	{
+		let i = Math.floor(Math.random() * quads.count)
+		let obj = quads.instances[i]
+		quat.slerp(obj.i_quat, obj.i_quat, quat.random(quat.create()), 0.1);
 		quat.normalize(obj.i_quat, obj.i_quat);
-	})
+	}
 	lines.instances.forEach((obj, i) => {
 		let a = quads.instances[obj.from]
 		let b = quads.instances[obj.to]
