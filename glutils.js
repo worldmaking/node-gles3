@@ -702,6 +702,7 @@ function createInstances(gl, fields, count=0) {
             if (qty > this.allocated) {
                 // need to allocate more space:
                 const existingdata = this.data;
+                const existingcount = this.allocated;
                 this.data = new ArrayBuffer(this.bytestride * qty);
                 this.allocated = qty;
                 // copy any existing data:
@@ -712,14 +713,19 @@ function createInstances(gl, fields, count=0) {
                 // create interfaces for the instances:
                 for (let i=0; i<this.allocated; i++) {
                     let byteoffset = i * this.bytestride;
-                    let obj = {
-                        index: i,
-                        byteoffset: byteoffset,
+                    let obj = this.instances[i];
+                    if (i >= existingcount) {
+                        // allocate new object:
+                        obj = {
+                            index: i,
+                            byteoffset: byteoffset,
+                        }
+                        this.instances[i] = obj;
                     }
+                    // map fields to the new arraybuffer:
                     for (let field of this.fields) {
                         obj[field.name] = new Float32Array(this.data, byteoffset + field.byteoffset, field.components);
                     }
-                    this.instances[i] = obj;
                 }
                 this.instances.length = this.allocated;
             } 
