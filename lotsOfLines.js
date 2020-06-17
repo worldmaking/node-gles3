@@ -240,7 +240,8 @@ function animate() {
 	if(glfw.windowShouldClose(window) || glfw.getKey(window, glfw.KEY_ESCAPE)) {
 		shutdown();
 	} else {
-		setImmediate(animate)
+		//setImmediate(animate)
+		setTimeout(animate, 10)
 	}
 
 	let t1 = glfw.getTime();
@@ -319,4 +320,4 @@ function shutdown() {
 	process.exit(0);
 }
 
-animate();
+setTimeout(animate, 10)
