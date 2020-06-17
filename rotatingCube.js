@@ -1,9 +1,7 @@
-//const glfw = require("node-glfw")
-const EventEmitter = require('events');
+const assert = require("assert")
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 const gl = require('./gles3.js') 
 const glfw = require('./glfw3.js')
-const vr = require('./openvr.js')
 const glutils = require('./glutils.js');
 
 if (!glfw.init()) {
@@ -21,21 +19,6 @@ glfw.windowHint(glfw.CONTEXT_VERSION_MINOR, 3);
 glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
 glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
 
-
-// let emitter = new EventEmitter(); 
-// emitter.on('keydown',function(evt) {
-// 	console.log("[keydown] ", (evt));
-// });
-// emitter.on('mousemove',function(evt) {
-// 	console.log("[mousemove] "+evt.x+", "+evt.y);
-// });
-// emitter.on('mousewheel',function(evt) {
-// 	console.log("[mousewheel] "+evt.position);
-// });
-// emitter.on('resize',function(evt){
-// 	console.log("[resize] "+evt.width+", "+evt.height);
-// });
-
 let window = glfw.createWindow(720, 480, "Test");
 if (!window) {
 	console.log("Failed to open GLFW window");
@@ -43,14 +26,14 @@ if (!window) {
 	process.exit(-1);
 }
 
-glfw.setWindowPosCallback(window, function(w, x, y) {
-	console.log("window moved", w, x, y)
-	return 1;
-})
+// glfw.setWindowPosCallback(window, function(w, x, y) {
+// 	console.log("window moved", w, x, y)
+// 	return 1;
+// })
 
-glfw.setMouseButtonCallback(window, function(...args) {
-	console.log("mouse button", args);
-})
+// glfw.setMouseButtonCallback(window, function(...args) {
+// 	console.log("mouse button", args);
+// })
 
 glfw.makeContextCurrent(window);
 console.log(gl.glewInit());
@@ -208,7 +191,6 @@ function animate() {
 	// Get window size (may be different than the requested size)
 	let dim = glfw.getFramebufferSize(window);
 
-	
 	
 	// Compute the matrix
 	let viewmatrix = mat4.create();

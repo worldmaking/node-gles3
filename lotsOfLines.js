@@ -2,7 +2,6 @@ const assert = require("assert")
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 const gl = require('./gles3.js') 
 const glfw = require('./glfw3.js')
-const vr = require('./openvr.js')
 const glutils = require('./glutils.js');
 
 /*

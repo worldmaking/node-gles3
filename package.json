@@ -4,17 +4,16 @@
   "description": "native node bindings to OpenGLES3",
   "main": "index.js",
   "scripts": {
-    "preinstall": "node tools/gen.js",
-    "install": "node-gyp rebuild",
-    "postinstall": "node renderToFBO.js"
+    "install": "node tools/gen.js && node-gyp rebuild",
+    "postinstall": "node lotsOfLines.js"
   },
   "gypfile": true,
   "author": "",
   "license": "ISC",
   "dependencies": {
     "bindings": "^1.5.0",
-    "gl-matrix": "^3.0.0",
-    "native-graphics-deps": "0.0.20",
+    "gl-matrix": "^3.3.0",
+    "native-graphics-deps": "0.0.22",
     "native-openvr-deps": "0.0.19",
     "png-js": "^1.0.0"
   }
