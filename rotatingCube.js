@@ -78,7 +78,7 @@ void main() {
 `);
 let cube_geom = glutils.makeCube({
 	min: [0,-1,-1],
-	max: 2,
+	max: [1, 2, 2],
 	div: [1, 3, 3]
 })
 let cube = glutils.createVao(gl, cube_geom, cubeprogram.id);
