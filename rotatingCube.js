@@ -44,102 +44,6 @@ console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '
 // Enable vertical sync (on cards that support it)
 glfw.swapInterval(1); // 0 for vsync off
 
-let vert = gl.createShader(gl.VERTEX_SHADER)
-let frag = gl.createShader(gl.FRAGMENT_SHADER)
-let program = gl.createProgram()
-
-let vertcode = `#version 330
-uniform mat4 u_viewmatrix;
-uniform mat4 u_projmatrix;
-uniform float u_pixelSize;
-in vec3 a_position;
-out vec4 v_color;
-
-
-void main() {
-	// Multiply the position by the matrix.
-	gl_Position = u_projmatrix * u_viewmatrix * vec4(a_position.xyz, 1);
-	if (gl_Position.w > 0.0) {
-		gl_PointSize = u_pixelSize / gl_Position.w;
-	} else {
-		gl_PointSize = 0.0;
-	}
-
-	v_color = vec4(1.);
-	//v_color = vec4(u_viewmatrix[3].xyz * 0.5 + 0.5, 0.5);
-	//v_color = vec4(gl_Position.xyz * 0.5 + 0.5, 0.5);
-}
-`
-let fragcode = `#version 330
-precision mediump float;
-
-in vec4 v_color;
-out vec4 outColor;
-
-void main() {
-	// get normalized -1..1 point coordinate
-	vec2 pc = (gl_PointCoord - 0.5) * 2.0;
-	// convert to distance:
-	float dist = max(0., 1.0 - length(pc));
-	// paint
-  	outColor = vec4(dist) * v_color;
-}
-`
-gl.shaderSource(vert, vertcode);
-gl.compileShader(vert);
-if (!gl.getShaderParameter(vert, gl.COMPILE_STATUS)) {
-    console.log(`Error compiling vertex shader:`);
-    console.log(gl.getShaderInfoLog(vert));
-}
-
-gl.shaderSource(frag, fragcode);
-gl.compileShader(frag);
-if (!gl.getShaderParameter(frag, gl.COMPILE_STATUS)) {
-    console.log(`Error compiling fragment shader:`);
-    console.log(gl.getShaderInfoLog(frag));
-}
-
-gl.attachShader(program, vert);
-gl.attachShader(program, frag);
-gl.linkProgram(program);
-if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    console.log("Error linking shader program:");
-    console.log(gl.getProgramInfoLog(program));
-}
-
-let positionLocation = gl.getAttribLocation(program, "a_position");
-let projmatrixLocation = gl.getUniformLocation(program, "u_projmatrix");
-let viewmatrixLocation = gl.getUniformLocation(program, "u_viewmatrix");
-let pixelSizeLocation = gl.getUniformLocation(program, "u_pixelSize");
-console.log("locations", projmatrixLocation, viewmatrixLocation)
-
-const NUM_POINTS = 1e3;
-const points = [];
-for (let index = 0; index < NUM_POINTS; index++) {
-  points.push((Math.random() - 0.5) * 8);
-  points.push((Math.random() - 0.5) * 8);
-  points.push((Math.random() - 0.5) * 8);
-}
-
-// Create a buffer.
-let vertices = new Float32Array(points);
-let buffer = gl.createBuffer();
-gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
-
-// Create set of attributes
-let vao = gl.createVertexArray();
-gl.bindVertexArray(vao);
-
-// tell the position attribute how to pull data out of the current ARRAY_BUFFER
-gl.enableVertexAttribArray(positionLocation);
-let elementsPerVertex = 3; // for vec2
-let normalize = false;
-let stride = 0;
-let offset = 0;
-gl.vertexAttribPointer(positionLocation, elementsPerVertex, gl.FLOAT, normalize, stride, offset);
-
-
 let cubeprogram = glutils.makeProgram(gl,
 `#version 330
 uniform mat4 u_modelmatrix;
@@ -157,6 +61,9 @@ void main() {
 
 	v_color = vec4(a_normal*0.25+0.25, 1.);
 	v_color += vec4(a_texCoord*0.5, 0., 1.);
+
+	// if using gl.POINTS:
+	gl_PointSize = 10.;
 }
 `,
 `#version 330
@@ -169,7 +76,12 @@ void main() {
 	outColor = v_color;
 }
 `);
-let cube = glutils.createVao(gl, glutils.makeCube(), cubeprogram.id);
+let cube_geom = glutils.makeCube({
+	min: [0,-1,-1],
+	max: 2,
+	div: [1, 3, 3]
+})
+let cube = glutils.createVao(gl, cube_geom, cubeprogram.id);
 
 
 
@@ -197,7 +109,7 @@ function animate() {
 	let projmatrix = mat4.create();
 	let modelmatrix = mat4.create();
 	mat4.lookAt(viewmatrix, [0, 0, 3], [0, 0, 0], [0, 1, 0]);
-	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 10);
+	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 30);
 
 	//mat4.identity(modelmatrix);
 	let axis = vec3.fromValues(Math.sin(t), 1., 0.);
@@ -205,7 +117,6 @@ function animate() {
 	mat4.rotate(modelmatrix, modelmatrix, t, axis)
 
 	gl.viewport(0, 0, dim[0], dim[1]);
-	gl.clearColor(0.2, 0.2, 0.2, 1);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 	gl.enable(gl.DEPTH_TEST)
@@ -214,32 +125,9 @@ function animate() {
 	cubeprogram.uniform("u_modelmatrix", modelmatrix);
 	cubeprogram.uniform("u_viewmatrix", viewmatrix);
 	cubeprogram.uniform("u_projmatrix", projmatrix);
+	//cube.bind().drawPoints().unbind();
 	cube.bind().draw().unbind();
 	cubeprogram.end();
-
-	gl.enable(gl.BLEND);
-	gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-	gl.depthMask(false)
-
-	
-
-    // Tell it to use our program (pair of shaders)
-    gl.useProgram(program);
-
-    // Bind the attribute/buffer set we want.
-    gl.bindVertexArray(vao);
-
-	// Set the matrix.
-	gl.uniform1f(pixelSizeLocation, 10.);
-    gl.uniformMatrix4fv(viewmatrixLocation, false, viewmatrix);
-    gl.uniformMatrix4fv(projmatrixLocation, false, projmatrix);
-
-    // Draw the geometry.
-	let count = NUM_POINTS;
-	gl.drawArrays(gl.POINTS, 0, count);
-
-	gl.disable(gl.BLEND);
-	gl.depthMask(true)
 
 	// Swap buffers
 	glfw.swapBuffers(window);

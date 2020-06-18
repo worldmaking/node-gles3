@@ -810,37 +810,42 @@ void main() {
 
 function makeCube(options) {
     let opt = options || {}
-    let min = opt.min; if (min == undefined) min = -1;
+    let min = opt.min;
+    if (min == undefined) min = -1;
+    if (typeof min == "number") min = [min, min, min];
     let max = opt.max; if (max == undefined) max = +1;
+    if (typeof max == "number") max = [max, max, max];
     let div = opt.div; if (div == undefined) div = 1;
-    let span = max-min;
-    let step = 1/div;
+    if (typeof div == "number") div = [div, div, div];
+    let span = [max[0]-min[0], max[1]-min[1], max[2]-min[2]];
+    let step = [1/div[0], 1/div[1], 1/div[2]];
     let vertices = [];
     let normals = [];
     let texCoords = [];
     let indices = [];
-    for (let y=0; y<div; y++) {
-        let ay = step * y;
-        let by = ay + step;
-        let vay = min + ay*span;
-        let vby = min + by*span;
-        for (let x=0; x<div; x++) {
-            let ax = step * x;
-            let bx = ax + step;
-            let vax = min + ax*span;
-            let vbx = min + bx*span;
+    // front & back
+    for (let y=0; y<div[1]; y++) {
+        let ay = step[1] * y;
+        let by = ay + step[1];
+        let vay = min[1] + ay*span[1];
+        let vby = min[1] + by*span[1];
+        for (let x=0; x<div[0]; x++) {
+            let ax = step[0] * x;
+            let bx = ax + step[0];
+            let vax = min[0] + ax*span[0];
+            let vbx = min[0] + bx*span[0];
             let idx = vertices.length/3;
             vertices.push(
                 // front:
-                vax, vay, max,
-                vbx, vay, max,
-                vbx, vby, max,
-                vax, vby, max,
+                vax, vay, max[2],
+                vbx, vay, max[2],
+                vbx, vby, max[2],
+                vax, vby, max[2],
                 // back:
-                vax, vay, min,
-                vbx, vay, min,
-                vbx, vby, min,
-                vax, vby, min
+                vax, vay, min[2],
+                vbx, vay, min[2],
+                vbx, vby, min[2],
+                vax, vby, min[2]
             );
             texCoords.push(
                 // front:
@@ -874,28 +879,29 @@ function makeCube(options) {
             );
         }
     }
-    for (let y=0; y<div; y++) {
-        let ay = step * y;
-        let by = ay + step;
-        let vay = min + ay*span;
-        let vby = min + by*span;
-        for (let x=0; x<div; x++) {
-            let ax = step * x;
-            let bx = ax + step;
-            let vax = min + ax*span;
-            let vbx = min + bx*span;
+    // top & bottom:
+    for (let y=0; y<div[2]; y++) {
+        let ay = step[2] * y;
+        let by = ay + step[2];
+        let vay = min[2] + ay*span[2];
+        let vby = min[2] + by*span[2];
+        for (let x=0; x<div[0]; x++) {
+            let ax = step[0] * x;
+            let bx = ax + step[0];
+            let vax = min[0] + ax*span[0];
+            let vbx = min[0] + bx*span[0];
             let idx = vertices.length/3;
             vertices.push(
                 // up:
-                vax, max, vay, 
-                vbx, max, vay, 
-                vbx, max, vby,
-                vax, max, vby,
+                vax, max[1], vay, 
+                vbx, max[1], vay, 
+                vbx, max[1], vby,
+                vax, max[1], vby,
                 // down:
-                vax, min, vay, 
-                vbx, min, vay,
-                vbx, min, vby, 
-                vax, min, vby
+                vax, min[1], vay, 
+                vbx, min[1], vay,
+                vbx, min[1], vby, 
+                vax, min[1], vby
             );
             texCoords.push(
                 // up:
@@ -929,29 +935,29 @@ function makeCube(options) {
             );
         }
     }
-
-    for (let y=0; y<div; y++) {
-        let ay = step * y;
-        let by = ay + step;
-        let vay = min + ay*span;
-        let vby = min + by*span;
-        for (let x=0; x<div; x++) {
-            let ax = step * x;
-            let bx = ax + step;
-            let vax = min + ax*span;
-            let vbx = min + bx*span;
+    // left & right:
+    for (let y=0; y<div[2]; y++) {
+        let ay = step[2] * y;
+        let by = ay + step[2];
+        let vay = min[2] + ay*span[2];
+        let vby = min[2] + by*span[2];
+        for (let x=0; x<div[1]; x++) {
+            let ax = step[1] * x;
+            let bx = ax + step[1];
+            let vax = min[1] + ax*span[1];
+            let vbx = min[1] + bx*span[1];
             let idx = vertices.length/3;
             vertices.push(
                 // right:
-                max, vax, vay, 
-                max, vbx, vay, 
-                max, vbx, vby,
-                max, vax, vby,
+                max[0], vax, vay, 
+                max[0], vbx, vay, 
+                max[0], vbx, vby,
+                max[0], vax, vby,
                 // left:
-                min, vax, vay, 
-                min, vbx, vay,
-                min, vbx, vby, 
-                min, vax, vby
+                min[0], vax, vay, 
+                min[0], vbx, vay,
+                min[0], vbx, vby, 
+                min[0], vax, vby
             );
             texCoords.push(
                 // right:
@@ -996,25 +1002,29 @@ function makeCube(options) {
 
 function makeQuad(options) {
     let opt = options || {}
-    let min = opt.min; if (min == undefined) min = -1;
+    let min = opt.min;
+    if (min == undefined) min = -1;
+    if (typeof min == "number") min = [min, min];
     let max = opt.max; if (max == undefined) max = +1;
+    if (typeof max == "number") max = [max, max];
     let div = opt.div; if (div == undefined) div = 1;
-    let span = max-min;
-    let step = 1/div;
+    if (typeof div == "number") div = [div, div];
+    let span = [max[0]-min[0], max[1]-min[1]];
+    let step = [1/div[0], 1/div[1]];
     let vertices = [];
     let normals = [];
     let texCoords = [];
     let indices = [];
-    for (let y=0; y<div; y++) {
-        let ay = step * y;
-        let by = ay + step;
-        let vay = min + ay*span;
-        let vby = min + by*span;
-        for (let x=0; x<div; x++) {
-            let ax = step * x;
-            let bx = ax + step;
-            let vax = min + ax*span;
-            let vbx = min + bx*span;
+    for (let y=0; y<div[1]; y++) {
+        let ay = step[1] * y;
+        let by = ay + step[1];
+        let vay = min[1] + ay*span[1];
+        let vby = min[1] + by*span[1];
+        for (let x=0; x<div[0]; x++) {
+            let ax = step[0] * x;
+            let bx = ax + step[0];
+            let vax = min[0] + ax*span[0];
+            let vbx = min[0] + bx*span[0];
             let idx = vertices.length/2;
             vertices.push(
                 vax, vay,
