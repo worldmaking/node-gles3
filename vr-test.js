@@ -213,6 +213,8 @@ function animate() {
 
 	//if(wsize) console.log("FB size: "+wsize.width+', '+wsize.height);
 	vr.update();
+
+	console.log(vr.inputSources())
 	
 	
 	// render to our targetTexture by binding the framebuffer
