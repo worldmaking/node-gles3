@@ -268,6 +268,37 @@ napi_value GetWindowSize(napi_env env, napi_callback_info info) {
 	return result;
 }
 
+napi_value GetWindowContentScale(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value result = nullptr;
+	napi_value args[1];
+	size_t argc = checkArgCount(env, info, args, 1, 1);
+
+	GLFWwindow* win;
+	napi_valuetype win_type;
+	status = napi_typeof(env, args[0], &win_type);
+	if (status != napi_ok || win_type != napi_external) return nullptr;
+	status = napi_get_value_external(env, args[0], (void **)&win);
+	if (status != napi_ok) return nullptr;
+
+	float x;
+	float y;
+	
+	if (win) {
+		glfwGetWindowContentScale(win, &x, &y);
+
+		// return as array:
+		status = napi_create_array_with_length(env, 2, &result);
+		if (status == napi_ok) {
+				napi_value nx, ny;
+				napi_create_double(env, x, &nx);
+				napi_set_element(env, result, 0, nx);
+				napi_create_double(env, y, &ny);
+				napi_set_element(env, result, 1, ny);
+		}
+	}
+	return result;
+}
 
 napi_value GetFramebufferSize(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
@@ -795,6 +826,35 @@ void windowcontentscalefun(GLFWwindow* window,float x,float y) {
 	// now call it:
 	napi_value result;
 	status = napi_call_function(env, global, callback, argc, argv, &result);
+}
+
+napi_value SetWindowContentScaleCallback(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[2];
+	size_t argc = checkArgCount(env, info, args, 2, 2);
+	// get window
+	GLFWwindow* window = nullptr;
+	napi_valuetype window_type;
+	status = napi_typeof(env, args[0], &window_type);
+	if (status != napi_ok || window_type != napi_external) return nullptr;
+	status = napi_get_value_external(env, args[0], (void **)&window);
+	if (status != napi_ok) return nullptr;
+	// get the userdata for this window:
+	WindowState * data = (WindowState *)glfwGetWindowUserPointer(window);
+	if (data->magic != GLFW_WINDOWSTATE_MAGIC) return nullptr;
+	// clear out old handler:
+	if (data->onContentScale ) napi_delete_reference(env, data->onContentScale );
+	data->onContentScale  = nullptr;
+	// 2nd arg must be a callable function
+	napi_value handler = args[1];
+	napi_valuetype handler_type;
+	status = napi_typeof(env, args[1], &handler_type);
+	if (status == napi_ok && handler_type == napi_function) {
+		// install new one:
+		napi_create_reference(env, handler, 1, &data->onContentScale );
+	} 
+	glfwSetWindowContentScaleCallback(window, windowcontentscalefun);
+	return args[0];
 }
 
 void windowmousebuttonfun(GLFWwindow* window,int x,int y,int z) {
