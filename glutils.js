@@ -75,6 +75,9 @@ function makeProgramFromCode(gl, vertexCode, fragmentCode) {
     return createProgram(gl, vertexShader, fragmentShader);
 }
 
+function isTypedArray(a) { return !!(a.buffer instanceof ArrayBuffer && a.BYTES_PER_ELEMENT); }
+function isArrayOrTypedArray(a) { return Array.isArray(a) || isTypedArray(a); }
+
 function uniformsFromCode(gl, program, code, uniforms = {}) {
 	const regex = /uniform\s+(\w+)\s+(\w+)/g;
 	let match
@@ -84,13 +87,14 @@ function uniformsFromCode(gl, program, code, uniforms = {}) {
         let location = gl.getUniformLocation(program, name);
         let setter;
         switch (type) {
-            case "float": setter = (x) => gl.uniform1f(location, x); break;
-            case "vec2": setter = (x, y) => gl.uniform2f(location, x, y); break;
-            case "vec3": setter = (x, y, z) => gl.uniform3f(location, x, y, z); break;
-            case "vec4": setter = (x, y, z, w) => gl.uniform4f(location, x, y, z, w); break;
-            case "ivec2": setter = (x, y) => gl.uniform2i(location, x, y); break;
-            case "ivec3": setter = (x, y, z) => gl.uniform3i(location, x, y, z); break;
-            case "ivec4": setter = (x, y, z, w) => gl.uniform4i(location, x, y, z, w); break;
+            case "float": 
+                setter = (x) => isArrayOrTypedArray(x) ? gl.uniform1f(location, x[0]) : gl.uniform1f(location, x); break;
+            case "vec2": setter = (x, y) => isArrayOrTypedArray(x) ? gl.uniform2f(location, x[0], x[1]) : gl.uniform2f(location, x, y); break;
+            case "vec3": setter = (x, y, z) => isArrayOrTypedArray(x) ? gl.uniform3f(location, x[0], x[1], x[2]) : gl.uniform3f(location, x, y, z); break;
+            case "vec4": setter = (x, y, z, w) => isArrayOrTypedArray(x) ? gl.uniform4f(location, x[0], x[1], x[2], x[3]) : gl.uniform4f(location, x, y, z, w); break;
+            case "ivec2": setter = (x, y) => isArrayOrTypedArray(x) ? gl.uniform2i(location, x[0], x[1]) : gl.uniform2i(location, x, y); break;
+            case "ivec3": setter = (x, y, z) => isArrayOrTypedArray(x) ? gl.uniform3i(location, x[0], x[1], x[2]) : gl.uniform3i(location, x, y, z); break;
+            case "ivec4": setter = (x, y, z, w) => isArrayOrTypedArray(x) ? gl.uniform4i(location, x[0], x[1], x[2], x[3]) : gl.uniform4i(location, x, y, z, w); break;
             case "mat2": setter = (m, transpose=false) => gl.uniformMatrix2fv(location, transpose, m); break;
             case "mat3": setter = (m, transpose=false) => gl.uniformMatrix3fv(location, transpose, m); break;
             case "mat4": setter = (m, transpose=false) => gl.uniformMatrix4fv(location, transpose, m); break;
