@@ -23,6 +23,7 @@ glfw.windowHint(glfw.CONTEXT_VERSION_MAJOR, 3);
 glfw.windowHint(glfw.CONTEXT_VERSION_MINOR, 3);
 glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
 glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
+glfw.windowHint(glfw.VISIBLE, true)
 
 glfw.windowHint(glfw.SAMPLES, 4)
 
@@ -32,6 +33,7 @@ if (!window) {
 	glfw.terminate();
 	process.exit(-1);
 }
+glfw.showWindow(true)
 glfw.setWindowPos(window, 32, 32)
 
 glfw.makeContextCurrent(window);
