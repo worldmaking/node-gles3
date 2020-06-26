@@ -1,5 +1,5 @@
 const assert = require("assert")
-
+const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 // utility to get byte size of various GL types:
 function byteSizeForGLType(gl, gltype) {
 	switch (gltype) {
