@@ -34,20 +34,15 @@ let mouse = {
 		// near plane point
 		vec3.transformMat4(this.cam_near, [this.clip[0], this.clip[1], -1], projmatrix_inverse);	
 		vec3.transformMat4(this.world_near, this.cam_near, viewmatrix_inverse);
-		
 		// far plane point
 		vec3.transformMat4(this.cam_far, [this.clip[0], this.clip[1], +1], projmatrix_inverse);	
 		vec3.transformMat4(mouse.world_far, mouse.cam_far, viewmatrix_inverse);
-
 		// mouse ray:
-		// vec3.transformMat4(this.cam_dir, [this.clip[0], this.clip[1], -1], projmatrix_inverse);
 		vec3.sub(this.cam_dir, this.cam_far, this.cam_near);	
 		vec3.normalize(this.cam_dir, this.cam_dir);
-		// vec3.transformMat4(this.world_dir, this.cam_dir, viewmatrix_inverse);
 		vec3.sub(this.world_dir, this.world_far, this.world_near);
 		vec3.normalize(this.world_dir, this.world_dir);
 	},
-
 }
 
 
@@ -75,15 +70,6 @@ function makeWindow() {
 		glfw.terminate();
 		process.exit(-1);
 	}
-
-	// glfw.setWindowPosCallback(window, function(w, x, y) {
-	// 	console.log("window moved", w, x, y)
-	// 	return 1;
-	// })
-
-	// glfw.setMouseButtonCallback(window, function(...args) {
-	// 	console.log("mouse button", args);
-	// })
 
 	glfw.makeContextCurrent(window);
 	console.log(gl.glewInit());
@@ -202,7 +188,7 @@ function makeRender() {
 		{ name:"i_pos", components:3 },
 		{ name:"i_highlight", components:1 },
 		{ name:"i_scale", components:3 },
-	], 500)
+	], 4000)
 
 	// the .instances provides a convenient interface to the underlying arraybuffer
 	cubes.instances.forEach(obj => {
