@@ -100,7 +100,7 @@ let wasdNav = {
 		let deadzone = 0.2;
 		let power = 2;
 		az = Math.sign(az) * Math.pow(Math.max(0, (Math.abs(az)-deadzone)/(1.-deadzone)), power);
-		el = Math.sign(el) * Math.pow(Math.max(0, (Math.abs(el)-deadzone)/(1.-deadzone)), power);
+		el = Math.sign(el) * Math.pow(Math.max(0, Math.abs(el)), power);
 		el = Math.max(Math.min(el, 1.), -1.);
 		
 		this.azimuth += dt * az * -180;
