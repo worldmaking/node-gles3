@@ -18,6 +18,25 @@ napi_value Terminate(napi_env env, napi_callback_info info) {
 	return NULL;
 }
 
+napi_value GetMonitorWorkarea(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[5];
+	size_t argc = checkArgCount(env, info, args, 5, 5);
+	GLFWmonitor* monitor = nullptr;
+	napi_valuetype monitor_type;
+	status = napi_typeof(env, args[0], &monitor_type);
+	if (status != napi_ok || monitor_type != napi_external) return nullptr;
+	status = napi_get_value_external(env, args[0], (void **)&monitor);
+	if (status != napi_ok) return nullptr;
+	int* xpos;
+	int* ypos;
+	int* width;
+	int* height;
+	// void glfwGetMonitorWorkarea(GLFWmonitor* monitor, int* xpos, int* ypos, int* width, int* height)
+	glfwGetMonitorWorkarea(monitor, xpos, ypos, width, height);
+	return NULL;
+}
+
 napi_value SetGamma(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
 	napi_value args[2];
@@ -411,6 +430,15 @@ napi_value SetInputMode(napi_env env, napi_callback_info info) {
 	return NULL;
 }
 
+napi_value RawMouseMotionSupported(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	// int glfwRawMouseMotionSupported(void)
+	int result = glfwRawMouseMotionSupported();
+	napi_value result_value = nullptr;
+	status = napi_create_int32(env, (int32_t)result, &result_value);
+	return (status == napi_ok) ? result_value : nullptr;
+}
+
 napi_value GetKey(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
 	napi_value args[2];
@@ -491,9 +519,9 @@ napi_value SetDropCallback(napi_env env, napi_callback_info info) {
 	if (status != napi_ok || window_type != napi_external) return nullptr;
 	status = napi_get_value_external(env, args[0], (void **)&window);
 	if (status != napi_ok) return nullptr;
-	GLFWdropfun cbfun;
-	// GLFWdropfun glfwSetDropCallback(GLFWwindow* window, GLFWdropfun cbfun)
-	GLFWdropfun result = glfwSetDropCallback(window, cbfun);
+	GLFWdropfun callback;
+	// GLFWdropfun glfwSetDropCallback(GLFWwindow* window, GLFWdropfun callback)
+	GLFWdropfun result = glfwSetDropCallback(window, callback);
 }
 
 napi_value JoystickPresent(napi_env env, napi_callback_info info) {
@@ -647,6 +675,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "getProcAddress", 0, GetProcAddress, 0, 0, 0, napi_default, 0 },
 		{ "init", 0, Init, 0, 0, 0, napi_default, 0 },
 		{ "terminate", 0, Terminate, 0, 0, 0, napi_default, 0 },
+		{ "getMonitorWorkarea", 0, GetMonitorWorkarea, 0, 0, 0, napi_default, 0 },
 		{ "setGamma", 0, SetGamma, 0, 0, 0, napi_default, 0 },
 		{ "setGammaRamp", 0, SetGammaRamp, 0, 0, 0, napi_default, 0 },
 		{ "defaultWindowHints", 0, DefaultWindowHints, 0, 0, 0, napi_default, 0 },
@@ -674,6 +703,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "postEmptyEvent", 0, PostEmptyEvent, 0, 0, 0, napi_default, 0 },
 		{ "getInputMode", 0, GetInputMode, 0, 0, 0, napi_default, 0 },
 		{ "setInputMode", 0, SetInputMode, 0, 0, 0, napi_default, 0 },
+		{ "rawMouseMotionSupported", 0, RawMouseMotionSupported, 0, 0, 0, napi_default, 0 },
 		{ "getKey", 0, GetKey, 0, 0, 0, napi_default, 0 },
 		{ "getMouseButton", 0, GetMouseButton, 0, 0, 0, napi_default, 0 },
 		{ "getCursorPos", 0, GetCursorPos, 0, 0, 0, napi_default, 0 },
@@ -688,7 +718,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "swapInterval", 0, SwapInterval, 0, 0, 0, napi_default, 0 },
 		{ "extensionSupported", 0, ExtensionSupported, 0, 0, 0, napi_default, 0 }
 	};
-	status = napi_define_properties(env, exports, 87, properties);
+	status = napi_define_properties(env, exports, 89, properties);
 	//assert(status == napi_ok);
 	return exports;
 }
