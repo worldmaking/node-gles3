@@ -4,10 +4,6 @@ const gl = require('./gles3.js')
 const glfw = require('./glfw3.js')
 const glutils = require('./glutils.js');
 
-let a = []
-let b = new Float32Array(3);
-console.log(a, b, Array.isArray(a), Array.isArray(b), ArrayBuffer.isView(b), b instanceof Float32Array)
-
 let viewmatrix = mat4.create();
 let projmatrix = mat4.create();
 let viewmatrix_inverse = mat4.create();
@@ -17,9 +13,14 @@ let updating = true;
 let t = 0
 let fps = 60;
 
+// TODO: mouselook.
+
 let mouse = {
 	// mouse position in homongenous clip coordinates:
 	clip: [0, 0],
+	// for mouse delta:
+	prevclip: [0, 0],
+	vel: [0, 0],
 	// mouse position in camera space:
 	cam_near: vec3.fromValues(0, 0, 0),
 	cam_far: vec3.fromValues(0, 0, -1),
@@ -29,6 +30,11 @@ let mouse = {
 	// mouse ray direction vectors:
 	cam_dir: vec3.create(),
 	world_dir: vec3.create(),
+
+	handleMouse(ndx, ndy) {
+		this.clip[0] = ndx;
+		this.clip[1] = ndy;	
+	},
 
 	updateVectors(projmatrix_inverse, viewmatrix_inverse) {
 		// near plane point
@@ -42,8 +48,88 @@ let mouse = {
 		vec3.normalize(this.cam_dir, this.cam_dir);
 		vec3.sub(this.world_dir, this.world_far, this.world_near);
 		vec3.normalize(this.world_dir, this.world_dir);
+		// for mouse delta:
+		vec2.sub(this.vel, this.clip, this.prevclip);
+		vec2.copy(this.prevclip, this.clip);
 	},
 }
+
+let wasdNav = {
+	eyeHeight: 1.25,
+	pos: vec3.fromValues(0, 0, 2),
+
+	orient: quat.create(),
+	azimuth: 0,
+	elevation: 0,
+	fwd: vec3.create(0, 0, -1),
+	strafe: vec3.create(1, 0, 0),
+	up: vec3.create(0, 1, 0),
+
+	fwdState: 0,
+	strafeState: 0,
+	speed: 1, // metres per second
+	keySpeed: 1,
+
+	// WASD 87 65 83 68
+	handleKeys(key, down, mod) {
+		switch (key) {
+			case 87: // W
+			case 265: // up
+			this.fwdState = down ? 1 : 0; break;
+			case 83: // S
+			case 264: // down
+			this.fwdState = down ? -1 : 0; break;
+			case 68: // D
+			case 262: // right
+			this.strafeState = down ? 1 : 0; break;
+			case 65: // A
+			case 263: // left
+			this.strafeState = down ? -1 : 0; break;
+		}
+		// handle mod, e.g. shift for 'run' and ctrl for 'creep'
+		let shift = !!(mod % 2);
+		let ctrl = !!(mod % 4);
+		this.keySpeed = shift ? 4 : ctrl ? 1/4 : 1;
+	},
+
+	move(mouse, dt=1/60) {
+		// update quat from mouse:
+		let qvel = quat.fromEuler(quat.create(), Math.PI * mouse.clip[1], -Math.PI * mouse.vel[0], 0);
+		quat.multiply(this.orient, this.orient, qvel);
+
+		let [az, el] = mouse.clip;
+		// deadzone percentage, so that general space of screen centre is at rest
+		let deadzone = 0.2;
+		let power = 2;
+		az = Math.sign(az) * Math.pow(Math.max(0, (Math.abs(az)-deadzone)/(1.-deadzone)), power);
+		el = Math.sign(el) * Math.pow(Math.max(0, (Math.abs(el)-deadzone)/(1.-deadzone)), power);
+		el = Math.max(Math.min(el, 1.), -1.);
+		
+		this.azimuth += dt * az * -180;
+		this.elevation = el * 90;
+		quat.fromEuler(this.orient, this.elevation, this.azimuth, 0);
+
+		// get unit nav vectors:
+		vec3.transformQuat(this.fwd, [0, 0, -1], this.orient);
+		vec3.transformQuat(this.strafe, [1, 0, 0], this.orient);
+		vec3.transformQuat(this.up, [0, 1, 0], this.orient);
+		// compute velocity:
+		let fwd = vec3.scale(vec3.create(), this.fwd, this.speed * this.keySpeed * dt * this.fwdState);
+		let strafe = vec3.scale(vec3.create(), this.strafe, this.speed * this.keySpeed * dt * this.strafeState);
+		// integrate:
+		vec3.add(this.pos, this.pos, fwd);
+		vec3.add(this.pos, this.pos, strafe);
+		// fix eye height
+		this.pos[1] = this.eyeHeight;
+	},
+	
+	updateViewMatrix(viewmatrix) {
+		let at = vec3.add(vec3.create(), this.pos, this.fwd);
+		return mat4.lookAt(viewmatrix, this.pos, at, this.up);
+	},
+
+	
+};
 
 
 function initGL() {
@@ -88,12 +174,18 @@ function makeWindow() {
 			glfw.getWindowContentScale(window), 
 			glfw.getFramebufferSize(window)
 		);
-		mouse.clip[0] =  2*px*pix_dim[0] - 1;
-		mouse.clip[1] = -2*py*pix_dim[1] + 1;
-	})
 
+		mouse.handleMouse(2*px*pix_dim[0] - 1, -2*py*pix_dim[1] + 1);
+	})
+	// key is the (ascii) keycode, scan is the scancode
+	// down=1 for keydown, down=0 for keyup, down=2 for key repeat
+	// mod is a bitfield in which shift=1, ctrl=2, alt/option=4, mac/win=8
 	glfw.setKeyCallback(window, (win, key, scan, down, mod) => {
-		if (down && key == 32) updating = !updating;
+		if (down==1 && key == 32) updating = !updating;
+
+		wasdNav.handleKeys(key, down, mod);
+		
+		//console.log(key, down, mod);
 	})
 
 	return window;
@@ -188,7 +280,7 @@ function makeRender() {
 		{ name:"i_pos", components:3 },
 		{ name:"i_highlight", components:1 },
 		{ name:"i_scale", components:3 },
-	], 4000)
+	], 400)
 
 	// the .instances provides a convenient interface to the underlying arraybuffer
 	cubes.instances.forEach(obj => {
@@ -284,21 +376,21 @@ function animate() {
 	fps += 0.1*((1/dt)-fps);
 	t = t1;
 	glfw.setWindowTitle(window, `fps ${fps}`);
+
 	// Get window size (may be different than the requested size)
 	let dim = glfw.getFramebufferSize(window);
+	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 30);
+	mat4.invert(projmatrix_inverse, projmatrix);
+	// key navigation:
+	wasdNav.move(mouse, dt);
+	wasdNav.updateViewMatrix(viewmatrix);mat4.invert(viewmatrix_inverse, viewmatrix);
+	// update mouse coordinates:
+	mouse.updateVectors(projmatrix_inverse, viewmatrix_inverse);
 
 	// Compute the matrices
 	if (updating) {
-		let a = t;
-		let d = 2 * (Math.cos(t)+2);
-		let h = 1.5;
-		mat4.lookAt(viewmatrix, [d*Math.cos(a), h, d*Math.sin(t)], [0, h, 0], [0, 1, 0]);
-		mat4.invert(viewmatrix_inverse, viewmatrix);
-		mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 30);
-		mat4.invert(projmatrix_inverse, projmatrix);
+		// any pause-able animation here:
 	}
-	// update mouse coordinates:
-	mouse.updateVectors(projmatrix_inverse, viewmatrix_inverse);
 	
 	// hit test on each cube:
 	let hits = []
