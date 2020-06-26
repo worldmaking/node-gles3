@@ -195,13 +195,8 @@ function makeWindow() {
 	glfw.swapInterval(1); // 0 for vsync off
 
 	glfw.setCursorPosCallback(window, (window, px, py) => {
-		// convert to clip:
-		const pix_dim = vec2.div([1, 1], 
-			glfw.getWindowContentScale(window), 
-			glfw.getFramebufferSize(window)
-		);
-
-		mouse.handleMouse(2*px*pix_dim[0] - 1, -2*py*pix_dim[1] + 1);
+		let dim = glfw.getWindowSize(window)
+		mouse.handleMouse(2*px/dim[0] - 1, -2*py/dim[1] + 1);
 	})
 	// key is the (ascii) keycode, scan is the scancode
 	// down=1 for keydown, down=0 for keyup, down=2 for key repeat
@@ -415,7 +410,7 @@ function animate() {
 	// Swap buffers
 	glfw.swapBuffers(window);
 	glfw.pollEvents();
-	
+
 }
 
 function shutdown() {
