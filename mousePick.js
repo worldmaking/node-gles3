@@ -12,12 +12,14 @@ let cubes;
 let updating = true;
 let t = 0
 let fps = 60;
+let fovy = Math.PI/3
+const MAX_TELEPORT_DISTANCE = 10;
 
-let mouse = {
-	// mouse position in homongenous clip coordinates:
-	clip: [0, 0],
+let uiNav = {
+	// mouse position in homongenous mouse_ndc coordinates:
+	mouse_ndc: [0, 0],
 	// for mouse delta:
-	prevclip: [0, 0],
+	prevmouse_ndc: [0, 0],
 	vel: [0, 0],
 	// mouse position in camera space:
 	cam_near: vec3.fromValues(0, 0, 0),
@@ -28,45 +30,62 @@ let mouse = {
 	// mouse ray direction vectors:
 	cam_dir: vec3.create(),
 	world_dir: vec3.create(),
+	// navigator properties:
+	eyeHeight: 1.25,
+	pos: vec3.fromValues(0, 0, 2),
+	orient: quat.create(),
+	// mouselook orientation as Euler angles:
+	azimuth: 0,
+	elevation: 0,
+	// unit vectors of orientation:
+	fwd: vec3.create(0, 0, -1),
+	strafe: vec3.create(1, 0, 0),
+	up: vec3.create(0, 1, 0),
 
-	handleMouse(ndx, ndy) {
-		this.clip[0] = ndx;
-		this.clip[1] = ndy;	
+	// movement:
+	fwdState: 0,
+	strafeState: 0,
+	speed: 1, // metres per second
+	keySpeed: 1,
+
+	handleMousePos(ndx, ndy) {
+		this.mouse_ndc[0] = ndx;
+		this.mouse_ndc[1] = ndy;	
+	},
+
+	handleMouseButton(button, action, mods) {
+		// demo a teleport:
+		if (action) {
+			// find where mouse ray intersects floor (where y=0)
+			// using p = o+dt, find t where p.y=0; t = (p-o)/d
+			let t = (0-this.world_near[1])/this.world_dir[1];
+			if (t > 0 && t < MAX_TELEPORT_DISTANCE) {
+				// get location at t:
+				let newpos = vec3.scale(vec3.create(), this.world_dir, t);
+				vec3.add(newpos, newpos, this.world_near);
+				// just to be sure -- should be 0 already, but small chance of numerical error:
+				newpos[1] = 0;
+				vec3.copy(this.pos, newpos);
+			}
+		}
 	},
 
 	updateVectors(projmatrix_inverse, viewmatrix_inverse) {
 		// near plane point
-		vec3.transformMat4(this.cam_near, [this.clip[0], this.clip[1], -1], projmatrix_inverse);	
+		vec3.transformMat4(this.cam_near, [this.mouse_ndc[0], this.mouse_ndc[1], -1], projmatrix_inverse);	
 		vec3.transformMat4(this.world_near, this.cam_near, viewmatrix_inverse);
 		// far plane point
-		vec3.transformMat4(this.cam_far, [this.clip[0], this.clip[1], +1], projmatrix_inverse);	
-		vec3.transformMat4(mouse.world_far, mouse.cam_far, viewmatrix_inverse);
+		vec3.transformMat4(this.cam_far, [this.mouse_ndc[0], this.mouse_ndc[1], +1], projmatrix_inverse);	
+		vec3.transformMat4(this.world_far, this.cam_far, viewmatrix_inverse);
 		// mouse ray:
 		vec3.sub(this.cam_dir, this.cam_far, this.cam_near);	
 		vec3.normalize(this.cam_dir, this.cam_dir);
 		vec3.sub(this.world_dir, this.world_far, this.world_near);
 		vec3.normalize(this.world_dir, this.world_dir);
 		// for mouse delta:
-		vec2.sub(this.vel, this.clip, this.prevclip);
-		vec2.copy(this.prevclip, this.clip);
+		vec2.sub(this.vel, this.mouse_ndc, this.prevmouse_ndc);
+		vec2.copy(this.prevmouse_ndc, this.mouse_ndc);
 	},
-}
-
-let wasdNav = {
-	eyeHeight: 1.25,
-	pos: vec3.fromValues(0, 0, 2),
-
-	orient: quat.create(),
-	azimuth: 0,
-	elevation: 0,
-	fwd: vec3.create(0, 0, -1),
-	strafe: vec3.create(1, 0, 0),
-	up: vec3.create(0, 1, 0),
-
-	fwdState: 0,
-	strafeState: 0,
-	speed: 1, // metres per second
-	keySpeed: 1,
 
 	// WASD 87 65 83 68
 	handleKeys(key, down, mod) {
@@ -90,20 +109,20 @@ let wasdNav = {
 		this.keySpeed = shift ? 4 : ctrl ? 1/4 : 1;
 	},
 
-	move(mouse, dt=1/60) {
+	move(dt=1/60) {
 		// update quat from mouse:
-		let qvel = quat.fromEuler(quat.create(), Math.PI * mouse.clip[1], -Math.PI * mouse.vel[0], 0);
+		let qvel = quat.fromEuler(quat.create(), Math.PI * this.mouse_ndc[1], -Math.PI * this.vel[0], 0);
 		quat.multiply(this.orient, this.orient, qvel);
 
-		let [az, el] = mouse.clip;
-		// deadzone percentage, so that general space of screen centre is at rest
-		let deadzone = 0.2;
+		let [az, el] = this.mouse_ndc;
+		// deadzone percentage, so that part of screen centre is at rest
+		let deadzone = 0.5;
 		let power = 2;
 		az = Math.sign(az) * Math.pow(Math.max(0, (Math.abs(az)-deadzone)/(1.-deadzone)), power);
 		el = Math.sign(el) * Math.pow(Math.max(0, Math.abs(el)), power);
 		el = Math.max(Math.min(el, 1.), -1.);
 		
-		this.azimuth += dt * az * -180;
+		this.azimuth += dt * az * -360;
 		this.elevation = el * 90;
 		quat.fromEuler(this.orient, this.elevation, this.azimuth, 0);
 
@@ -196,17 +215,28 @@ function makeWindow() {
 
 	glfw.setCursorPosCallback(window, (window, px, py) => {
 		let dim = glfw.getWindowSize(window)
-		mouse.handleMouse(2*px/dim[0] - 1, -2*py/dim[1] + 1);
+		uiNav.handleMousePos(2*px/dim[0] - 1, -2*py/dim[1] + 1);
 	})
+	glfw.setMouseButtonCallback(window, (window, button, action, mods) => {
+		// button 0: left, 1: right, 2: middle
+		// action 0: up, 1: down
+		// mods is a bitmask for shift, ctrl, alt, win/mac etc.
+		uiNav.handleMouseButton(button, action, mods)
+	});
 	// key is the (ascii) keycode, scan is the scancode
 	// down=1 for keydown, down=0 for keyup, down=2 for key repeat
 	// mod is a bitfield in which shift=1, ctrl=2, alt/option=4, mac/win=8
 	glfw.setKeyCallback(window, (win, key, scan, down, mod) => {
 		if (down==1 && key == 32) updating = !updating;
 
-		wasdNav.handleKeys(key, down, mod);
+		uiNav.handleKeys(key, down, mod);
 		
 		//console.log(key, down, mod);
+	})
+
+	glfw.setScrollCallback(window, (window, dx, dy) => {
+		
+		fovy = Math.min(Math.PI*0.7, Math.max(Math.PI*0.07, fovy*(1+0.1*dy)));
 	})
 
 	return window;
@@ -369,13 +399,13 @@ function animate() {
 
 	// Get window size (may be different than the requested size)
 	let dim = glfw.getFramebufferSize(window);
-	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 30);
+	mat4.perspective(projmatrix, fovy, dim[0]/dim[1], 0.01, 30);
 	mat4.invert(projmatrix_inverse, projmatrix);
 	// key navigation:
-	wasdNav.move(mouse, dt);
-	wasdNav.updateViewMatrix(viewmatrix);mat4.invert(viewmatrix_inverse, viewmatrix);
+	uiNav.move(dt);
+	uiNav.updateViewMatrix(viewmatrix);mat4.invert(viewmatrix_inverse, viewmatrix);
 	// update mouse coordinates:
-	mouse.updateVectors(projmatrix_inverse, viewmatrix_inverse);
+	uiNav.updateVectors(projmatrix_inverse, viewmatrix_inverse);
 
 	// Compute the matrices
 	if (updating) {
@@ -387,7 +417,7 @@ function animate() {
 	// naive hit-test by looping over all and testing in turn
 	cubes.instances.forEach((obj, i) => {
 		// check for hits:
-		let [hit, distance] = intersectCube(obj.i_pos, obj.i_quat, obj.obb.p0, obj.obb.p1, mouse.world_near, mouse.world_dir);
+		let [hit, distance] = intersectCube(obj.i_pos, obj.i_quat, obj.obb.p0, obj.obb.p1, uiNav.world_near, uiNav.world_dir);
 		if (hit) hits.push([obj, distance]);
 		obj.i_highlight[0] = 0;
 	})
