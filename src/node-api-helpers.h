@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h> // calloc
 #include <string>
+#include <assert.h>
 
 size_t checkArgCount(napi_env env, napi_callback_info info, napi_value * args, size_t max, size_t min=0) {
 	size_t argc = max;
@@ -225,5 +226,58 @@ bool getBool(napi_env env, napi_value &arg) {
 	if (status != napi_ok) napi_throw_type_error(env, nullptr, "Expected boolean");
 	return v;
 }
+
+napi_value getOrCreateObjectAsNamedProperty(napi_env env, napi_value parent, const char * name) {
+	napi_value result = nullptr;
+	napi_valuetype type;
+	assert(napi_ok == napi_get_named_property(env, parent, name, &result));
+	assert(napi_ok == napi_typeof(env, result, &type));
+	if (type != napi_object) {
+		// create object:
+		assert(napi_ok == napi_create_object(env, &result));
+		assert(napi_ok == napi_set_named_property(env, parent, name, result));
+	}
+	return result;
+}
+
+napi_value getOrCreateArrayAsNamedProperty(napi_env env, napi_value parent, const char * name) {
+	napi_value result = nullptr;
+	bool isArray = false;
+	assert(napi_ok == napi_get_named_property(env, parent, name, &result));
+	assert(napi_ok == napi_is_array(env, result, &isArray));
+	if (!isArray) {
+		// create object:
+		assert(napi_ok == napi_create_array(env, &result));
+		assert(napi_ok == napi_set_named_property(env, parent, name, result));
+	}
+	return result;
+}
+
+napi_value getOrCreateObjectAsElement(napi_env env, napi_value parent, uint32_t index) {
+	napi_value result = nullptr;
+	napi_valuetype type;
+	assert(napi_ok == napi_get_element(env, parent, index, &result));
+	assert(napi_ok == napi_typeof(env, result, &type));
+	if (type != napi_object) {
+		// create object:
+		assert(napi_ok == napi_create_object(env, &result));
+		assert(napi_ok == napi_set_element(env, parent, index, result));
+	}
+	return result;
+}
+
+napi_value getOrCreateArrayAsElement(napi_env env, napi_value parent, uint32_t index) {
+	napi_value result = nullptr;
+	bool isArray = false;
+	assert(napi_ok == napi_get_element(env, parent, index, &result));
+	assert(napi_ok == napi_is_array(env, result, &isArray));
+	if (!isArray) {
+		// create object:
+		assert(napi_ok == napi_create_array(env, &result));
+		assert(napi_ok == napi_set_element(env, parent, index, result));
+	}
+	return result;
+}
+
 
 #endif //AL_NODE_API_HELPERS
