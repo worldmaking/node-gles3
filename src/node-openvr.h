@@ -157,14 +157,10 @@ napi_value update(napi_env env, napi_callback_info info) {
 	//napi_value args[1];
 	//size_t argc = checkArgCount(env, info, args, 1, 0);
 
-	if (session && session->hmd.connected) {
-		session->hmd.update();
-
-		// populate the session inputSources:
-		napi_value inputSources;
-		napi_get_reference_value(env, session->inputSourcesRef, &inputSources);
-
 		/*
+		https://developer.mozilla.org/en-US/docs/Web/API/XRSession/inputSources
+		An XRInputSourceArray object listing all of the currently-connected input controllers which are linked specifically to the XR device currently in use. The returned object is live; as devices are connected to and removed from the user's system, the list's contents update to reflect the changes.
+
 		https://developer.mozilla.org/en-US/docs/Web/API/XRInputSource
 
 		.gamepad for buttons & axes
@@ -175,6 +171,74 @@ napi_value update(napi_env env, napi_callback_info info) {
 		.profiles array of strings for preferred visualization
 
 		*/
+	if (session && session->hmd.connected) {
+		session->hmd.update();
+
+		// populate the session inputSources:
+		napi_value inputSources;
+		napi_get_reference_value(env, session->inputSourcesRef, &inputSources);
+
+		// check each device: 
+		int idx=0;
+		for (int i = 0; i < vr::k_unMaxTrackedDeviceCount; i++) {
+			vr::ETrackedDeviceClass deviceClass = session->hmd.mHMD->GetTrackedDeviceClass(i);
+			const vr::TrackedDevicePose_t& trackedDevicePose = session->hmd.pRenderPoseArray[i];
+			if (trackedDevicePose.bDeviceIsConnected) {
+
+				napi_value targetRayMode = nullptr;
+				napi_value handedness = nullptr;
+						
+				switch (deviceClass) {
+					case vr::TrackedDeviceClass_HMD: {
+						assert(napi_ok == napi_create_string_utf8(env, "gaze", NAPI_AUTO_LENGTH, &targetRayMode));
+						assert(napi_ok == napi_create_string_utf8(env, "none", NAPI_AUTO_LENGTH, &handedness));
+					} break;
+						
+					case vr::TrackedDeviceClass_Controller: {
+						vr::ETrackedControllerRole role = session->hmd.mHMD->GetControllerRoleForTrackedDeviceIndex(i);
+						assert(napi_ok == napi_create_string_utf8(env, "tracked-pointer", NAPI_AUTO_LENGTH, &targetRayMode));
+						assert(napi_ok == napi_create_string_utf8(env, (role == vr::TrackedControllerRole_RightHand) ? "right" : "left", NAPI_AUTO_LENGTH, &handedness));
+					} break;
+					// TODO: TrackedDeviceClass_GenericTracker, TrackedDeviceClass_TrackingReference, TrackedDeviceClass_DisplayRedirect
+					default: {
+						// skip this type
+						continue;
+					} break;
+				}
+
+				// get/create 
+				napi_value input;
+				assert(napi_ok == napi_get_element(env, inputSources, idx, &input));
+				{
+					napi_valuetype type;
+					assert(napi_ok == napi_typeof(env, input, &type));
+					if (type != napi_object) {
+						// create object:
+						assert(napi_ok == napi_create_object(env, &input));
+						assert(napi_ok == napi_set_element(env, inputSources, idx, input));
+					}
+				}
+				
+				assert(napi_ok == napi_set_named_property(env, input, "targetRayMode", targetRayMode));
+				assert(napi_ok == napi_set_named_property(env, input, "handedness", handedness));
+
+				if (trackedDevicePose.bPoseIsValid) {
+					// this is the view matrix relative to the 'chaperone' space origin
+					// (the center of the floor space in the real world)
+					napi_value ab, ta;
+					assert(napi_ok == napi_create_external_arraybuffer(env, (void *)&session->hmd.mDevicePose[i], sizeof(glm::mat4), nullptr, nullptr, &ab));
+					assert(napi_ok == napi_create_typedarray(env, napi_float32_array, 16, ab, 0, &ta));
+					assert(napi_ok == napi_set_named_property(env, input, "targetRaySpace", ta));
+				}
+
+				idx++;
+			}
+			// set length of array:
+			napi_value len;
+			assert(napi_ok == napi_create_int32(env, idx, &len));
+			assert(napi_ok == napi_set_named_property(env, inputSources, "length", len));
+		}
+
 	}
 
 	return nullptr;

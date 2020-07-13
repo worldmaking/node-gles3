@@ -71,6 +71,7 @@ let cubeprogram = glutils.makeProgram(gl,
 uniform mat4 u_modelmatrix;
 uniform mat4 u_viewmatrix;
 uniform mat4 u_projmatrix;
+uniform float u_scale;
 in vec3 a_position;
 in vec3 a_normal;
 in vec2 a_texCoord;
@@ -78,7 +79,7 @@ out vec4 v_color;
 
 void main() {
 	// Multiply the position by the matrix.
-	vec3 vertex = a_position.xyz;
+	vec3 vertex = a_position.xyz * u_scale;
 	gl_Position = u_projmatrix * u_viewmatrix * u_modelmatrix * vec4(vertex, 1);
 
 	v_color = vec4(a_normal*0.25+0.25, 1.);
@@ -214,7 +215,17 @@ function animate() {
 	//if(wsize) console.log("FB size: "+wsize.width+', '+wsize.height);
 	vr.update();
 
-	console.log(vr.inputSources())
+	let inputs = vr.inputSources()
+	let hmd, left_hand, right_hand;
+	for (let input of inputs) {
+		if (input.targetRayMode == "gaze") {
+			hmd = input;
+		} else if (input.handedness == "left") {
+			left_hand = input;
+		} else if (input.handedness == "right") {
+			right_hand = input;
+		}
+	}
 	
 	
 	// render to our targetTexture by binding the framebuffer
@@ -245,10 +256,31 @@ function animate() {
 
 			cubeprogram.begin();
 			cubeprogram.uniform("u_modelmatrix", modelmatrix);
+			cubeprogram.uniform("u_scale", 1);
 			cubeprogram.uniform("u_viewmatrix", viewmatrix);
 			cubeprogram.uniform("u_projmatrix", projmatrix);
 			cube.bind().draw().unbind();
 			cubeprogram.end();
+
+			if (left_hand && left_hand.targetRaySpace) {
+				cubeprogram.begin();
+				cubeprogram.uniform("u_modelmatrix", left_hand.targetRaySpace);
+				cubeprogram.uniform("u_scale", 0.1);
+				cubeprogram.uniform("u_viewmatrix", viewmatrix);
+				cubeprogram.uniform("u_projmatrix", projmatrix);
+				cube.bind().draw().unbind();
+				cubeprogram.end();
+			}
+
+			if (right_hand && right_hand.targetRaySpace) {
+				cubeprogram.begin();
+				cubeprogram.uniform("u_modelmatrix", right_hand.targetRaySpace);
+				cubeprogram.uniform("u_scale", 0.1);
+				cubeprogram.uniform("u_viewmatrix", viewmatrix);
+				cubeprogram.uniform("u_projmatrix", projmatrix);
+				cube.bind().draw().unbind();
+				cubeprogram.end();
+			}
 
 			gl.enable(gl.BLEND);
 			gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
