@@ -263,11 +263,13 @@ function animate() {
 			cubeprogram.end();
 
 			if (left_hand && left_hand.targetRaySpace) {
-				//console.log(left_hand.gamepad)
-				// trigger, grip, touchpad, menu
-				// gamepad.buttons: [ { pressed:Boolean, value:Float }, ...]
-				// trigger, grip, touchpad, menu
-				// gamepad.buttons: [ touchpadX, touchpadY ]
+				let {buttons, axes} = left_hand.gamepad;
+				let trigger = buttons[0].value, pressed = buttons[0].pressed
+				let grip = buttons[1].pressed
+				let pad = buttons[2].pressed
+				let menu = buttons[3].pressed
+				let [x, y] = axes; // touchpad axes
+
 				cubeprogram.begin();
 				cubeprogram.uniform("u_modelmatrix", left_hand.targetRaySpace);
 				cubeprogram.uniform("u_scale", 0.1);
@@ -278,11 +280,13 @@ function animate() {
 			}
 
 			if (right_hand && right_hand.targetRaySpace) {
-				//console.log(right_hand.gamepad)
-				// trigger, grip, touchpad, menu
-				// gamepad.buttons: [ { pressed:Boolean, value:Float }, ...]
-				// trigger, grip, touchpad, menu
-				// gamepad.buttons: [ touchpadX, touchpadY ]
+				let {buttons, axes} = right_hand.gamepad;
+				let trigger = buttons[0].value, pressed = buttons[0].pressed
+				let grip = buttons[1].pressed
+				let pad = buttons[2].pressed
+				let menu = buttons[3].pressed
+				let [x, y] = axes; // touchpad axes
+
 				cubeprogram.begin();
 				cubeprogram.uniform("u_modelmatrix", right_hand.targetRaySpace);
 				cubeprogram.uniform("u_scale", 0.1);

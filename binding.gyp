@@ -52,7 +52,7 @@
             ],
             'msvs_settings' : {
               'VCCLCompilerTool' : {
-                'AdditionalOptions' : ['/O2','/Oy','/GL','/GF','/Gm-','/EHsc','/MT','/GS','/Gy','/GR-','/Gd']
+                'AdditionalOptions' : []
               },
               'VCLinkerTool' : {
                 'AdditionalOptions' : ['/OPT:REF','/OPT:ICF','/LTCG']
@@ -60,7 +60,7 @@
             },
             'copies': [
               {
-                'destination': './build/Release/',
+                'destination': './build/<(CONFIGURATION_NAME)/',
                 'files': [
                   './node_modules/native-graphics-deps/lib/windows/glew/glew32.dll'
                  ]
@@ -118,7 +118,7 @@
             ],
             'msvs_settings' : {
               'VCCLCompilerTool' : {
-                'AdditionalOptions' : ['/O2','/Oy','/GL','/GF','/Gm-','/EHsc','/MT','/GS','/Gy','/GR-','/Gd']
+                'AdditionalOptions' : []
               },
               'VCLinkerTool' : {
                 'AdditionalOptions' : ['/OPT:REF','/OPT:ICF','/LTCG']
@@ -126,7 +126,7 @@
             },
             'copies': [
               {
-                'destination': './build/Release/',
+                'destination': './build/<(CONFIGURATION_NAME)/',
                 'files': [
                   './node_modules/native-graphics-deps/lib/windows/glfw/glfw3.dll'
                  ]
@@ -180,7 +180,7 @@
             ],
             'msvs_settings' : {
               'VCCLCompilerTool' : {
-                'AdditionalOptions' : ['/O2','/Oy','/GL','/GF','/Gm-','/EHsc','/MT','/GS','/Gy','/GR-','/Gd']
+                'AdditionalOptions' : []
               },
               'VCLinkerTool' : {
                 'AdditionalOptions' : ['/OPT:REF','/OPT:ICF','/LTCG']
@@ -188,7 +188,7 @@
             },
             'copies': [
               {
-                'destination': './build/Release/',
+                'destination': './build/<(CONFIGURATION_NAME)/',
                 'files': [
                   './node_modules/native-openvr-deps/bin/win64/openvr_api.dll'
                  ]
