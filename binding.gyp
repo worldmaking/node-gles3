@@ -158,7 +158,15 @@
               'OTHER_CFLAGS': [
                 "-Wno-unused-but-set-variable","-Wno-unused-parameter","-Wno-unused-variable","-Wno-int-to-void-pointer-cast"
               ],
-            }
+            },
+            'copies': [
+              {
+                'destination': './build/Release/',
+                'files': [
+                  './node_modules/native-openvr-deps/lib/osx32/libopenvr_api.dylib'
+                 ]
+              }
+            ],
           }
         ],
         ['OS=="linux"', {

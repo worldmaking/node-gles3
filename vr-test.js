@@ -183,6 +183,8 @@ gl.vertexAttribPointer(positionLocation, elementsPerVertex, gl.FLOAT, normalize,
 
 assert(vr.connect(true), "vr failed to connect");
 vr.update()
+let models = vr.getModelNames()
+console.log(models)
 let vrdim = [vr.getTextureWidth(), vr.getTextureHeight()]
 let fbo = glutils.makeFboWithDepth(gl, vrdim[0], vrdim[1])
 
