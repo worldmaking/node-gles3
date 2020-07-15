@@ -9,6 +9,7 @@ Would be nice to mirror webxr interface where possible
 
 #define XR_SESSIONSTATE_MAGIC 'XRsh'
 
+
 struct XRSession {
 	uint32_t magic = XR_SESSIONSTATE_MAGIC;
 	napi_env env;
@@ -299,3 +300,36 @@ napi_value submit(napi_env env, napi_callback_info info) {
 	status = napi_create_uint32(env, ok ? 1 : 0, &result_value);
 	return (status == napi_ok) ? result_value : nullptr;
 }
+
+napi_value getModelNames(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value result = nullptr;
+	napi_value args[1];
+	if (session && session->hmd.connected) {
+		// TODO: should this return an array like this, or an object with keys?
+		assert(napi_ok == napi_create_array_with_length(env, vr::k_unMaxTrackedDeviceCount, &result));
+		// check each device: 
+		int idx=0;
+		for (uint32_t i = 0; i < vr::k_unMaxTrackedDeviceCount; i++) {
+			vr::TrackedPropertyError peError;
+			uint32_t buflen = session->hmd.mHMD->GetStringTrackedDeviceProperty(i, vr::Prop_RenderModelName_String, nullptr, 0, &peError);
+			if (peError != vr::TrackedProp_Success) {
+				printf("%s\n", session->hmd.mHMD->GetPropErrorNameFromEnum(peError));
+				continue;
+			}
+			if (!buflen) continue;
+
+			char * buf = new char[buflen];
+			buflen = session->hmd.mHMD->GetStringTrackedDeviceProperty(i, vr::Prop_RenderModelName_String, buf, buflen, &peError);
+			if (peError != vr::TrackedProp_Success) {
+				printf("%s\n", session->hmd.mHMD->GetPropErrorNameFromEnum(peError));
+				continue;
+			}
+			napi_value str;
+			assert(napi_ok == napi_create_string_utf8(env, buf, buflen, &str));
+			assert(napi_ok == napi_set_element(env, result, i, str));
+			delete[] buf;
+		}
+	}
+	return result;
+}	
