@@ -223,16 +223,16 @@ napi_value update(napi_env env, napi_callback_info info) {
 				if (deviceClass == vr::TrackedDeviceClass_Controller) {
 					vr::VRControllerState_t cs;
 					session->hmd.mHMD->GetControllerState(i, &cs, sizeof(cs));
-					napi_value x, y, tr, gr_pressed, mn_pressed, tr_pressed, tp_pressed;
+					napi_value x, y, tr, gr_pressed, mn_pressed, tr_pressed, tp_pressed, tp_touched, tr_touched;
 					assert(napi_ok == napi_create_double(env, cs.rAxis[0].x, &x));
 					assert(napi_ok == napi_create_double(env, cs.rAxis[0].y, &y));
 					assert(napi_ok == napi_create_double(env, cs.rAxis[1].x, &tr));
 					assert(napi_ok == napi_get_boolean(env, (cs.ulButtonPressed & vr::ButtonMaskFromId(vr::k_EButton_Grip)) != 0, &gr_pressed));
 					assert(napi_ok == napi_get_boolean(env, (cs.ulButtonPressed & vr::ButtonMaskFromId(vr::k_EButton_ApplicationMenu)) != 0, &mn_pressed));
 					assert(napi_ok == napi_get_boolean(env, (cs.ulButtonPressed & vr::ButtonMaskFromId(vr::k_EButton_SteamVR_Trigger)) != 0, &tr_pressed));
-					//assert(napi_ok == napi_get_boolean(env, (cs.ulButtonTouched & vr::ButtonMaskFromId(vr::k_EButton_SteamVR_Trigger)) != 0, &tr_touched));
+					assert(napi_ok == napi_get_boolean(env, (cs.ulButtonTouched & vr::ButtonMaskFromId(vr::k_EButton_SteamVR_Trigger)) != 0, &tr_touched));
 					assert(napi_ok == napi_get_boolean(env, (cs.ulButtonPressed & vr::ButtonMaskFromId(vr::k_EButton_SteamVR_Touchpad)) != 0, &tp_pressed));
-					//assert(napi_ok == napi_get_boolean(env, (cs.ulButtonTouched & vr::ButtonMaskFromId(vr::k_EButton_SteamVR_Touchpad)) != 0, &tp_touched));
+					assert(napi_ok == napi_get_boolean(env, (cs.ulButtonTouched & vr::ButtonMaskFromId(vr::k_EButton_SteamVR_Touchpad)) != 0, &tp_touched));
 
 					// add .gamepad:
 					// see https://immersive-web.github.io/webxr-gamepads-module/#xr-standard-gamepad-mapping
@@ -249,6 +249,7 @@ napi_value update(napi_env env, napi_callback_info info) {
 					// trigger
 					napi_value trigger = getOrCreateObjectAsElement(env, buttons, 0);
 					assert(napi_ok == napi_set_named_property(env, trigger, "pressed", tr_pressed));
+					assert(napi_ok == napi_set_named_property(env, trigger, "touched", tr_touched));
 					assert(napi_ok == napi_set_named_property(env, trigger, "value", tr));
 					// grip
 					napi_value grip = getOrCreateObjectAsElement(env, buttons, 1);
@@ -256,9 +257,11 @@ napi_value update(napi_env env, napi_callback_info info) {
 					// touchpad
 					napi_value pad = getOrCreateObjectAsElement(env, buttons, 2);
 					assert(napi_ok == napi_set_named_property(env, pad, "pressed", tp_pressed));
+					assert(napi_ok == napi_set_named_property(env, pad, "touched", tp_touched));
 					// menu
 					napi_value menu = getOrCreateObjectAsElement(env, buttons, 3);
 					assert(napi_ok == napi_set_named_property(env, menu, "pressed", mn_pressed));
+
 
 					// each axis is number -1..1
 					/*
