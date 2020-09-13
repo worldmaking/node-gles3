@@ -4,8 +4,8 @@
   "description": "native node bindings to OpenGLES3",
   "main": "index.js",
   "scripts": {
-    "preinstall": "node tools/gen.js",
-    "install": "node-gyp rebuild",
+    "preinstall": "",
+    "install": "node tools/gen.js && node-gyp rebuild",
     "postinstall": "node azure-test.js"
   },
   "gypfile": true,

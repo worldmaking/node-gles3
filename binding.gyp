@@ -205,21 +205,24 @@
       "dependencies": [],
       "conditions": [
           ['OS=="win"', {
+            "variables": {
+              "K4A_SDK_PATH": "C:/Program Files/Azure Kinect SDK v1.4.1/sdk"
+            },
             "sources": [ "src/node-k4a.cpp" ],
             "include_dirs": [
-              "C:/Program Files/Azure Kinect SDK v1.4.0/sdk/include",
+              "<(K4A_SDK_PATH)/include",
               "src"
             ],
             "libraries": [
-              "C:/Program Files/Azure Kinect SDK v1.4.0/sdk/windows-desktop/amd64/release/lib/k4a.lib",
-              "C:/Program Files/Azure Kinect SDK v1.4.0/sdk/windows-desktop/amd64/release/lib/k4arecord.lib"
+              "<(K4A_SDK_PATH)//windows-desktop/amd64/release/lib/k4a.lib",
+              "<(K4A_SDK_PATH)//windows-desktop/amd64/release/lib/k4arecord.lib"
             ],
             "copies": [{
                 'destination': './build/Release',
                 'files': [
-                  "C:/Program Files/Azure Kinect SDK v1.4.0/sdk/windows-desktop/amd64/release/bin/k4a.dll",
-                  "C:/Program Files/Azure Kinect SDK v1.4.0/sdk/windows-desktop/amd64/release/bin/depthengine_2_0.dll",
-                  "C:/Program Files/Azure Kinect SDK v1.4.0/sdk/windows-desktop/amd64/release/bin/k4arecord.dll"
+                  "<(K4A_SDK_PATH)//windows-desktop/amd64/release/bin/k4a.dll",
+                  "<(K4A_SDK_PATH)//windows-desktop/amd64/release/bin/depthengine_2_0.dll",
+                  "<(K4A_SDK_PATH)//windows-desktop/amd64/release/bin/k4arecord.dll"
                 ]
             }],
           }],
