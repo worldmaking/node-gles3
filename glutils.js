@@ -210,6 +210,107 @@ function loadTexture(gl, url, flipY=false, premultiply=false) {
     return tex;
 }
 
+function createTexture(gl, opt) {
+    const isFloat = opt.float;//&& EXT_color_buffer_float;
+    const channels = opt.channels || 4; // RGBA
+    const width = opt.width || 16;
+    const height = opt.height || 1;
+    
+    let format = gl.RGBA;
+    if (channels == 1) {
+        format = gl.RED;
+    } else if (channels == 2) {
+        format = gl.LUMINANCE_ALPHA;
+    } else if (channels == 3) {
+        format = gl.RGB;
+    }
+
+    let internalFormat = format;
+    let type = gl.UNSIGNED_BYTE;
+    if (isFloat) {
+        type = gl.FLOAT;
+        if (channels == 1) {
+            internalFormat = gl.R32F;
+        } else if (channels == 2) {
+            internalFormat = gl.RG32F;
+        } else if (channels == 3) {
+            internalFormat = gl.RGB32F;
+        } else {	
+            internalFormat = gl.RGBA32F;
+        }
+    }
+
+    console.log("texture", isFloat, channels, width, height)
+    console.log(format, gl.RGBA);
+    console.log(internalFormat, gl.RGBA32F);
+
+    let tex = {
+        id: gl.createTexture(),
+        data: null,
+        isFloat: isFloat,
+        width: width,
+        height: height,
+        channels: channels,
+        format: format,
+        type: type,
+        filter_min: opt.filter_min || opt.filter || gl.NEAREST,
+        filter_mag: opt.filter_mag || opt.filter || gl.NEAREST,
+        internalFormat: internalFormat,  // type of data we are supplying,
+        
+        // allocate local data
+        allocate() {
+            if (!this.data) {
+                let elements = this.width * this.height * this.channels;
+                if (this.isFloat) {
+                    this.data = new Float32Array(elements);
+                } else {
+                    this.data = new Uint8Array(elements);
+                }
+            }
+            return this;
+        },
+        
+        // bind() first
+        submit() {
+            let mipLevel = 0;
+            let border = 0;                 // must be 0
+            gl.texImage2D(gl.TEXTURE_2D, mipLevel, this.internalFormat, this.width, this.height, border, this.format, this.type, this.data);
+            gl.generateMipmap(gl.TEXTURE_2D);
+            assert(!gl.getError(), 'gl error in texture submit');
+            return this;
+        },
+        
+        bind(unit = 0) {
+            gl.activeTexture(gl.TEXTURE0 + unit);
+            gl.bindTexture(gl.TEXTURE_2D, this.id);
+            return this;
+        },
+        unbind(unit = 0) {
+            gl.activeTexture(gl.TEXTURE0 + unit);
+            gl.bindTexture(gl.TEXTURE_2D, null);
+            return this;
+        },
+
+        // TODO read / readInto methods for accessing underlying data
+        read(pos) {
+            let x = Math.floor(pos[0]);
+            let y = Math.floor(pos[1]);
+            let idx = (y*this.width + x) * this.channels; // TODO: assumes single-channel
+            return this.data[idx];
+        }
+    };
+
+    tex.allocate().bind().submit();
+
+    // unless we get `OES_texture_float_linear` we can not filter floating point
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, tex.filter_min);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, tex.filter_mag);
+    
+    return tex.unbind();
+}
+
 function createPixelTexture(gl, width, height, floatingpoint=false) {
 
     floatingpoint =  floatingpoint && (!!gl.getExtension("EXT_color_buffer_float"));
@@ -1320,7 +1421,8 @@ module.exports = {
 	
 	makeBuffer: makeBuffer,
 
-	loadTexture: loadTexture,
+    loadTexture: loadTexture,
+    createTexture: createTexture,
 	createPixelTexture: createPixelTexture,
 	createCheckerTexture: createCheckerTexture,
 
