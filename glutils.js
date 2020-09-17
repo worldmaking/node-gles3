@@ -342,7 +342,7 @@ function createPixelTexture(gl, width, height, floatingpoint=false) {
     return tex.unbind();
 }
 
-function makeFboWithDepth(gl, width=1024, height=1024) {
+function makeFboWithDepth(gl, width=1024, height=1024, mipmap=false) {
 	const id = gl.createFramebuffer();
 	const colorTexture = gl.createTexture();
 	const depthTexture = gl.createTexture();
@@ -351,13 +351,16 @@ function makeFboWithDepth(gl, width=1024, height=1024) {
 		
 		// define size and format of level 0
 		const level = 0;
-		const border = 0;
+        const border = 0;
+        gl.enable(gl.TEXTURE_2D)
 		gl.bindTexture(gl.TEXTURE_2D, colorTexture);
 		gl.texImage2D(gl.TEXTURE_2D, level, gl.RGBA,
 			width, height, border,
-			gl.RGBA, gl.UNSIGNED_BYTE, null);
+            gl.RGBA, gl.UNSIGNED_BYTE, null);
+        if (mipmap) gl.generateMipmap(gl.TEXTURE_2D); 
 		// set the filtering so we don't need mips
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, (mipmap) ? gl.GL_LINEAR_MIPMAP_LINEAR : gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
 		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, colorTexture, level);
@@ -382,7 +385,20 @@ function makeFboWithDepth(gl, width=1024, height=1024) {
 		colorTexture: colorTexture,
 		depthTexture: depthTexture,
 		width: width,
-		height: height,
+        height: height,
+        
+        // be sure to set viewport & clear after begin()
+        begin() {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, id);
+        },
+
+        end() {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            if (mipmap){
+                gl.bindTexture(gl.TEXTURE_2D, colorTexture);
+		        gl.generateMipmap(gl.TEXTURE_2D);
+            }
+        },
 	}
 }
 
@@ -713,7 +729,7 @@ function createInstances(gl, fields, count=0) {
 	let bytestride = 0;
 	for (let field of fields) {
 		field.type = field.type || gl.FLOAT;
-		field.componnts = field.components || 1;
+		field.components = field.components || 1;
 		field.byteoffset = bytestride;
 		field.bytesize = field.components * byteSizeForGLType(gl, field.type);
 		bytestride += field.bytesize;
@@ -1206,6 +1222,35 @@ function geomFromOBJ(objcode) {
 	if (gindices.length) geom.indices = new Uint16Array(gindices)
 	return geom
 }
+
+// merge another geom into self:
+function geomAppend(self, other) {
+    assert(!!self.indices === !!other.indices, "can't merge geometries if only one of them uses indices")
+    assert(!!self.normals === !!other.normals, "can't merge geometries if only one of them uses normals")
+    assert(!!self.texCoords === !!other.texCoords, "can't merge geometries if only one of them uses texCoords")
+    // indicies are a special case:
+    if (self.indices && other.indices) {
+        const ni = self.indices.length
+        const offset = self.vertices.length/3;
+        const ar = new Uint16Array(ni + other.indices.length)
+        ar.set(self.indices)
+        for (let i=0; i<other.indices.length; i++) {
+            ar[ni + i] = other.indices[i] + offset
+        }
+        self.indices = ar;
+    }
+    for (let k of ["vertices", "normals", "texCoords"]) {
+        if (self[k] && other[k]) {
+            const ar = new Float32Array(self[k].length + other[k].length)
+            ar.set(self[k])
+            ar.set(other[k], self[k].length)
+            self[k] = ar;
+        }
+    }
+
+    
+    return self;
+}
     
     //	q must be a normalized quaternion
   function quat_rotate(out, q, v) {
@@ -1291,6 +1336,7 @@ module.exports = {
     makeQuad: makeQuad,
     makeLine: makeLine,
     geomFromOBJ: geomFromOBJ,
+    geomAppend: geomAppend,
 
 	quat_rotate: quat_rotate,
     quat_unrotate: quat_unrotate,
