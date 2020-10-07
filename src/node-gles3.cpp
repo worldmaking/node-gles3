@@ -769,21 +769,6 @@ napi_value GetShaderiv(napi_env env, napi_callback_info info) {
 	return NULL;
 }
 
-napi_value GetShaderPrecisionFormat(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[4];
-	size_t argc = checkArgCount(env, info, args, 4, 4);
-	GLenum shadertype = getUint32(env, args[0]);
-	GLenum precisiontype = getUint32(env, args[1]);
-	GLint range_result;
-	GLint * range = &range_result;
-	GLint precision_result;
-	GLint * precision = &precision_result;
-	// void glGetShaderPrecisionFormat(GLenum shadertype, GLenum precisiontype, GLint *range, GLint *precision)
-	glGetShaderPrecisionFormat(shadertype, precisiontype, range, precision);
-	return NULL;
-}
-
 napi_value GetShaderSource(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
 	napi_value args[4];
@@ -2961,6 +2946,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "uniformMatrix3fv", 0, UniformMatrix3fv, 0, 0, 0, napi_default, 0 },
 		{ "uniformMatrix4fv", 0, UniformMatrix4fv, 0, 0, 0, napi_default, 0 },
 		{ "vertexAttribPointer", 0, VertexAttribPointer, 0, 0, 0, napi_default, 0 },
+		{ "getShaderPrecisionFormat", 0, GetShaderPrecisionFormat, 0, 0, 0, napi_default, 0 },
 		{ "activeTexture", 0, ActiveTexture, 0, 0, 0, napi_default, 0 },
 		{ "attachShader", 0, AttachShader, 0, 0, 0, napi_default, 0 },
 		{ "bindAttribLocation", 0, BindAttribLocation, 0, 0, 0, napi_default, 0 },
@@ -3024,7 +3010,6 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "getProgramiv", 0, GetProgramiv, 0, 0, 0, napi_default, 0 },
 		{ "getRenderbufferParameteriv", 0, GetRenderbufferParameteriv, 0, 0, 0, napi_default, 0 },
 		{ "getShaderiv", 0, GetShaderiv, 0, 0, 0, napi_default, 0 },
-		{ "getShaderPrecisionFormat", 0, GetShaderPrecisionFormat, 0, 0, 0, napi_default, 0 },
 		{ "getShaderSource", 0, GetShaderSource, 0, 0, 0, napi_default, 0 },
 		{ "getTexParameterfv", 0, GetTexParameterfv, 0, 0, 0, napi_default, 0 },
 		{ "getTexParameteriv", 0, GetTexParameteriv, 0, 0, 0, napi_default, 0 },

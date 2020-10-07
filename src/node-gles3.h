@@ -402,3 +402,31 @@ napi_value VertexAttribPointer(napi_env env, napi_callback_info info) {
 	glVertexAttribPointer(index, components, type, normalized, stride, reinterpret_cast<const void*>(offset));
 	return NULL;
 }
+
+// http://docs.gl/es3/glGetShaderPrecisionFormat
+// https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/getShaderPrecisionFormat
+napi_value GetShaderPrecisionFormat(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[2];
+	size_t argc = checkArgCount(env, info, args, 2, 2);
+	GLenum shadertype = getUint32(env, args[0]);
+	GLenum precisiontype = getUint32(env, args[1]);
+
+	GLint range[2];
+	GLint precision[1];
+	// void glGetShaderPrecisionFormat(GLenum shadertype, GLenum precisiontype, GLint *range, GLint *precision)
+	glGetShaderPrecisionFormat(shadertype, precisiontype, range, precision);
+
+	napi_value ret = nullptr;
+	if (napi_ok == napi_create_object(env, &ret)) {
+		napi_value vals[3];
+		napi_create_int32(env, (uint32_t)range[0], &vals[0]);
+		napi_create_int32(env, (uint32_t)range[1], &vals[1]);
+		napi_create_int32(env, (uint32_t)precision[0], &vals[2]);
+
+		napi_set_named_property(env, ret, "rangeMin", vals[0]);
+		napi_set_named_property(env, ret, "rangeMax", vals[1]);
+		napi_set_named_property(env, ret, "precision", vals[2]);
+	}
+	return ret;
+}

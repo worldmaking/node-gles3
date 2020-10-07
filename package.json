@@ -6,7 +6,7 @@
   "scripts": {
     "install": "node tools/gen.js && node-gyp rebuild",
     "postinstall": "node lotsOfLines.js",
-    "vr": "node tools/gen.js && node-gyp rebuild && node vr-test.js"
+    "vr": "node tools/gen.js && node-gyp rebuild && node threeCube.js"
   },
   "gypfile": true,
   "author": "",
@@ -16,6 +16,7 @@
     "gl-matrix": "3.3.0",
     "native-graphics-deps": "0.0.21",
     "native-openvr-deps": "0.0.19",
-    "png-js": "1.0.0"
+    "png-js": "1.0.0",
+    "three": "^0.121.1"
   }
 }
