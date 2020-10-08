@@ -620,3 +620,110 @@ gles3.TEXTURE_IMMUTABLE_FORMAT = 0x912F;
 gles3.MAX_ELEMENT_INDEX = 0x8D6B;
 gles3.NUM_SAMPLE_COUNTS = 0x9380;
 gles3.TEXTURE_IMMUTABLE_LEVELS = 0x82DF;
+
+gles3.getParameter = (pname) => {
+	// this diverts to a gles3.getX where X is a type that depends on what pname is.
+	switch(pname) {
+		case gles3.ALIASED_LINE_WIDTH_RANGE:
+		case gles3.ALIASED_POINT_SIZE_RANGE:
+		case gles3.DEPTH_RANGE:
+			// TODO: Float32Array (with 2 elements)
+		case gles3.BLEND_COLOR:
+		case gles3.COLOR_CLEAR_VALUE:
+			//	Float32Array (with 4 values)
+		case gles3.COMPRESSED_TEXTURE_FORMATS:
+			// Uint32Array
+		case gles3.MAX_VIEWPORT_DIMS:
+			case gles3.SCISSOR_BOX:
+			case gles3.VIEWPORT:
+				// Int32Array (with 2 elements)
+		case gles3.COLOR_WRITEMASK:
+			// sequence<GLboolean> (with 4 values)
+
+		case gles3.ARRAY_BUFFER_BINDING:
+		case gles3.ELEMENT_ARRAY_BUFFER_BINDING:
+		case gles3.COPY_READ_BUFFER_BINDING:
+		case gles3.COPY_WRITE_BUFFER_BINDING:
+		case gles3.PIXEL_PACK_BUFFER_BINDING:
+		case gles3.PIXEL_UNPACK_BUFFER_BINDING:
+		case gles3.TRANSFORM_FEEDBACK_BUFFER_BINDING:
+		case gles3.UNIFORM_BUFFER_BINDING:
+			// WebGLBuffer or null
+		case gles3.CURRENT_PROGRAM:
+			// WebGLProgram or null
+		case gles3.FRAMEBUFFER_BINDING:
+		case gles3.DRAW_FRAMEBUFFER_BINDING:
+		case gles3.READ_FRAMEBUFFER_BINDING:
+			// WebGLFramebuffer or null
+		case gles3.RENDERBUFFER_BINDING:
+			// WebGLRenderbuffer or null
+		case gles3.TEXTURE_BINDING_2D:
+		case gles3.TEXTURE_BINDING_CUBE_MAP:
+		case gles3.TEXTURE_BINDING_2D_ARRAY:
+		case gles3.TEXTURE_BINDING_3D:
+			// WebGLTexture or null	
+		case gles3.SAMPLER_BINDING:	
+			// WebGLSampler or null
+		case gles3.TRANSFORM_FEEDBACK_BINDING:
+			// WebGLTransformFeedback or null
+		case gles3.VERTEX_ARRAY_BINDING:
+			//	WebGLVertexArrayObject or null
+
+		// case ext.VERTEX_ARRAY_BINDING_OES:
+		// 	//	WebGLVertexArrayObjectOES
+		// case ext.TIMESTAMP_EXT:
+		// 	//	GLuint64EXT
+
+		case gles3.RENDERER:
+		case gles3.SHADING_LANGUAGE_VERSION:
+		case gles3.VENDOR:
+		case gles3.VERSION:
+			// DOMString	
+
+			// all of the above:
+			throw "gles3.getParameter type not yet handled"
+		case gles3.DEPTH_CLEAR_VALUE:
+		case gles3.LINE_WIDTH:
+		case gles3.POLYGON_OFFSET_FACTOR:
+		case gles3.POLYGON_OFFSET_UNITS:
+		case gles3.SAMPLE_COVERAGE_VALUE:
+		case gles3.MAX_TEXTURE_LOD_BIAS:
+//		case ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT:
+			return gles3.getFloatv(pname);
+
+		case gles3.BLEND:
+		case gles3.CULL_FACE:
+		case gles3.DEPTH_TEST:
+		case gles3.DEPTH_WRITEMASK:
+		case gles3.DITHER:
+		case gles3.POLYGON_OFFSET_FILL:
+		case gles3.SAMPLE_COVERAGE_INVERT:
+		case gles3.SCISSOR_TEST:
+		case gles3.STENCIL_TEST:
+		case gles3.UNPACK_FLIP_Y_WEBGL:
+		case gles3.UNPACK_PREMULTIPLY_ALPHA_WEBGL:
+		case gles3.RASTERIZER_DISCARD:
+		case gles3.SAMPLE_ALPHA_TO_COVERAGE:
+		case gles3.SAMPLE_COVERAGE:
+		case gles3.TRANSFORM_FEEDBACK_ACTIVE:
+		case gles3.TRANSFORM_FEEDBACK_PAUSED:
+//		case ext.GPU_DISJOINT_EXT:
+			return gles3.getBooleanv(pname);
+
+		case gles3.MAX_CLIENT_WAIT_TIMEOUT_WEBGL:
+		case gles3.MAX_COMBINED_FRAGMENT_UNIFORM_COMPONENTS:
+		case gles3.MAX_COMBINED_VERTEX_UNIFORM_COMPONENTS:
+		case gles3.MAX_ELEMENT_INDEX:
+		case gles3.MAX_SERVER_WAIT_TIMEOUT:
+		case gles3.MAX_UNIFORM_BLOCK_SIZE:
+			return gles3.getInteger64v(pname);
+
+		default: // GLint / GLenum:
+			return gles3.getIntegerv(pname);
+	}
+}
+
+gles3.getExtension = function(name) {
+	console.log("gl.getExtension", name)
+}
+		

@@ -179,35 +179,6 @@ napi_value GetAttribLocation(napi_env env, napi_callback_info info) {
 	return (status == napi_ok) ? result_value : nullptr;
 }
 
-napi_value GetInteger64v(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLenum pname = getUint32(env, args[0]);
-	GLint64 data = 0;
-	// void glGetInteger64v(GLenum pname, GLint64 *data)
-	glGetInteger64v(pname, &data);
-
-	napi_value result_value;
-	status = napi_create_int64(env, data, &result_value);
-	return (status == napi_ok) ? result_value : nullptr;
-}
-
-napi_value GetInteger64i_v(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[3];
-	size_t argc = checkArgCount(env, info, args, 3, 3);
-	GLenum target = getUint32(env, args[0]);
-	GLuint index = getUint32(env, args[1]);
-	GLint64 data = 0;
-	// void glGetInteger64i_v(GLenum target, GLuint index, GLint64 *data)
-	glGetInteger64i_v(target, index, &data);
-
-	napi_value result_value;
-	status = napi_create_int64(env, data, &result_value);
-	return (status == napi_ok) ? result_value : nullptr;
-}
-
 
 napi_value GetBufferParameteri64v(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
@@ -428,5 +399,87 @@ napi_value GetShaderPrecisionFormat(napi_env env, napi_callback_info info) {
 		napi_set_named_property(env, ret, "rangeMax", vals[1]);
 		napi_set_named_property(env, ret, "precision", vals[2]);
 	}
+	return ret;
+}
+
+napi_value GetIntegerv(napi_env env, napi_callback_info info) {
+	napi_value ret = nullptr;
+	napi_status status = napi_ok;
+	napi_value args[1];
+	size_t argc = checkArgCount(env, info, args, 1, 1);
+	GLenum pname = getUint32(env, args[0]);
+	GLint data[1];
+	// void glGetIntegerv(GLenum pname, GLint *data)
+	glGetIntegerv(pname, data);
+	napi_create_int32(env, data[0], &ret);
+	return ret;
+}
+
+napi_value GetIntegeri_v(napi_env env, napi_callback_info info) {
+	napi_value ret = nullptr;
+	napi_status status = napi_ok;
+	napi_value args[1];
+	size_t argc = checkArgCount(env, info, args, 2, 2);
+	GLenum pname = getUint32(env, args[0]);
+	GLuint index = getUint32(env, args[1]);
+	GLint data[1];
+	// void glGetIntegeri_v(GLenum target, GLuint index, GLint *data)
+	glGetIntegeri_v(pname, index, &data[0]);
+	napi_create_int32(env, data[0], &ret);
+	return ret;
+}
+
+
+napi_value GetInteger64v(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[2];
+	size_t argc = checkArgCount(env, info, args, 2, 2);
+	GLenum pname = getUint32(env, args[0]);
+	GLint64 data = 0;
+	// void glGetInteger64v(GLenum pname, GLint64 *data)
+	glGetInteger64v(pname, &data);
+	napi_value result_value;
+	status = napi_create_int64(env, data, &result_value);
+	return (status == napi_ok) ? result_value : nullptr;
+}
+
+napi_value GetInteger64i_v(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[3];
+	size_t argc = checkArgCount(env, info, args, 3, 3);
+	GLenum target = getUint32(env, args[0]);
+	GLuint index = getUint32(env, args[1]);
+	GLint64 data = 0;
+	// void glGetInteger64i_v(GLenum target, GLuint index, GLint64 *data)
+	glGetInteger64i_v(target, index, &data);
+	napi_value result_value;
+	status = napi_create_int64(env, data, &result_value);
+	return (status == napi_ok) ? result_value : nullptr;
+}
+
+
+napi_value GetBooleanv(napi_env env, napi_callback_info info) {
+	napi_value ret = nullptr;
+	napi_status status = napi_ok;
+	napi_value args[1];
+	size_t argc = checkArgCount(env, info, args, 1, 1);
+	GLenum pname = getUint32(env, args[0]);
+	GLboolean data[1];
+	// void glGetFloatv(GLenum pname, GLfloat *data)
+	glGetBooleanv(pname, data);
+	napi_get_boolean(env, data[0], &ret);
+	return ret;
+}
+
+napi_value GetFloatv(napi_env env, napi_callback_info info) {
+	napi_value ret = nullptr;
+	napi_status status = napi_ok;
+	napi_value args[1];
+	size_t argc = checkArgCount(env, info, args, 1, 1);
+	GLenum pname = getUint32(env, args[0]);
+	GLfloat data[1];
+	// void glGetFloatv(GLenum pname, GLfloat *data)
+	glGetFloatv(pname, data);
+	napi_create_double(env, data[0], &ret);
 	return ret;
 }

@@ -667,18 +667,6 @@ napi_value GetAttachedShaders(napi_env env, napi_callback_info info) {
 	return NULL;
 }
 
-napi_value GetBooleanv(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLenum pname = getUint32(env, args[0]);
-	GLboolean data_result;
-	GLboolean * data = &data_result;
-	// void glGetBooleanv(GLenum pname, GLboolean *data)
-	glGetBooleanv(pname, data);
-	return NULL;
-}
-
 napi_value GetBufferParameteriv(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
 	napi_value args[3];
@@ -689,18 +677,6 @@ napi_value GetBufferParameteriv(napi_env env, napi_callback_info info) {
 	GLint * params = &params_result;
 	// void glGetBufferParameteriv(GLenum target, GLenum pname, GLint *params)
 	glGetBufferParameteriv(target, pname, params);
-	return NULL;
-}
-
-napi_value GetFloatv(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLenum pname = getUint32(env, args[0]);
-	GLfloat data_result;
-	GLfloat * data = &data_result;
-	// void glGetFloatv(GLenum pname, GLfloat *data)
-	glGetFloatv(pname, data);
 	return NULL;
 }
 
@@ -715,18 +691,6 @@ napi_value GetFramebufferAttachmentParameteriv(napi_env env, napi_callback_info 
 	GLint * params = &params_result;
 	// void glGetFramebufferAttachmentParameteriv(GLenum target, GLenum attachment, GLenum pname, GLint *params)
 	glGetFramebufferAttachmentParameteriv(target, attachment, pname, params);
-	return NULL;
-}
-
-napi_value GetIntegerv(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLenum pname = getUint32(env, args[0]);
-	GLint data_result;
-	GLint * data = &data_result;
-	// void glGetIntegerv(GLenum pname, GLint *data)
-	glGetIntegerv(pname, data);
 	return NULL;
 }
 
@@ -2026,19 +1990,6 @@ napi_value IsVertexArray(napi_env env, napi_callback_info info) {
 	return (status == napi_ok) ? result_value : nullptr;
 }
 
-napi_value GetIntegeri_v(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[3];
-	size_t argc = checkArgCount(env, info, args, 3, 3);
-	GLenum target = getUint32(env, args[0]);
-	GLuint index = getUint32(env, args[1]);
-	GLint data_result;
-	GLint * data = &data_result;
-	// void glGetIntegeri_v(GLenum target, GLuint index, GLint *data)
-	glGetIntegeri_v(target, index, data);
-	return NULL;
-}
-
 napi_value BeginTransformFeedback(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
 	napi_value args[1];
@@ -2933,8 +2884,6 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "createTexture", 0, CreateTexture, 0, 0, 0, napi_default, 0 },
 		{ "createVertexArray", 0, CreateVertexArray, 0, 0, 0, napi_default, 0 },
 		{ "getAttribLocation", 0, GetAttribLocation, 0, 0, 0, napi_default, 0 },
-		{ "getInteger64v", 0, GetInteger64v, 0, 0, 0, napi_default, 0 },
-		{ "getInteger64i_v", 0, GetInteger64i_v, 0, 0, 0, napi_default, 0 },
 		{ "getBufferParameteri64v", 0, GetBufferParameteri64v, 0, 0, 0, napi_default, 0 },
 		{ "getProgramInfoLog", 0, GetProgramInfoLog, 0, 0, 0, napi_default, 0 },
 		{ "getProgramParameter", 0, GetProgramParameter, 0, 0, 0, napi_default, 0 },
@@ -2947,6 +2896,12 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "uniformMatrix4fv", 0, UniformMatrix4fv, 0, 0, 0, napi_default, 0 },
 		{ "vertexAttribPointer", 0, VertexAttribPointer, 0, 0, 0, napi_default, 0 },
 		{ "getShaderPrecisionFormat", 0, GetShaderPrecisionFormat, 0, 0, 0, napi_default, 0 },
+		{ "getIntegerv", 0, GetIntegerv, 0, 0, 0, napi_default, 0 },
+		{ "getIntegeri_v", 0, GetIntegeri_v, 0, 0, 0, napi_default, 0 },
+		{ "getInteger64v", 0, GetInteger64v, 0, 0, 0, napi_default, 0 },
+		{ "getInteger64i_v", 0, GetInteger64i_v, 0, 0, 0, napi_default, 0 },
+		{ "getBooleanv", 0, GetBooleanv, 0, 0, 0, napi_default, 0 },
+		{ "getFloatv", 0, GetFloatv, 0, 0, 0, napi_default, 0 },
 		{ "activeTexture", 0, ActiveTexture, 0, 0, 0, napi_default, 0 },
 		{ "attachShader", 0, AttachShader, 0, 0, 0, napi_default, 0 },
 		{ "bindAttribLocation", 0, BindAttribLocation, 0, 0, 0, napi_default, 0 },
@@ -3002,11 +2957,8 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "getActiveAttrib", 0, GetActiveAttrib, 0, 0, 0, napi_default, 0 },
 		{ "getActiveUniform", 0, GetActiveUniform, 0, 0, 0, napi_default, 0 },
 		{ "getAttachedShaders", 0, GetAttachedShaders, 0, 0, 0, napi_default, 0 },
-		{ "getBooleanv", 0, GetBooleanv, 0, 0, 0, napi_default, 0 },
 		{ "getBufferParameteriv", 0, GetBufferParameteriv, 0, 0, 0, napi_default, 0 },
-		{ "getFloatv", 0, GetFloatv, 0, 0, 0, napi_default, 0 },
 		{ "getFramebufferAttachmentParameteriv", 0, GetFramebufferAttachmentParameteriv, 0, 0, 0, napi_default, 0 },
-		{ "getIntegerv", 0, GetIntegerv, 0, 0, 0, napi_default, 0 },
 		{ "getProgramiv", 0, GetProgramiv, 0, 0, 0, napi_default, 0 },
 		{ "getRenderbufferParameteriv", 0, GetRenderbufferParameteriv, 0, 0, 0, napi_default, 0 },
 		{ "getShaderiv", 0, GetShaderiv, 0, 0, 0, napi_default, 0 },
@@ -3106,7 +3058,6 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "deleteVertexArrays", 0, DeleteVertexArrays, 0, 0, 0, napi_default, 0 },
 		{ "genVertexArrays", 0, GenVertexArrays, 0, 0, 0, napi_default, 0 },
 		{ "isVertexArray", 0, IsVertexArray, 0, 0, 0, napi_default, 0 },
-		{ "getIntegeri_v", 0, GetIntegeri_v, 0, 0, 0, napi_default, 0 },
 		{ "beginTransformFeedback", 0, BeginTransformFeedback, 0, 0, 0, napi_default, 0 },
 		{ "endTransformFeedback", 0, EndTransformFeedback, 0, 0, 0, napi_default, 0 },
 		{ "bindBufferRange", 0, BindBufferRange, 0, 0, 0, napi_default, 0 },
