@@ -621,7 +621,15 @@ gles3.MAX_ELEMENT_INDEX = 0x8D6B;
 gles3.NUM_SAMPLE_COUNTS = 0x9380;
 gles3.TEXTURE_IMMUTABLE_LEVELS = 0x82DF;
 
+gles3.getParameterName = (pname) => {
+	for (let k in gles3) {
+		if (gles3[k] == pname) return k
+	}
+	return "?"
+}
+	
 gles3.getParameter = (pname) => {
+	console.log("gles3.getParameter " + gles3.getParameterName(pname) + " 0x" + (pname).toString(16) + " = " + pname)
 	// this diverts to a gles3.getX where X is a type that depends on what pname is.
 	switch(pname) {
 		case gles3.ALIASED_LINE_WIDTH_RANGE:
@@ -677,11 +685,15 @@ gles3.getParameter = (pname) => {
 		case gles3.RENDERER:
 		case gles3.SHADING_LANGUAGE_VERSION:
 		case gles3.VENDOR:
-		case gles3.VERSION:
 			// DOMString	
 
 			// all of the above:
-			throw "gles3.getParameter type not yet handled"
+			throw ("gles3.getParameter type not yet handled: " + (pname).toString(16));
+
+		
+		case gles3.VERSION:
+			return "WebGL 2.0 (OpenGL ES 3.0)"  
+
 		case gles3.DEPTH_CLEAR_VALUE:
 		case gles3.LINE_WIDTH:
 		case gles3.POLYGON_OFFSET_FACTOR:

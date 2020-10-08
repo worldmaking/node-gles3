@@ -2896,6 +2896,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "uniformMatrix4fv", 0, UniformMatrix4fv, 0, 0, 0, napi_default, 0 },
 		{ "vertexAttribPointer", 0, VertexAttribPointer, 0, 0, 0, napi_default, 0 },
 		{ "getShaderPrecisionFormat", 0, GetShaderPrecisionFormat, 0, 0, 0, napi_default, 0 },
+		{ "clearDepth", 0, ClearDepth, 0, 0, 0, napi_default, 0 },
 		{ "getIntegerv", 0, GetIntegerv, 0, 0, 0, napi_default, 0 },
 		{ "getIntegeri_v", 0, GetIntegeri_v, 0, 0, 0, napi_default, 0 },
 		{ "getInteger64v", 0, GetInteger64v, 0, 0, 0, napi_default, 0 },
@@ -3125,7 +3126,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "texStorage3D", 0, TexStorage3D, 0, 0, 0, napi_default, 0 },
 		{ "getInternalformativ", 0, GetInternalformativ, 0, 0, 0, napi_default, 0 }
 	};
-	status = napi_define_properties(env, exports, 251, properties);
+	status = napi_define_properties(env, exports, 252, properties);
 	//assert(status == napi_ok);
 	return exports;
 }

@@ -402,6 +402,16 @@ napi_value GetShaderPrecisionFormat(napi_env env, napi_callback_info info) {
 	return ret;
 }
 
+napi_value ClearDepth(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[1];
+	size_t argc = checkArgCount(env, info, args, 1, 1);
+	GLfloat d = getDouble(env, args[0]);
+	// void glClearDepthf(GLfloat d)
+	glClearDepth(d);
+	return NULL;
+}
+
 napi_value GetIntegerv(napi_env env, napi_callback_info info) {
 	napi_value ret = nullptr;
 	napi_status status = napi_ok;
