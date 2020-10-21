@@ -4,11 +4,10 @@ A native (fast) WebGL2 emulator for node using native opengles3 windows, on OSX,
 
 The library also includes bindings to OpenVR for desktop VR support.
 
-`
+```
 git clone https://github.com/worldmaking/node-gles3.git
-
 npm install
-`
+```
 
 ## Why?
 
