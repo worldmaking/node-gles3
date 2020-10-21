@@ -22,3 +22,8 @@ Several examples included demonstrate instanced multi-windows, rendering, distan
 The windowing API is tied to GLFW currently, but may be abstracted further.
 
 An effort is underway to see if libraries such as Three.js can run on this.
+
+## Used by
+
+- [Artificial Nature](https://artificialnature.net)
+- [The Alice Lab](https://alicelab.world)
