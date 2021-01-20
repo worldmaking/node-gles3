@@ -205,6 +205,20 @@
           }
         ],
       ],
+    },
+    {
+        "target_name": "audio",
+        "sources": [ "src/node-audio.cpp" ],
+        "defines": [],
+        "cflags": ["-std=c++11", "-Wall", "-pedantic"],
+        "include_dirs": [ "src/miniaudio.h" ],
+        "libraries": [],
+        "dependencies": [],
+        "conditions": [
+            ['OS=="win"', {}],
+            ['OS=="mac"', {}],
+            ['OS=="linux"', {}],
+        ],
     }
   ]
 }
