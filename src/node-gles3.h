@@ -155,6 +155,25 @@ napi_value CreateVertexArray(napi_env env, napi_callback_info info) {
 	return (status == napi_ok) ? result_value : nullptr;
 }
 
+napi_value DrawBuffers(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[1];
+	size_t argc = checkArgCount(env, info, args, 1, 1);
+
+	// expect an array or typed array
+	uint32_t n;
+	status = napi_get_array_length(env, args[0], &n);
+	GLenum bufs[32];
+	for (int i=0; i<n; i++) {
+		napi_value v;
+		status = napi_get_element(env, args[0], i, &v);
+		bufs[i] = getUint32(env, v);
+	}
+	// void glDrawBuffers(GLsizei n, const GLenum *bufs)
+	glDrawBuffers(n, bufs);
+	return NULL;
+}
+
 napi_value GetAttribLocation(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
 	napi_value args[2];

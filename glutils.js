@@ -241,8 +241,8 @@ function createTexture(gl, opt) {
     }
 
     console.log("texture", isFloat, channels, width, height)
-    console.log(format, gl.RGBA);
-    console.log(internalFormat, gl.RGBA32F);
+    //console.log(format, gl.RGBA);
+    //console.log(internalFormat, gl.RGBA32F);
 
     let tex = {
         id: gl.createTexture(),

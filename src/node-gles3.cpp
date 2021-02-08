@@ -1840,18 +1840,6 @@ napi_value GetBufferPointerv(napi_env env, napi_callback_info info) {
 	return NULL;
 }
 
-napi_value DrawBuffers(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLsizei n = getInt32(env, args[0]);
-	GLenum * bufs = nullptr;
-	status = getTypedArray(env, args[1], bufs);
-	// void glDrawBuffers(GLsizei n, const GLenum *bufs)
-	glDrawBuffers(n, bufs);
-	return NULL;
-}
-
 napi_value UniformMatrix2x3fv(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
 	napi_value args[4];
@@ -2947,6 +2935,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "createRenderbuffer", 0, CreateRenderbuffer, 0, 0, 0, napi_default, 0 },
 		{ "createTexture", 0, CreateTexture, 0, 0, 0, napi_default, 0 },
 		{ "createVertexArray", 0, CreateVertexArray, 0, 0, 0, napi_default, 0 },
+		{ "drawBuffers", 0, DrawBuffers, 0, 0, 0, napi_default, 0 },
 		{ "getAttribLocation", 0, GetAttribLocation, 0, 0, 0, napi_default, 0 },
 		{ "getInteger64v", 0, GetInteger64v, 0, 0, 0, napi_default, 0 },
 		{ "getInteger64i_v", 0, GetInteger64i_v, 0, 0, 0, napi_default, 0 },
@@ -3106,7 +3095,6 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "getQueryObjectuiv", 0, GetQueryObjectuiv, 0, 0, 0, napi_default, 0 },
 		{ "unmapBuffer", 0, UnmapBuffer, 0, 0, 0, napi_default, 0 },
 		{ "getBufferPointerv", 0, GetBufferPointerv, 0, 0, 0, napi_default, 0 },
-		{ "drawBuffers", 0, DrawBuffers, 0, 0, 0, napi_default, 0 },
 		{ "uniformMatrix2x3fv", 0, UniformMatrix2x3fv, 0, 0, 0, napi_default, 0 },
 		{ "uniformMatrix3x2fv", 0, UniformMatrix3x2fv, 0, 0, 0, napi_default, 0 },
 		{ "uniformMatrix2x4fv", 0, UniformMatrix2x4fv, 0, 0, 0, napi_default, 0 },
