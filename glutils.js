@@ -503,6 +503,92 @@ function makeFboWithDepth(gl, width=1024, height=1024, mipmap=false) {
 	}
 }
 
+
+function makeGbuffer(gl, width=1024, height=1024, config=[
+	{ float:false },
+	{ float:true },
+	{ float:true },
+	{ float:false },
+]) {
+
+	const id = gl.createFramebuffer();
+	const depthTexture = gl.createTexture();
+	let textures = []
+	let attachments = []
+	{		
+		gl.bindFramebuffer(gl.FRAMEBUFFER, id);
+		const level = 0;
+		const border = 0;
+
+		for (let i=0; i<config.length; i++) {
+			let cfg = config[i];
+
+			let format = gl.RGBA;
+			let internalFormat = format;
+			let type = gl.UNSIGNED_BYTE;
+
+			if (cfg.float) {
+				type = gl.FLOAT;
+				internalFormat = gl.RGBA32F;
+			}
+		
+			// define size and format of level 0
+			gl.enable(gl.TEXTURE_2D)
+			const tex = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D, tex);
+			gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, width, height, 0,
+				format, type, null);
+			// set the filtering so we don't need mips
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
+			gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0+i, gl.TEXTURE_2D, tex, 0);
+
+			textures[i] = tex
+			attachments[i] = gl.COLOR_ATTACHMENT0+i
+		}
+		gl.drawBuffers(attachments);
+
+		// depth texture
+		gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+		gl.texImage2D(gl.TEXTURE_2D, level, gl.DEPTH_COMPONENT24,
+			width, height, border,
+			gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+		//gl.texStorage2D(gl.TEXTURE_2D, 1, gl.DEPTH_COMPONENT24, width, height);
+
+		// set the filtering so we don't need mips
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depthTexture, level);
+
+		if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+			console.error("can't use frame buffer")
+			// See http://www.khronos.org/opengles/sdk/docs/man/xhtml/glCheckFramebufferStatus.xml
+		}
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+	}
+
+	return {
+		id: id,
+		textures: textures,
+		depthTexture: depthTexture,
+		width: width,
+        height: height,
+        
+        // be sure to set viewport & clear after begin()
+        begin() {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, id);
+        },
+
+        end() {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        },
+	}
+}
+
 function createFBO(gl, width, height, floatingpoint=false) {
     let id = gl.createFramebuffer();
 
@@ -1430,7 +1516,8 @@ module.exports = {
     createQuadVao: createQuadVao,
     createInstances: createInstances,
 
-	makeFboWithDepth: makeFboWithDepth,
+    makeFboWithDepth: makeFboWithDepth,
+    makeGbuffer: makeGbuffer,
 	createFBO: createFBO,
 	createSlab: createSlab,
 
