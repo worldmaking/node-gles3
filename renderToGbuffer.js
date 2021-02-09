@@ -63,6 +63,7 @@ let roughness_tex = jpg2tex(gl, 'Metal007_1K_Roughness.jpg')
 	0: basecolor/albedo/diffuse RGB + opacity A
 	1: normal XYZ + distance W
 	2: worldpos XYZ + distance W
+	3: PBR metalness, roughness, AO, emissive
 
 
 	Typical g-buffer layers:
@@ -100,25 +101,176 @@ uniform sampler2D u_tex3;
 
 uniform sampler2D u_depthtex;
 
-uniform int u_whichtex;
+uniform vec3 u_camera_pos;
+
+uniform vec3 u_light0_pos;
+float u_light0_spotexponent = 1.;
 
 in vec2 v_texCoord;
 out vec4 outColor;
 
+const float PI = 3.14159265359;
+const vec2 invAtan = vec2(0.1591, 0.3183);
+const float MAX_REFLECTION_LOD = 12.0;
+
+float distributionGGX(vec3 N, vec3 H, float roughness) {
+    float a = roughness*roughness;
+    float a2 = a*a;
+    float NdotH = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH*NdotH;
+    float nom   = a2;
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+    return nom / denom;
+}
+float geometrySchlickGGX(float NdotV, float roughness) {
+    float r = (roughness + 1.0);
+    float k = (r*r) / 8.0;
+	//float a = roughness;
+    //float k = (a * a) / 2.0;
+    float nom   = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+    return nom / denom;
+}
+float geometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float ggx2 = geometrySchlickGGX(NdotV, roughness);
+    float ggx1 = geometrySchlickGGX(NdotL, roughness);
+    return ggx1 * ggx2;
+}
+vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}
+vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
+} 
+
 void main() {
-	//outColor = vec4(v_texCoord, 0., 1.);
-	//outColor.rgba = vec4(0.);
-	//outColor.rgb = texture(u_tex1, v_texCoord).raa;
-	// switch(u_whichtex) {
-	// 	case 0: outColor = texture(u_tex0, v_texCoord); break;
-	// 	case 1: outColor = texture(u_tex1, v_texCoord); break;
-	// 	case 2: outColor = texture(u_tex2, v_texCoord); break;
-	// 	//case 3: outColor = texture(u_tex3, v_texCoord); break;
-	// 	default: outColor = texture(u_tex1, v_texCoord).aaaa/10.; break;
+	
+	vec3 albedo = texture(u_tex0, v_texCoord).rgb;
+	float opacity = texture(u_tex0, v_texCoord).a;
+	vec3 normal = texture(u_tex1, v_texCoord).rgb;
+	vec3 worldpos = texture(u_tex2, v_texCoord).rgb;
+	float distance = texture(u_tex2, v_texCoord).a;
+	float metalness = texture(u_tex3, v_texCoord).r;
+	float roughness = texture(u_tex3, v_texCoord).g;
+	float ao = 1.; //texture(u_tex3, v_texCoord).b;
+	float emissive = texture(u_tex3, v_texCoord).a;
 
-	// }
+	// outgoing vector from surface to eye, world space
+	vec3 V = normalize(u_camera_pos - worldpos);
+	vec3 N = normalize(normal);
+	vec3 R = reflect(-V, N);
 
-	outColor = texture(u_tex3, v_texCoord); break;
+	// calculate reflectance at normal incidence; if dia-electric (like plastic) use F0 
+    // of 0.04 and if it's a metal, use the albedo color as F0 (metallic workflow)    
+	vec3 F0 = mix(vec3(0.04), albedo, metalness);
+
+	// reflectance equation
+    vec3 Lo = vec3(0.0);
+	int i=0;
+
+	// for each light
+	//for(int i = 0; i < 8; ++i) {
+	
+		vec3 light_pos = u_light0_pos; // in world space
+        vec3 light_color = vec3(1.); //gl_LightSource[i].diffuse.rgb;
+
+
+		// incoming vector from light to surface, world space
+        vec3 L = normalize(light_pos - worldpos);
+		// halfvector between incoming and outgoing rays
+        vec3 H = normalize(V + L);
+		// similarity of light vector & normal vector
+        float NdotL = max(dot(N, L), 0.0);   
+
+		// calculate per-light radiance
+        float light_distance = length(light_pos - worldpos);
+        float attenuation = 1.0 / pow(light_distance, u_light0_spotexponent);
+        vec3 radiance = light_color * attenuation;
+
+        // Cook-Torrance BRDF
+        float NDF = distributionGGX(N, H, roughness);   
+        float G   = geometrySmith(N, V, L, roughness);      
+        vec3 F    = fresnelSchlick(max(dot(H, V), 0.0), F0);
+        //vec3 F    = fresnelSchlick(abs(dot(H, V)), F0);
+           
+        vec3 nominator    = NDF * G * F; 
+        float denominator = 4.0 * max(dot(N, V), 0.0) * NdotL + 0.001; // 0.001 to prevent divide by zero.
+        vec3 spec = nominator / denominator;
+
+        // kS is equal to Fresnel
+        vec3 kS = F;
+        // for energy conservation, the diffuse and specular light can't
+        // be above 1.0 (unless the surface emits light); to preserve this
+        // relationship the diffuse component (kD) should equal 1.0 - kS.
+        vec3 kD = vec3(1.0) - kS;
+        // multiply kD by the inverse metalness such that only non-metals 
+        // have diffuse lighting, or a linear blend if partly metal (pure metals
+        // have no diffuse light).
+        kD *= 1.0 - metalness;	  
+
+        // scale light by NdotL     
+
+        // add to outgoing radiance Lo
+        // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
+		Lo += (kD * (albedo / PI) + spec) * radiance * NdotL;
+	//}
+
+	// ambient lighting from environment map:
+	//vec3 ambient = equirectangular(irradianceMap, 
+	//	gl_TextureMatrix[5], 
+	///	normalize(N), 
+	//	roughness * 8.).rgb;
+
+	vec3 kAS = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+	vec3 kAD = vec3(1.0) - kAS;
+	kAD *= 1.0 - metalness;	
+	
+	// vec3 irradiance = equirectangular(irradianceMap, 
+	// 	gl_TextureMatrix[5], 
+	// 	normalize(N), 
+	// 	MAX_REFLECTION_LOD).rgb;
+	vec3 irradiance = vec3(0.5);
+	vec3 diffuse    = irradiance * albedo;
+
+	// IBL specular:
+	// vec3 prefilteredColor = equirectangular(irradianceMap, 
+	// 	gl_TextureMatrix[5], 
+	// 	normalize(R), 
+	// 	roughness * MAX_REFLECTION_LOD).rgb;
+	vec3 prefilteredColor = R*0.3+0.5; //vec3(0.5);
+	// vec2 envBRDF  = texture2D(brdfLUTMap, vec2(max(dot(N, V), 0.0), roughness)).rg;
+	// //vec3 specular = prefilteredColor * (kAS * envBRDF.x + envBRDF.y);
+	vec3 specular = prefilteredColor * (kAS);
+
+	vec3 ambient    = (kD * diffuse + specular) * ao; 
+	vec3 color = ambient + Lo;
+
+	// // HDR tonemapping
+    // color = color / (color + vec3(1.0));
+    // // gamma correct
+    // color = pow(color, vec3(1.0/2.2)); 
+
+	outColor = vec4(vec3(N), 1.);
+	outColor = vec4(vec3(L), 1.);
+	outColor = vec4(vec3(H), 1.);
+	outColor = vec4(vec3(NdotL), 1.);
+	outColor = vec4(vec3(light_distance), 1.);
+	outColor = vec4(vec3(radiance), 1.);
+	outColor = vec4(vec3(NDF), 1.);
+	outColor = vec4(vec3(G), 1.);
+	outColor = vec4(vec3(F), 1.);
+	outColor = vec4(vec3(specular), 1.);
+	outColor = vec4(vec3(kD), 1.);
+	outColor = vec4(vec3(Lo), 1.);
+	outColor = vec4(vec3(kAS), 1.);
+	outColor = vec4(vec3(kAD), 1.);
+	outColor = vec4(vec3(diffuse), 1.);
+	outColor = vec4(vec3(ambient), 1.);
+	outColor = vec4(vec3(color), 1.);
+	
 }
 `);
 let quad = glutils.createVao(gl, glutils.makeQuad(), quadprogram.id);
@@ -216,7 +368,7 @@ void main() {
 }
 `);
 // create a VAO from a basic geometry and shader
-let cuberadius = 0.05;
+let cuberadius = 0.1;
 let cube = glutils.createVao(gl, glutils.makeCube({ min:-cuberadius, max:cuberadius, div: 8 }), cubesprogram.id);
 
 // create a VBO & friendly interface for the instances:
@@ -268,7 +420,8 @@ function animate() {
 	let viewmatrix = mat4.create();
 	let projmatrix = mat4.create();
 	let modelmatrix = mat4.create();
-	mat4.lookAt(viewmatrix, [0, 0, 0.25], [0, 0, 0], [0, 1, 0]);
+	let camera_pos = vec3.fromValues(0, 0, 0.25);
+	mat4.lookAt(viewmatrix, camera_pos, [0, 0, 0], [0, 1, 0]);
 	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 10);
 
 	//mat4.identity(modelmatrix);
@@ -281,16 +434,16 @@ function animate() {
 	cubes.instances.forEach((obj, i) => {
 		if (i == 0) {
 			vec3.set(obj.i_pos, 0, 0, 0);
-			quat.slerp(obj.i_quat, obj.i_quat, quat.random(quat.create()), 0.02);
+			quat.slerp(obj.i_quat, obj.i_quat, quat.random(quat.create()), 0.01);
 		} else {
 			// move:
-			const vel = [0.02, 0, 0];
+			const vel = [0.01, 0, 0];
 			quat.add(obj.i_pos, obj.i_pos, glutils.quat_rotate(vel, obj.i_quat, vel));
 			// bound:
 			vec3.max(obj.i_pos, obj.i_pos, world_min);
 			vec3.min(obj.i_pos, obj.i_pos, world_max);
 			// change its orientation:
-			quat.slerp(obj.i_quat, obj.i_quat, quat.random(quat.create()), Math.random()*0.2);
+			quat.slerp(obj.i_quat, obj.i_quat, quat.random(quat.create()), Math.random()/25);
 		}
 	})
 	
@@ -341,7 +494,8 @@ function animate() {
 	gl.activeTexture(gl.TEXTURE0 + fbo.textures.length);
 	gl.bindTexture(gl.TEXTURE_2D, fbo.depthTexture);
 	quadprogram.uniform("u_depthtex", fbo.textures.length)
-	quadprogram.uniform("u_whichtex", Math.floor(t % 4));
+	quadprogram.uniform("u_camera_pos", camera_pos);
+	quadprogram.uniform("u_light0_pos", 1, 1, 0);
 	quad.bind().draw().unbind();
 	quadprogram.end();
 
