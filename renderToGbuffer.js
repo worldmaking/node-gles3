@@ -50,8 +50,10 @@ function jpg2tex(gl, path) {
 	return tex;
 }
 
-let world_min = [-2, -2, -2];
-let world_max = [+2, +2, +2];
+let world_min = [-4, 0, -4];
+let world_max = [+4, 8, +4];
+let camera_pos = vec3.fromValues(0, 1.7, 0.25);
+let camera_at = vec3.fromValues(0, 1.7, 0)
 
 let color_tex = jpg2tex(gl, 'Metal007_1K_Color.jpg') 
 let normal_tex = jpg2tex(gl, 'Metal007_1K_Normal.jpg') 
@@ -66,16 +68,8 @@ let roughness_tex = jpg2tex(gl, 'Metal007_1K_Roughness.jpg')
 	3: PBR metalness, roughness, AO, emissive
 
 
-	Typical g-buffer layers:
-
-	For PBR:
-	metallic (float)
-	roughness (float)
-	AO (float)
-	height (float)
-	emissive (float / RGB?)
-
-	Other:
+	Other possible:
+	heightmap
 	texcoords (ST / STU)?
 
 */
@@ -175,7 +169,7 @@ void main() {
 	//for(int i = 0; i < 8; ++i) {
 	
 		vec3 light_pos = u_light0_pos; // in world space
-        vec3 light_color = vec3(1.); //gl_LightSource[i].diffuse.rgb;
+        vec3 light_color = vec3(0.8); //gl_LightSource[i].diffuse.rgb;
 
 
 		// incoming vector from light to surface, world space
@@ -232,7 +226,7 @@ void main() {
 	// 	gl_TextureMatrix[5], 
 	// 	normalize(N), 
 	// 	MAX_REFLECTION_LOD).rgb;
-	vec3 irradiance = vec3(0.5);
+	vec3 irradiance =  N*0.3+0.5; ;
 	vec3 diffuse    = irradiance * albedo;
 
 	// IBL specular:
@@ -420,8 +414,7 @@ function animate() {
 	let viewmatrix = mat4.create();
 	let projmatrix = mat4.create();
 	let modelmatrix = mat4.create();
-	let camera_pos = vec3.fromValues(0, 0, 0.25);
-	mat4.lookAt(viewmatrix, camera_pos, [0, 0, 0], [0, 1, 0]);
+	mat4.lookAt(viewmatrix, camera_pos, camera_at, [0, 1, 0]);
 	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 10);
 
 	//mat4.identity(modelmatrix);
@@ -433,7 +426,7 @@ function animate() {
 	// pick a random instance:
 	cubes.instances.forEach((obj, i) => {
 		if (i == 0) {
-			vec3.set(obj.i_pos, 0, 0, 0);
+			vec3.copy(obj.i_pos, camera_at);
 			quat.slerp(obj.i_quat, obj.i_quat, quat.random(quat.create()), 0.01);
 		} else {
 			// move:
