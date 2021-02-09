@@ -149,7 +149,7 @@ void main() {
 	float distance = texture(u_tex2, v_texCoord).a;
 	float metalness = texture(u_tex3, v_texCoord).r;
 	float roughness = texture(u_tex3, v_texCoord).g;
-	float ao = 1.; //texture(u_tex3, v_texCoord).b;
+	float ao = texture(u_tex3, v_texCoord).b;
 	float emissive = texture(u_tex3, v_texCoord).a;
 
 	// outgoing vector from surface to eye, world space
@@ -270,7 +270,7 @@ void main() {
 let quad = glutils.createVao(gl, glutils.makeQuad(), quadprogram.id);
 
 
-let fbo = glutils.makeGbuffer(gl, 1024, 1024, [
+let fbo = glutils.makeGbuffer(gl, 4096, 2048, [
 	{ float:false }, 	// basecolor
 	{ float:true }, 	// normal
 	{ float:true }, 	// worldpos
