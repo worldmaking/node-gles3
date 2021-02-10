@@ -92,7 +92,7 @@ void main() {
 precision mediump float;
 
 /*
-	Adapted from https://learnopengl.com/PBR/Lighting
+	PBR rendering adapted from https://learnopengl.com/PBR/Lighting
 */
 
 uniform sampler2D u_tex0;
@@ -105,7 +105,6 @@ uniform sampler2D u_depthtex;
 uniform vec3 u_camera_pos;
 
 uniform vec3 u_light0_pos;
-float u_light0_spotexponent = 1.;
 
 in vec2 v_texCoord;
 out vec4 outColor;
@@ -169,33 +168,37 @@ void main() {
 	vec3 F0 = mix(vec3(0.04), albedo, metalness);
 
 	// reflectance equation
-    vec3 Lo = vec3(0.0);
-	int i=0;
+    vec3 direct_lighting = vec3(0.0);
+	//int i=0;
 
 	// for each light
-	//for(int i = 0; i < 8; ++i) {
-	
-		vec3 light_pos = u_light0_pos; // in world space
-        vec3 light_color = vec3(0.8); //gl_LightSource[i].diffuse.rgb;
+	for(int i = 0; i < 8; ++i) {
 
+		float a = PI * 2. * float(i)/8.;
+	
+		//vec3 light_pos = u_light0_pos; // in world space
+		vec3 light_pos = vec3(cos(a), 1.7, sin(a));
+        vec3 light_color = vec3(cos(a), sin(a), 0.)*0.3+0.5;
+		float light_spotexponent = 1.0; //float(i)*4.;
 
 		// incoming vector from light to surface, world space
-        vec3 L = normalize(light_pos - worldpos);
+        vec3 light_dir = normalize(light_pos - worldpos);
 		// halfvector between incoming and outgoing rays
-        vec3 H = normalize(V + L);
+        vec3 H = normalize(V + light_dir);
 		// similarity of light vector & normal vector
-        float NdotL = max(dot(N, L), 0.0);   
+		// cosTheta of angle between them
+        float NdotL = max(dot(N, light_dir), 0.0);   
 
 		// calculate per-light radiance
         float light_distance = length(light_pos - worldpos);
-        float attenuation = 1.0 / pow(light_distance, u_light0_spotexponent);
+        float attenuation = 1.0 / pow(light_distance, light_spotexponent);
         vec3 radiance = light_color * attenuation;
 
         // Cook-Torrance BRDF
         float NDF = distributionGGX(N, H, roughness);   
-        float G   = geometrySmith(N, V, L, roughness);      
+        float G   = geometrySmith(N, V, light_dir, roughness);      
         vec3 F    = fresnelSchlick(max(dot(H, V), 0.0), F0);
-        //vec3 F    = fresnelSchlick(abs(dot(H, V)), F0);
+        //vec3 F    = fresnelSchlick(abs(dot(H, V)), F0); // two-sided
            
         vec3 nominator    = NDF * G * F; 
         float denominator = 4.0 * max(dot(N, V), 0.0) * NdotL + 0.001; // 0.001 to prevent divide by zero.
@@ -216,9 +219,12 @@ void main() {
 
         // add to outgoing radiance Lo
         // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
-		Lo += (kD * (albedo / PI) + spec) * radiance * NdotL;
-	//}
+		direct_lighting += (kD * (albedo / PI) + spec) * radiance * NdotL;
+	}
 
+	vec3 color = direct_lighting;
+
+	// indirect lighting:
 	// ambient lighting from environment map:
 	//vec3 ambient = equirectangular(irradianceMap, 
 	//	gl_TextureMatrix[5], 
@@ -246,8 +252,8 @@ void main() {
 	// //vec3 specular = prefilteredColor * (kAS * envBRDF.x + envBRDF.y);
 	vec3 specular = prefilteredColor * (kAS);
 
-	vec3 ambient    = (kD * diffuse + specular) * ao; 
-	vec3 color = ambient + Lo;
+	vec3 ambient    = (kAD * diffuse + specular) * ao; 
+	color += ambient;
 
 	// // HDR tonemapping
     // color = color / (color + vec3(1.0));
@@ -258,7 +264,7 @@ void main() {
 	//outColor = vec4(vec3(normal), 1.);
 
 	// outColor = vec4(vec3(N), 1.);
-	// outColor = vec4(vec3(L), 1.);
+	// outColor = vec4(vec3(light_dir), 1.);
 	// outColor = vec4(vec3(H), 1.);
 	// outColor = vec4(vec3(NdotL), 1.);
 	// outColor = vec4(vec3(light_distance), 1.);
@@ -397,7 +403,7 @@ let cube = glutils.createVao(gl, glutils.makeCube({ min:-cuberadius, max:cuberad
 let cubes = glutils.createInstances(gl, [
 	{ name:"i_pos", components:4 },
 	{ name:"i_quat", components:4 },
-], 100)
+], 10)
 
 // the .instances provides a convenient interface to the underlying arraybuffer
 cubes.instances.forEach(obj => {
@@ -405,9 +411,9 @@ cubes.instances.forEach(obj => {
 	// making it easy to use other libraries such as gl-matrix
 	// this is all writing into one contiguous block of binary memory for all instances (fast)
 	vec4.set(obj.i_pos, 
-		(Math.random()-0.5) * 5,
-		(Math.random()-0.5) * 5,
-		(Math.random()-0.5) * 5,
+		world_min[0] + Math.random()*(world_max[0]-world_min[0]),
+		world_min[1] + Math.random()*(world_max[1]-world_min[1]),
+		world_min[2] + Math.random()*(world_max[2]-world_min[2]),
 		1
 	);
 	quat.set(obj.i_quat, 0, 0, 0, 1);
@@ -442,22 +448,21 @@ function animate() {
 	let viewmatrix = mat4.create();
 	let projmatrix = mat4.create();
 	let modelmatrix = mat4.create();
+	let ta = t*Math.PI*2/10;
+	let r = 0.3;
+	vec3.set(camera_pos, r*Math.cos(ta), camera_at[1], r*Math.sin(ta));
+
 	mat4.lookAt(viewmatrix, camera_pos, camera_at, [0, 1, 0]);
 	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 10);
 
-	//mat4.identity(modelmatrix);
-	let cubemodelmatrix = mat4.create();
-	let axis = vec3.fromValues(Math.sin(t), 1., 0.);
-	vec3.normalize(axis, axis);
-	mat4.rotate(cubemodelmatrix, cubemodelmatrix, t, axis)
 
 	// pick a random instance:
 	cubes.instances.forEach((obj, i) => {
 		if (i == 0) {
 			vec3.copy(obj.i_pos, camera_at);
-			let rot = quat.fromEuler(quat.create(), -0.5, 1, 0);
-			quat.mul(obj.i_quat, obj.i_quat, rot);
-
+			let rot = quat.fromEuler(quat.create(), 30*Math.cos(t), 0, 0);
+			//quat.mul(obj.i_quat, rot, obj.i_quat);
+			quat.copy(obj.i_quat, rot);
 
 			//quat.slerp(obj.i_quat, obj.i_quat, quat.random(quat.create()), 0.01);
 		} else {
