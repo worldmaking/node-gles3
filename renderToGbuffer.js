@@ -33,6 +33,7 @@ console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '
 
 // Enable vertical sync (on cards that support it)
 glfw.swapInterval(1); // 0 for vsync off
+glfw.setWindowPos(window, 25, 25)
 
 function jpg2tex(gl, path) {
 	const fs = require("fs");
@@ -52,8 +53,9 @@ function jpg2tex(gl, path) {
 
 let world_min = [-4, 0, -4];
 let world_max = [+4, 8, +4];
-let camera_pos = vec3.fromValues(0, 1.7, 0.25);
-let camera_at = vec3.fromValues(0, 1.7, 0)
+let camera_pos = [0, 1.7, 0.25];
+let camera_at = [0, 1.7, 0];
+let light_pos = [1, 3, 1];
 
 let color_tex = jpg2tex(gl, 'Metal007_1K_Color.jpg') 
 let normal_tex = jpg2tex(gl, 'Metal007_1K_Normal.jpg') 
@@ -88,6 +90,11 @@ void main() {
 }`,
 `#version 330
 precision mediump float;
+
+/*
+	Adapted from https://learnopengl.com/PBR/Lighting
+*/
+
 uniform sampler2D u_tex0;
 uniform sampler2D u_tex1;
 uniform sampler2D u_tex2;
@@ -247,23 +254,27 @@ void main() {
     // // gamma correct
     // color = pow(color, vec3(1.0/2.2)); 
 
-	outColor = vec4(vec3(N), 1.);
-	outColor = vec4(vec3(L), 1.);
-	outColor = vec4(vec3(H), 1.);
-	outColor = vec4(vec3(NdotL), 1.);
-	outColor = vec4(vec3(light_distance), 1.);
-	outColor = vec4(vec3(radiance), 1.);
-	outColor = vec4(vec3(NDF), 1.);
-	outColor = vec4(vec3(G), 1.);
-	outColor = vec4(vec3(F), 1.);
-	outColor = vec4(vec3(specular), 1.);
-	outColor = vec4(vec3(kD), 1.);
-	outColor = vec4(vec3(Lo), 1.);
-	outColor = vec4(vec3(kAS), 1.);
-	outColor = vec4(vec3(kAD), 1.);
-	outColor = vec4(vec3(diffuse), 1.);
-	outColor = vec4(vec3(ambient), 1.);
+
+	//outColor = vec4(vec3(normal), 1.);
+
+	// outColor = vec4(vec3(N), 1.);
+	// outColor = vec4(vec3(L), 1.);
+	// outColor = vec4(vec3(H), 1.);
+	// outColor = vec4(vec3(NdotL), 1.);
+	// outColor = vec4(vec3(light_distance), 1.);
+	// outColor = vec4(vec3(radiance), 1.);
+	// outColor = vec4(vec3(NDF), 1.);
+	// outColor = vec4(vec3(G), 1.);
+	// outColor = vec4(vec3(F), 1.);
+	// outColor = vec4(vec3(specular), 1.);
+	// outColor = vec4(vec3(kD), 1.);
+	// outColor = vec4(vec3(Lo), 1.);
+	// outColor = vec4(vec3(kAS), 1.);
+	// outColor = vec4(vec3(kAD), 1.);
+	// outColor = vec4(vec3(diffuse), 1.);
+	// outColor = vec4(vec3(ambient), 1.);
 	outColor = vec4(vec3(color), 1.);
+	
 	
 }
 `);
@@ -305,6 +316,24 @@ vec4 quat_rotate( vec4 q, vec4 v ){
 	return vec4(v.xyz + 2.0 * cross( q.xyz, cross( q.xyz, v.xyz ) + q.w * v.xyz), v.w );
 }
 
+// equiv. quat_rotate(quat_conj(q), v):
+// q must be a normalized quaternion
+vec3 quat_unrotate(in vec4 q, in vec3 v) {
+	// return quat_mul(quat_mul(quat_conj(q), vec4(v, 0)), q).xyz;
+	// reduced:
+	vec4 p = vec4(
+		q.w*v.x - q.y*v.z + q.z*v.y,  // x
+		q.w*v.y - q.z*v.x + q.x*v.z,  // y
+		q.w*v.z - q.x*v.y + q.y*v.x,  // z
+		q.x*v.x + q.y*v.y + q.z*v.z   // w
+	);
+	return vec3(
+		p.w*q.x + p.x*q.w + p.y*q.z - p.z*q.y,  // x
+		p.w*q.y + p.y*q.w + p.z*q.x - p.x*q.z,  // y
+		p.w*q.z + p.z*q.w + p.x*q.y - p.y*q.x   // z
+	);
+}
+
 void main() {
 	// Multiply the position by the matrix.
 	vec4 vertex = vec4(a_position, 1.);
@@ -337,18 +366,16 @@ out vec4 outColor[4];
 
 void main() {
 
-	vec3 tangentNormal = texture(u_normal_tex, v_texCoord).xyz;
-	vec3 q1 = dFdx(v_world.xyz);
-	vec3 q2 = dFdy(v_world.xyz);
-	vec2 st1 = dFdx(v_texCoord.xy);
-	vec2 st2 = dFdy(v_texCoord.xy);
+	// generate the tangent-space matrix TBN:
+	vec3 denormTangent = dFdx(v_texCoord.y)*dFdy(v_world.xyz)-dFdx(v_world.xyz)*dFdy(v_texCoord.y);
 	vec3 N = normalize(v_normal.xyz);
-	vec3 T = normalize(q1*st2.t - q2*st1.t);
-	vec3 B = -normalize(cross(N, T));
+	vec3 T = normalize(denormTangent-N*dot(N,denormTangent));
+	vec3 B = cross(N,T);
 	mat3 TBN = mat3(T, B, N);
-
-	vec3 normal = normalize(TBN * tangentNormal);
-
+	
+	vec3 normalmap = texture(u_normal_tex, v_texCoord).xyz*2.0 - 1.0;
+	vec3 normal = normalize(TBN * normalmap);
+	
 	vec3 albedo = pow(texture(u_color_tex, v_texCoord).xyz, vec3(2.2));
 	float metalness = texture(u_metalness_tex, v_texCoord).r;
 	float roughness = texture(u_roughness_tex, v_texCoord).r;
@@ -383,7 +410,8 @@ cubes.instances.forEach(obj => {
 		(Math.random()-0.5) * 5,
 		1
 	);
-	quat.random(obj.i_quat);
+	quat.set(obj.i_quat, 0, 0, 0, 1);
+	//quat.random(obj.i_quat);
 })
 cubes.bind().submit().unbind();
 
@@ -427,7 +455,11 @@ function animate() {
 	cubes.instances.forEach((obj, i) => {
 		if (i == 0) {
 			vec3.copy(obj.i_pos, camera_at);
-			quat.slerp(obj.i_quat, obj.i_quat, quat.random(quat.create()), 0.01);
+			let rot = quat.fromEuler(quat.create(), -0.5, 1, 0);
+			quat.mul(obj.i_quat, obj.i_quat, rot);
+
+
+			//quat.slerp(obj.i_quat, obj.i_quat, quat.random(quat.create()), 0.01);
 		} else {
 			// move:
 			const vel = [0.01, 0, 0];
@@ -488,7 +520,7 @@ function animate() {
 	gl.bindTexture(gl.TEXTURE_2D, fbo.depthTexture);
 	quadprogram.uniform("u_depthtex", fbo.textures.length)
 	quadprogram.uniform("u_camera_pos", camera_pos);
-	quadprogram.uniform("u_light0_pos", 1, 1, 0);
+	quadprogram.uniform("u_light0_pos", light_pos);
 	quad.bind().draw().unbind();
 	quadprogram.end();
 

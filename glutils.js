@@ -1085,15 +1085,23 @@ function makeCube(options) {
             );
             texCoords.push(
                 // front:
+                // 0, 0,
+                // 0, 0,
+                // 0, 0,
+                // 0, 0,
                 ax, ay,
                 bx, ay,
                 bx, by,
                 ax, by,
-                // back:
-                ax, ay,
-                bx, ay,
-                bx, by,
-                ax, by
+                // // back:
+                // 0, 0,
+                // 0, 0,
+                // 0, 0,
+                // 0, 0,
+                1-ax, ay,
+                1-bx, ay,
+                1-bx, by,
+                1-ax, by
             );
             normals.push(
                 // front:
@@ -1108,10 +1116,12 @@ function makeCube(options) {
                 0, 0, -1,
             );
             indices.push(
+                // front:
                 idx+0, idx+1, idx+2,
                 idx+2, idx+3, idx+0,
+                // back:
                 idx+4, idx+5, idx+6,
-                idx+6, idx+7, idx+4
+                idx+6, idx+7, idx+4,
             );
         }
     }
@@ -1140,12 +1150,12 @@ function makeCube(options) {
                 vax, min[1], vby
             );
             texCoords.push(
-                // up:
-                ax, ay,
-                bx, ay,
-                bx, by,
-                ax, by,
-                // down:
+                // // up:
+                1-ax, ay,
+                1-bx, ay,
+                1-bx, by,
+                1-ax, by,
+                // // down:
                 ax, ay,
                 bx, ay,
                 bx, by,
@@ -1196,16 +1206,20 @@ function makeCube(options) {
                 min[0], vax, vby
             );
             texCoords.push(
-                // right:
-                ax, ay,
-                bx, ay,
-                bx, by,
-                ax, by,
-                // left:
-                ax, ay,
-                bx, ay,
-                bx, by,
-                ax, by
+                // // right:
+                1-ax, 1-ay,
+                1-bx, 1-ay,
+                1-bx, 1-by,
+                1-ax, 1-by,
+                // // left:
+                ax, 1-ay,
+                bx, 1-ay,
+                bx, 1-by,
+                ax, 1-by
+                // ax, ay,
+                // bx, ay,
+                // bx, by,
+                // ax, by
             );
             normals.push(
                 // right:
