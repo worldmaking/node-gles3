@@ -44,6 +44,9 @@ glfw.setWindowPos(window, 25, 25)
 
 let paths = []
 
+const world_min = [-2, 0, -2]
+const world_max = [ 2, 0,  2]
+
 // hand state machine:
 function handStateMachine() {
 	let currentpath
@@ -90,7 +93,7 @@ function handStateMachine() {
 let LHSM = handStateMachine()
 let RHSM = handStateMachine()
 
-function update() {
+function updatePaths() {
 	// animate each line:
 	for (let path of paths) {
 		// don't animate current path
@@ -110,9 +113,10 @@ function update() {
 		vec3.add(p.pos, p1.pos, p1.dpos)
 		// wrap at edges
 		for (let i=0; i<3; i++) {
-			if (p0.pos[i] >  2) p0.pos[i] -= 4
-			if (p0.pos[i] < -2) p0.pos[i] += 4
+			if (p.pos[i] >  2) p.pos[i] -= 4
+			if (p.pos[i] < -2) p.pos[i] += 4
 		}
+
 		// update location of entire strokedxe4
 		vec3.copy(path.pos, p0.pos)
 	}
@@ -142,10 +146,12 @@ out float v_t;
 
 void main() {
 	float t = a_texCoord.x;
+	vec3 dpos = i_pos1 - i_pos0;
+	float len = length(dpos);
 	vec4 vertex = vec4( mix( i_pos0, i_pos1, t), 1.);
 
 	gl_Position = u_projmatrix * u_viewmatrix * vertex;
-	v_color = i_color;
+	v_color = i_color * clamp(2./(1. + len), 0., 1.);
 	v_t = t;
 }
 `,
@@ -309,6 +315,8 @@ function animate() {
 	t = t1;
 	glfw.setWindowTitle(window, `fps ${fps}`);
 
+	updatePaths()
+
 	// get the VR input events
 	// pass controller events through to our state machines
 	vr.update();
@@ -345,7 +353,6 @@ function animate() {
 		}
 	}
 	
-	console.log("lines", paths.length)
 	// submit to GPU:
 	lines.bind().submit().unbind()
 	
