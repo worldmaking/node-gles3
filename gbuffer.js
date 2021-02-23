@@ -403,7 +403,7 @@ let cube = glutils.createVao(gl, glutils.makeCube({ min:-cuberadius, max:cuberad
 let cubes = glutils.createInstances(gl, [
 	{ name:"i_pos", components:4 },
 	{ name:"i_quat", components:4 },
-], 10)
+], 100)
 
 // the .instances provides a convenient interface to the underlying arraybuffer
 cubes.instances.forEach(obj => {

@@ -163,11 +163,13 @@ function loadTexture(gl, url, flipY=false, premultiply=false) {
 
         bind(unit = 0) {
             gl.activeTexture(gl.TEXTURE0 + unit);
+            gl.enable(gl.TEXTURE_2D);
             gl.bindTexture(gl.TEXTURE_2D, this.id);
             return this;
         },
         unbind(unit = 0) {
             gl.activeTexture(gl.TEXTURE0 + unit);
+            gl.enable(gl.TEXTURE_2D);
             gl.bindTexture(gl.TEXTURE_2D, null);
             return this;
         },
@@ -282,11 +284,13 @@ function createTexture(gl, opt) {
         
         bind(unit = 0) {
             gl.activeTexture(gl.TEXTURE0 + unit);
+            gl.enable(gl.TEXTURE_2D);
             gl.bindTexture(gl.TEXTURE_2D, this.id);
             return this;
         },
         unbind(unit = 0) {
             gl.activeTexture(gl.TEXTURE0 + unit);
+            gl.enable(gl.TEXTURE_2D);
             gl.bindTexture(gl.TEXTURE_2D, null);
             return this;
         },
@@ -395,11 +399,13 @@ function createPixelTexture(gl, width, height, floatingpoint=false) {
         
         bind(unit = 0) {
             gl.activeTexture(gl.TEXTURE0 + unit);
+            gl.enable(gl.TEXTURE_2D);
             gl.bindTexture(gl.TEXTURE_2D, this.id);
             return this;
         },
         unbind(unit = 0) {
             gl.activeTexture(gl.TEXTURE0 + unit);
+            gl.enable(gl.TEXTURE_2D);
             gl.bindTexture(gl.TEXTURE_2D, null);
             return this;
         },
