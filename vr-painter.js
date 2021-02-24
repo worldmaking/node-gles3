@@ -45,7 +45,7 @@ glfw.setWindowPos(window, 25, 25)
 let paths = []
 
 const world_min = [-2, 0, -2]
-const world_max = [ 2, 0,  2]
+const world_max = [ 2, 3,  2]
 
 // hand state machine:
 function handStateMachine() {
@@ -113,8 +113,8 @@ function updatePaths() {
 		vec3.add(p.pos, p1.pos, p1.dpos)
 		// wrap at edges
 		for (let i=0; i<3; i++) {
-			if (p.pos[i] >  2) p.pos[i] -= 4
-			if (p.pos[i] < -2) p.pos[i] += 4
+			if (p.pos[i] > world_max[i]) p.pos[i] -= (world_max[i]-world_min[i])
+			if (p.pos[i] < world_min[i]) p.pos[i] += (world_max[i]-world_min[i])
 		}
 
 		// update location of entire strokedxe4
@@ -151,7 +151,8 @@ void main() {
 	vec4 vertex = vec4( mix( i_pos0, i_pos1, t), 1.);
 
 	gl_Position = u_projmatrix * u_viewmatrix * vertex;
-	v_color = i_color * clamp(2./(1. + len), 0., 1.);
+	float f = 0.1;
+	v_color = i_color * clamp(f/(f + len), 0., 1.);
 	v_t = t;
 }
 `,
@@ -340,7 +341,7 @@ function animate() {
 		let path = paths[j];
 		let pt0 = path.pos;
 		// loop over all points in path
-		for (let i=0; i < path.deltas.length; i++) {
+		for (let i=0; i < path.deltas.length && line_count < lines.count; i++) {
 			let p = path.deltas[i];
 			let pt1 = p.pos;
 			let line = lines.instances[line_count];
