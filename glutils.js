@@ -814,6 +814,31 @@ function createVao(gl, geom, program) {
             gl.bindVertexArray(this.id, null);
             return this;
         },
+		// bind first:
+		submit() {
+            //gl.bufferData(gl.ARRAY_BUFFER, this.data, gl.DYNAMIC_DRAW);
+            if (geom.vertices) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, geom.vertices, gl.DYNAMIC_DRAW);
+            }
+            if (geom.colors) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, geom.colors, gl.DYNAMIC_DRAW);
+            }
+            if (geom.normals) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, geom.normals, gl.DYNAMIC_DRAW);
+            }
+            if (geom.texCoords) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, geom.texCoords, gl.DYNAMIC_DRAW);
+            }
+            if (geom.indices) {
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geom.indices, gl.DYNAMIC_DRAW);
+            }
+			return this;
+		},
         draw(count=0) {
 			if (geom.indices) gl.drawElements(gl.TRIANGLES, count ? count : geom.indices.length, gl.UNSIGNED_SHORT, 0);
 			else gl.drawArrays(gl.TRIANGLES, 0, count ? count : geom.vertices.length/geom.vertexComponents);

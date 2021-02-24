@@ -124,9 +124,7 @@ function updatePaths() {
 
 //////////////////////////////////////////////////
 
-const MAX_NUM_LINES = 10000
-let num_lines = 0
-
+const MAX_NUM_LINES = 100000
 
 let lineprogram = glutils.makeProgram(gl,
 `#version 330
@@ -194,6 +192,54 @@ lines.bind().submit().unbind();
 // attach these instances to an existing VAO:
 lines.attachTo(line);
 	
+let pointsprogram = glutils.makeProgram(gl, 
+`#version 330
+uniform mat4 u_viewmatrix;
+uniform mat4 u_projmatrix;
+uniform float u_pixelSize;
+in vec3 a_position;
+out vec4 v_color;
+
+void main() {
+	// Multiply the position by the matrix.
+	gl_Position = u_projmatrix * u_viewmatrix * vec4(a_position.xyz, 1);
+	if (gl_Position.w > 0.0) {
+		gl_PointSize = u_pixelSize / gl_Position.w;
+	} else {
+		gl_PointSize = 0.0;
+	}
+
+	v_color = vec4(1.);
+	//v_color = vec4(u_viewmatrix[3].xyz * 0.5 + 0.5, 0.5);
+	//v_color = vec4(gl_Position.xyz * 0.5 + 0.5, 0.5);
+}
+`,
+`#version 330
+precision mediump float;
+
+in vec4 v_color;
+out vec4 outColor;
+
+void main() {
+	// get normalized -1..1 point coordinate
+	vec2 pc = (gl_PointCoord - 0.5) * 2.0;
+	// convert to distance:
+	float dist = max(0., 1.0 - length(pc));
+	// paint
+		outColor = vec4(dist) * v_color;
+}
+`)
+const NUM_POINTS = 10000;
+let pointsgeom = {
+	vertexComponents: 3,
+	vertices: new Float32Array(NUM_POINTS*3)
+}
+for (let i = 0; i < NUM_POINTS; i++) {
+	pointsgeom.vertices[i*3+0] = Math.random()-0.5
+	pointsgeom.vertices[i*3+1] = Math.random()+0.5
+	pointsgeom.vertices[i*3+2] = Math.random()-0.5
+}
+let points = glutils.createVao(gl, pointsgeom, pointsprogram.id);
 
 let quadprogram = glutils.makeProgram(gl,
 `#version 330
@@ -236,8 +282,8 @@ void main() {
 	vec3 vertex = a_position.xyz * u_scale;
 	gl_Position = u_projmatrix * u_viewmatrix * u_modelmatrix * vec4(vertex, 1);
 
-	v_color = vec4(a_normal*0.25+0.25, 1.);
 	v_color = vec4(a_texCoord*0.5, 0., 1.);
+	v_color = vec4(a_normal*0.25+0.25, 1.);
 }
 `,
 `#version 330
@@ -316,7 +362,11 @@ function animate() {
 	t = t1;
 	glfw.setWindowTitle(window, `fps ${fps}`);
 
+	// update simulation
 	updatePaths()
+
+	let line_count = 0;
+	let point_count = 0;
 
 	// get the VR input events
 	// pass controller events through to our state machines
@@ -328,15 +378,18 @@ function animate() {
 		} else if (input.handedness == "left" && input.targetRaySpace) {
 			left_hand_event = makeHandEvent(input, left_hand_event)
 			LHSM( left_hand_event )
+			vec3.copy(points.geom.vertices.subarray(point_count*3, point_count*3+3), left_hand_event.pos);
+			point_count++;
 		} else if (input.handedness == "right" && input.targetRaySpace) {
 			right_hand_event = makeHandEvent(input, right_hand_event)
 			RHSM( right_hand_event )
+			vec3.copy(points.geom.vertices.subarray(point_count*3, point_count*3+3), right_hand_event.pos);
+			point_count++;
 		}
 	}
 
 	// copy the active CPU paths into the GPU line instances:
-	let line_count = 0;
-	for (let j=0; j<paths.length; j++) {
+	for (let j=0; j<paths.length && point_count < NUM_POINTS; j++) {
 		// get each path in turn:
 		let path = paths[j];
 		let pt0 = path.pos;
@@ -352,10 +405,13 @@ function animate() {
 			pt0 = pt1
 			line_count++;
 		}
+		vec3.copy(points.geom.vertices.subarray(point_count*3, point_count*3+3), pt0);
+		point_count++;
 	}
 	
 	// submit to GPU:
 	lines.bind().submit().unbind()
+	points.bind().submit().unbind()
 	
 	// render to our targetTexture by binding the framebuffer
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.id);
@@ -422,6 +478,13 @@ function animate() {
 			line.bind().drawInstanced(line_count, gl.LINES).unbind()
 			lineprogram.end();
 
+			
+			pointsprogram.begin();
+			pointsprogram.uniform("u_viewmatrix", viewmatrix);
+			pointsprogram.uniform("u_projmatrix", projmatrix);
+			pointsprogram.uniform("u_pixelSize", 10);
+			points.bind().drawPoints(point_count).unbind()
+			pointsprogram.end();
 
 			gl.disable(gl.BLEND);
 			gl.depthMask(true)
