@@ -5,7 +5,6 @@
   "main": "index.js",
   "scripts": {
     "install": "node tools/gen.js && node-gyp rebuild",
-    "postinstall": "node test-audio.js",
     "vr": "node tools/gen.js && node-gyp rebuild && node vr-test.js"
   },
   "gypfile": true,
