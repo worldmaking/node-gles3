@@ -17,8 +17,11 @@ audio.devices() should return a list of input & output devices
 
 */
 
-let audioBuffer = audio.start()
-let audioBufferIdx = audio.index();
+// start audio processing with default settings
+audio.start()
+//console.log(audio.outbuffer)
+//console.log(audio.outbuffer.length)
+let audioBufferIdx = 0;
 let time = 0; // in seconds
 let phase = 0;
 
@@ -31,16 +34,17 @@ function nextSample(time) {
 function update() {
 	// this is the time in the ringbuffer that has most recently been played (and is now zeroed)
 	// so we are safe to fill the buffer up to this point:
-	let targetIdx = audio.index()
+	let at = audio.t
+	//console.log(at, time)
 	// continue filling ringbuffer until we catch up to that point:
-	while (audioBufferIdx != targetIdx) {
+	while (audioBufferIdx != at) {
 		// compute next output:
 		let out = nextSample(time)
 		// write to output:
-		audioBuffer[audioBufferIdx] = out;
+		audio.outbuffer[audioBufferIdx] = out;
 		// time passes:
 		time += 1/48000; 
-		audioBufferIdx = (audioBufferIdx + 1) % audioBuffer.length;
+		audioBufferIdx = (audioBufferIdx + 1) % audio.outbuffer.length;
 	}
 	if (time > 10) {
 		audio.end()

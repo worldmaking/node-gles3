@@ -1,4 +1,5 @@
 #include <node_api.h> 
+#include <napi.h>
 #include <assert.h>
 #include <stdio.h> 
 #include <stdlib.h>
@@ -14,139 +15,121 @@
 
 #define ARRAYBUFFER_LENGTH  (4096*10)
 
-ma_context context;
-ma_device_config deviceConfig;
-ma_device device;
+struct AudioCallbackState {
+	ma_context context;
+	ma_device_config deviceConfig;
+	ma_device device;
 
-float ringBuffer[ARRAYBUFFER_LENGTH];
-int t = 0;
+	float * ringBuffer;
+	int t = 0;
+};
 
 void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount) {
 
+    // MA_ASSERT(pDevice->playback.channels == DEVICE_CHANNELS);
+    AudioCallbackState& state = *(AudioCallbackState *)pDevice->pUserData;
+
 	float* out = (float*)pOutput;
-	
 	for (ma_uint32 i=0; i<frameCount; i++) {
 		//float s = sin(t * M_PI*2.f * 300.f/DEVICE_SAMPLE_RATE);
-		float s = ringBuffer[t];
+		float s = state.ringBuffer[state.t];
 		out[i*2] = s;
 		out[i*2+1] = s;
 		// burn after reading
-		ringBuffer[t] = 0.f;
+		state.ringBuffer[state.t] = 0.f;
 
-		t++;
-		if (t >= ARRAYBUFFER_LENGTH) t = 0;
+		state.t++;
+		if (state.t >= ARRAYBUFFER_LENGTH) state.t = 0;
 	}
-
-
-    // ma_waveform* pSineWave;
-
-    // MA_ASSERT(pDevice->playback.channels == DEVICE_CHANNELS);
-
-    // pSineWave = (ma_waveform*)pDevice->pUserData;
-    // MA_ASSERT(pSineWave != NULL);
-
-    // ma_waveform_read_pcm_frames(pSineWave, pOutput, frameCount);
-
-
-	// printf("frame rate: %d\n", frameCount);
-
-    // (void)pInput;   /* Unused. */
 }
 
-napi_value start(napi_env env, const napi_callback_info info) {
-	napi_value result = nullptr;
+class Module : public Napi::Addon<Module> {
+public:
 
-	ma_device_info* pPlaybackInfos;
-    ma_uint32 playbackCount;
-    ma_device_info* pCaptureInfos;
-    ma_uint32 captureCount;
-    if (ma_context_get_devices(&context, &pPlaybackInfos, &playbackCount, &pCaptureInfos, &captureCount) != MA_SUCCESS) {
-        return nullptr;
+	AudioCallbackState state;
 
-    }
-	// output devices:
-	for (ma_uint32 iDevice = 0; iDevice < playbackCount; iDevice += 1) {
-		ma_device_info& info = pPlaybackInfos[iDevice];
-        ma_context_get_device_info(&context, ma_device_type_playback, &info.id, ma_share_mode_shared, &info);
-		printf("playback: %d - %s; %d-%d chans, %d-%dHz\n", iDevice, info.name, info.minChannels, info.maxChannels, info.minSampleRate, info.maxSampleRate);
-    }
+	Napi::Value start(const Napi::CallbackInfo& info) {
+		Napi::Env env = info.Env();
 
-	// input devices:
-	for (ma_uint32 iDevice = 0; iDevice < captureCount; iDevice += 1) {
-        ma_device_info& info = pCaptureInfos[iDevice];
-        ma_context_get_device_info(&context, ma_device_type_capture, &info.id, ma_share_mode_shared, &info);
-		printf("capture: %d - %s; %d-%d chans, %d-%dHz\n", iDevice, info.name, info.minChannels, info.maxChannels, info.minSampleRate, info.maxSampleRate);
-    }
+		ma_device_info* pPlaybackInfos;
+		ma_uint32 playbackCount;
+		ma_device_info* pCaptureInfos;
+		ma_uint32 captureCount;
+		if (ma_context_get_devices(&state.context, &pPlaybackInfos, &playbackCount, &pCaptureInfos, &captureCount) != MA_SUCCESS) {
+			throw Napi::Error::New(env, "Audio Get Devices exception");
+			return env.Null();
 
-
-	// sineWaveConfig = ma_waveform_config_init(DEVICE_FORMAT, DEVICE_CHANNELS, DEVICE_SAMPLE_RATE, ma_waveform_type_sine, 0.2, 220);
-    // ma_waveform_init(&sineWaveConfig, &sineWave);
-
-    deviceConfig = ma_device_config_init(ma_device_type_playback);
-    deviceConfig.playback.format   = DEVICE_FORMAT;
-    deviceConfig.playback.channels = DEVICE_CHANNELS;
-    deviceConfig.sampleRate        = DEVICE_SAMPLE_RATE;
-    deviceConfig.dataCallback      = data_callback;
-    //deviceConfig.pUserData         = &sineWave;
-
-    if (ma_device_init(NULL, &deviceConfig, &device) != MA_SUCCESS) {
-        printf("Failed to open playback device.\n");
-        return result;
-    }
-
-    printf("Device Name: %s\n", device.playback.name);
-
-    if (ma_device_start(&device) != MA_SUCCESS) {
-        printf("Failed to start playback device.\n");
-        ma_device_uninit(&device);
-        return result;
-    }
-
-	// return our audio OLA buffer:
-	napi_value arraybuffer;
-	if (napi_ok == napi_create_external_arraybuffer(env, ringBuffer, sizeof(ringBuffer), nullptr, nullptr, &arraybuffer)) {
-		if (napi_ok == napi_create_typedarray(env, napi_float32_array, ARRAYBUFFER_LENGTH, arraybuffer, 0, &result)) {
-			return result;
 		}
+		// output devices:
+		for (ma_uint32 iDevice = 0; iDevice < playbackCount; iDevice += 1) {
+			ma_device_info& info = pPlaybackInfos[iDevice];
+			ma_context_get_device_info(&state.context, ma_device_type_playback, &info.id, ma_share_mode_shared, &info);
+			printf("playback: %d - %s; %d-%d chans, %d-%dHz\n", iDevice, info.name, info.minChannels, info.maxChannels, info.minSampleRate, info.maxSampleRate);
+		}
+
+		// input devices:
+		for (ma_uint32 iDevice = 0; iDevice < captureCount; iDevice += 1) {
+			ma_device_info& info = pCaptureInfos[iDevice];
+			ma_context_get_device_info(&state.context, ma_device_type_capture, &info.id, ma_share_mode_shared, &info);
+			printf("capture: %d - %s; %d-%d chans, %d-%dHz\n", iDevice, info.name, info.minChannels, info.maxChannels, info.minSampleRate, info.maxSampleRate);
+		}
+
+		state.deviceConfig = ma_device_config_init(ma_device_type_playback);
+		state.deviceConfig.playback.format   = DEVICE_FORMAT;
+		state.deviceConfig.playback.channels = DEVICE_CHANNELS;
+		state.deviceConfig.sampleRate        = DEVICE_SAMPLE_RATE;
+		state.deviceConfig.dataCallback      = data_callback;
+		state.deviceConfig.pUserData         		 = &state;
+
+		if (ma_device_init(NULL, &state.deviceConfig, &state.device) != MA_SUCCESS) {
+			throw Napi::Error::New(env, "Failed to open playback device.\n");
+			return env.Null();
+		}
+
+		printf("Device Name: %s\n", state.device.playback.name);
+
+		// allocate the ringbuffer
+		// doing this via JS to make it easier:
+		Napi::Float32Array tab = Napi::Float32Array::New(env, ARRAYBUFFER_LENGTH);
+		state.ringBuffer = tab.Data();
+		// store this in our object to prevent it being GC'd:
+		info.This().ToObject().Set("outbuffer", tab);
+
+		if (ma_device_start(&state.device) != MA_SUCCESS) {
+			ma_device_uninit(&state.device);
+			throw Napi::Error::New(env, "Failed to start playback device.\n");
+			return env.Null();
+		}
+
+		return info.This();
 	}
 
-    return result;
-}
+	Napi::Value end(const Napi::CallbackInfo& info) {
+		ma_device_uninit(&state.device);
+		return info.This();
+	}
 
-napi_value index(napi_env env, const napi_callback_info info) {
-	napi_value result;
-	napi_create_int32(env, t, &result);
-	return result;
-}
+	Napi::Value Gett(const Napi::CallbackInfo &info) {
+		return Napi::Number::New(info.Env(), state.t);
+	}
 
-napi_value end(napi_env env, const napi_callback_info info) {
-    ma_device_uninit(&device);
-    return nullptr;
-}
+	Module(Napi::Env env, Napi::Object exports) {
 
-napi_value Init(napi_env env, napi_value exports) {
-	if (ma_context_init(NULL, 0, NULL, &context) != MA_SUCCESS) {
-        // Error.
-		return nullptr;
-    }
+		if (ma_context_init(NULL, 0, NULL, &state.context) != MA_SUCCESS) {
+			// Error.
+			throw Napi::Error::New(env, "Audio Init exception");
+		}
+		
+		// See https://github.com/nodejs/node-addon-api/blob/main/doc/class_property_descriptor.md
+		DefineAddon(exports, {
+			InstanceMethod("start", &Module::start),
+			InstanceMethod("end", &Module::end),
 
-    napi_property_descriptor export_properties[] = {
-	{
-		"start", nullptr, start,
-		nullptr, nullptr, nullptr, napi_default, nullptr
-	},
-	{
-		"index", nullptr, index,
-		nullptr, nullptr, nullptr, napi_default, nullptr
-	},
-	{
-		"end", nullptr, end,
-		nullptr, nullptr, nullptr, napi_default, nullptr
-	},
-    };
-    assert(napi_define_properties(env, exports, 
-	sizeof(export_properties) / sizeof(export_properties[0]), export_properties) == napi_ok);
-    return exports;
-}
+			// InstanceValue
+			// InstanceAccessor
+			InstanceAccessor<&Module::Gett>("t"),
+		});
+	}
+};
 
-NAPI_MODULE(NODE_GYP_MODULE_NAME, Init)
+NODE_API_ADDON(Module)
