@@ -1,55 +1,153 @@
-const audio = require('bindings')('audio');
+const audio = require('./audio.js');
 
 /*
-
 - This should be running in a Worker. 
 - Worker's job is to fill the buffer up to whatever index it is at.
-
-TODO:
-`audio` should really be a kind of active object, with
-- .samplerate
-- .outbuffer (and .inbuffer)
-- .outchannels (and .inchannels)
-- .index (for IO frames)
-
-audio.start() should take a config {} to select devices, channels, etc.
-audio.devices() should return a list of input & output devices
-
 */
 
-// start audio processing with default settings
-audio.start()
-//console.log(audio.outbuffer)
-//console.log(audio.outbuffer.length)
-let audioBufferIdx = 0;
-let time = 0; // in seconds
-let phase = 0;
+/* 
+List available playback and capture devices & their features
+For example: 
 
-function nextSample(time) {
-	// compute next output:
-	phase += 289/48000;
-	return 0.1 * Math.sin(Math.PI * 2 * phase);
+{
+  playback: [
+    {
+      index: 0,
+      name: 'Built-in Output',
+      minChannels: 2,
+      maxChannels: 2,
+      minSampleRate: 44100,
+      maxSampleRate: 96000
+    },
+    {
+      index: 1,
+      name: 'iShowU Audio Capture',
+      minChannels: 2,
+      maxChannels: 2,
+      minSampleRate: 44100,
+      maxSampleRate: 192000
+    },
+    {
+      index: 2,
+      name: 'ZoomAudioDevice',
+      minChannels: 2,
+      maxChannels: 2,
+      minSampleRate: 48000,
+      maxSampleRate: 48000
+    }
+  ],
+  capture: [
+    {
+      index: 0,
+      name: 'Built-in Microphone',
+      minChannels: 2,
+      maxChannels: 2,
+      minSampleRate: 44100,
+      maxSampleRate: 96000
+    },
+    {
+      index: 1,
+      name: 'NDI Audio',
+      minChannels: 2,
+      maxChannels: 2,
+      minSampleRate: 44100,
+      maxSampleRate: 48000
+    },
+    {
+      index: 2,
+      name: 'iShowU Audio Capture',
+      minChannels: 2,
+      maxChannels: 2,
+      minSampleRate: 44100,
+      maxSampleRate: 192000
+    },
+    {
+      index: 3,
+      name: 'ZoomAudioDevice',
+      minChannels: 2,
+      maxChannels: 2,
+      minSampleRate: 48000,
+      maxSampleRate: 48000
+    }
+  ]
 }
+*/
+console.log(audio.devices)
 
+// start audio processing
+// optional argument to specify settings
+audio.start({
+	// these are the defaults:
+	samplerate: 48000,
+	indevice: 0,
+	inchannels: 2,
+	outdevice: 0,
+	outchannels: 2,
+})
+
+/*
+	e.g.:
+{
+  outname: 'Built-in Output',
+  inname: 'Built-in Microphone',
+  outchannels: 2,
+  inchannels: 2,
+  outbuffer: Float32Array(2880),
+  inbuffer: Float32Array(2880),
+  samplerate: 48000,
+  frames: 1440,
+  latency: 0.029999999329447746,
+  pollms: 15
+}
+*/
+console.log(audio)
+
+// minimal sine oscillator:
+nextSample = (function() {
+	let phase = 0;
+	let radiansPerFrame = Math.PI * 2 * 440/audio.samplerate;
+	return function () {
+		// compute next output:
+		phase += radiansPerFrame;
+		return 0.1 * Math.sin(phase);
+	}
+})();
+
+let frameIdx = 0;
+let time = 0; // in seconds
+let lasttime = 0
 function update() {
+	let dt = time - lasttime // seconds since last update()
+	lasttime = time
 	// this is the time in the ringbuffer that has most recently been played (and is now zeroed)
 	// so we are safe to fill the buffer up to this point:
 	let at = audio.t
+	let outch = audio.outchannels
+	let inch = audio.inchannels
+	let secondsPerFrame = 1/audio.samplerate
 	//console.log(at, time)
 	// continue filling ringbuffer until we catch up to that point:
-	while (audioBufferIdx != at) {
+	while (frameIdx != at) {
+		let inframe = audio.inbuffer.subarray(frameIdx*inch)
+		let outframe = audio.outbuffer.subarray(frameIdx*outch)
 		// compute next output:
-		let out = nextSample(time)
+		let L = inframe[0]
+		let R = nextSample(time)
 		// write to output:
-		audio.outbuffer[audioBufferIdx] = out;
+		outframe[0] += L;
+		outframe[1] += R;
 		// time passes:
-		time += 1/48000; 
-		audioBufferIdx = (audioBufferIdx + 1) % audio.outbuffer.length;
+		time += secondsPerFrame; 
+		frameIdx = (frameIdx+1) % audio.frames;
 	}
+
+	// play for 10 seconds:
 	if (time > 10) {
 		audio.end()
+		console.log(audio)
 	} else {
-		setTimeout(update, 100);
+		//console.log(dt)
+		setTimeout(update, audio.pollms); // 300ms is enough. how??
 	}
 }
 
