@@ -3,6 +3,8 @@
 #include <assert.h>
 #include <stdio.h> 
 #include <stdlib.h>
+#include <chrono>
+#include <thread>
 
 #define MA_NO_DECODING
 #define MA_NO_ENCODING
@@ -213,8 +215,8 @@ public:
 		Napi::Float32Array tab2 = Napi::Float32Array::New(env, state.frames * state.device.capture.channels);
 		state.captureRingBuffer = tab2.Data();
 		// store this in our object to prevent it being GC'd:
-		info.This().ToObject().Set("outbuffer", tab1);
-		info.This().ToObject().Set("inbuffer", tab2);
+		info.This().ToObject()["outbuffer"] = tab1;
+		info.This().ToObject()["inbuffer"] = tab2;
 
 		info.This().ToObject().Set("outchannels", state.device.playback.channels);
 		info.This().ToObject().Set("inchannels", state.device.capture.channels);
@@ -247,6 +249,67 @@ public:
 		return Napi::Number::New(info.Env(), state.device.sampleRate);
 	}
 
+
+	// /*
+	// 	Want to move most of the heavy lifting to a secondary thread (worker)
+	// 	This thread could itself be the audio callback thread
+
+
+	// */
+
+	// struct ThreadState {
+
+	// 	// Native thread
+  	// 	std::thread nativeThread;
+
+	// 	// callback
+	// 	Napi::ThreadSafeFunction tsfn;
+	// };
+
+	// // The thread-safe function finalizer callback. This callback executes
+	// // at destruction of thread-safe function, taking as arguments the finalizer
+	// // data and threadsafe-function context.
+	// static void FinalizerCallback(Napi::Env env, void* finalizeData, ThreadState* context) {
+	// 	printf("FinalizerCallback, %p\n", context);
+	// }
+
+	// static void threadEntry(ThreadState* context) {
+	// 	for (int i=0; i<10; i++) {
+	// 		printf("thread loop %d\n", i);
+	// 		// call back into JS:
+	// 		napi_status status = context->tsfn.BlockingCall(&context->ints[index], callback);
+
+	// 		// Sleep for some time.
+    // 		std::this_thread::sleep_for(std::chrono::milliseconds(300));
+	// 	}
+
+	// 	// allow finalization:
+	// 	context->tsfn.Release();
+	// }
+
+	// Napi::Value test(const Napi::CallbackInfo &info) {
+	// 	Napi::Env env = info.Env();
+
+	// 	// create C++ object to track state in the other thread:
+	// 	auto testData = new ThreadState;
+
+	// 	// Create a new ThreadSafeFunction.
+	// 	testData->tsfn = Napi::ThreadSafeFunction::New(
+	// 		env,                           // Environment
+	// 		info[0].As<Napi::Function>(),  // JS function from caller
+	// 		"TSFN",                        // Resource name
+	// 		0,                             // Max queue size (0 = unlimited).
+	// 		1,                             // Initial thread count
+	// 		testData,                      // Context,
+	// 		FinalizerCallback,             // Finalizer
+	// 		(void*)nullptr                 // Finalizer data
+	// 	);
+
+	// 	testData->nativeThread = std::thread(threadEntry, testData);
+
+	// 	return env.Null();
+	// }
+
 	Module(Napi::Env env, Napi::Object exports) {
 
 		if (ma_context_init(NULL, 0, NULL, &state.context) != MA_SUCCESS) {
@@ -258,6 +321,9 @@ public:
 		DefineAddon(exports, {
 			InstanceMethod("start", &Module::start),
 			InstanceMethod("end", &Module::end),
+
+
+			//InstanceMethod("test", &Module::test),
 
 			// InstanceValue
 			// InstanceAccessor
