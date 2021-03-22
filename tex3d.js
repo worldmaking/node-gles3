@@ -228,7 +228,6 @@ void main() {
 // create a VAO from a basic geometry and shader
 let cube = glutils.createVao(gl, glutils.makeCube({ min:-0.1, max:0.1, div: 8 }), cubeprogram.id);
 
-
 // create a VBO & friendly interface for the instances:
 // TODO: could perhaps derive the fields from the vertex shader GLSL?
 let cubes = glutils.createInstances(gl, [

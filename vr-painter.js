@@ -7,7 +7,20 @@ const gl = require("./gles3.js"),
 	
 const glutils = require('./glutils.js');
 
+/*
+	
+	Translate to a cylindrical space (height unchanged)
+	XZ <-> radius, angle
+	The idea here is that deltas are encoded in this format, so that the path looping end-on-end will orbit around the viewer
+	Another is a kind of redirected walking, in which a rotation component is applied according to current location
+	
+	- angle is a cyclic property, requires modular arithmetic
+	- tempting to also suggest making radius somehow a relative term, so that paths do not 'wander away'
+		one way would be to invert radial change on each loop?
 
+	
+
+*/
 
 if (!glfw.init()) {
 	console.log("Failed to initialize GLFW");
@@ -232,12 +245,12 @@ void main() {
 const NUM_POINTS = 10000;
 let pointsgeom = {
 	vertexComponents: 3,
-	vertices: new Float32Array(NUM_POINTS*3)
+	vertices: new Float32Array(NUM_POINTS*3),
+	vec3s: [],
 }
-for (let i = 0; i < NUM_POINTS; i++) {
-	pointsgeom.vertices[i*3+0] = Math.random()-0.5
-	pointsgeom.vertices[i*3+1] = Math.random()+0.5
-	pointsgeom.vertices[i*3+2] = Math.random()-0.5
+// a more convenient interface:
+for (let i=0; i<NUM_POINTS; i++) {
+	pointsgeom.vec3s[i] = pointsgeom.vertices.subarray(i*3, i*3+3)
 }
 let points = glutils.createVao(gl, pointsgeom, pointsprogram.id);
 
@@ -378,13 +391,11 @@ function animate() {
 		} else if (input.handedness == "left" && input.targetRaySpace) {
 			left_hand_event = makeHandEvent(input, left_hand_event)
 			LHSM( left_hand_event )
-			vec3.copy(points.geom.vertices.subarray(point_count*3, point_count*3+3), left_hand_event.pos);
-			point_count++;
+			vec3.copy(points.geom.vec3s[point_count++], left_hand_event.pos);
 		} else if (input.handedness == "right" && input.targetRaySpace) {
 			right_hand_event = makeHandEvent(input, right_hand_event)
 			RHSM( right_hand_event )
-			vec3.copy(points.geom.vertices.subarray(point_count*3, point_count*3+3), right_hand_event.pos);
-			point_count++;
+			vec3.copy(points.geom.vec3s[point_count++], right_hand_event.pos);
 		}
 	}
 
@@ -405,8 +416,7 @@ function animate() {
 			pt0 = pt1
 			line_count++;
 		}
-		vec3.copy(points.geom.vertices.subarray(point_count*3, point_count*3+3), pt0);
-		point_count++;
+		vec3.copy(points.geom.vec3s[point_count++], pt0);
 	}
 	
 	// submit to GPU:
@@ -491,6 +501,8 @@ function animate() {
 		}
 	}
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+	// TODO: insert some nice bloom effect here
 
 	vr.submit(fbo.colorTexture)
 
