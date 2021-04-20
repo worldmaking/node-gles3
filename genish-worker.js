@@ -29,11 +29,26 @@ audio.start()
 // Now setup genish.js
 const gen = require("./genish.js")
 gen.samplerate = audio.samplerate
+const { 
+	add, sub, mul, div, mod, pow, exp, 
+	abs, round, floor, ceil, min, max, sign, 
+	delta, gate, selector, slide, ifelse, 
+	bool, not, eq, neq, and, gt, gte, lt, lte, ltp, gtp, 
+	sin, cos, tan, asin, acos, atan, tanh,
+	accum, counter, phasor, phasorN, cycle, cycleN, 
+	rate, train, 
+	noise, dcblock, sah, latch,
+	t60, mtof, mstosamps, 
+	wrap, fold, clamp, mix, 
+	param, history, memo, 
+	attack, decay, env, ad, adsr, bang, pan, 
+	data, peek, peekDyn, poke, delay, 
+} = gen;
 console.log("GEN")
 console.log(gen)
 // this will hold our generated audio code
 // left undefined for now:
-let kernel = gen.gen.createCallback(gen.cycle(440), 2048)
+let kernel = gen.gen.createCallback(cycle(440), 2048)
 
 // handle messages from main thread:
 parentPort.on("message", (msg) => {

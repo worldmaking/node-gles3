@@ -49,7 +49,7 @@ worker.on('exit', (code) => {
 setInterval(()=>{
 	let n = Math.ceil(Math.random()*10 + 20) * Math.random() * 10
 	let graph
-	graph = `gen.cycle( gen.add(${n}, gen.mul(${n*2}, gen.add(gen.cycle(${n*2}), gen.cycle(${Math.random()*10})))) )`
+	graph = `cycle( add(${n}, mul(${n*2}, add(cycle(${n*2}), cycle(${Math.random()*10})))) )`
 
 	worker.postMessage({ 
 		cmd:"graph", 
