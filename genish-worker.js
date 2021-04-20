@@ -45,11 +45,56 @@ const {
 //console.log("GEN", gen)
 // this will hold our generated audio code
 // left undefined for now:
-let kernel = gen.gen.createCallback(cycle(440), 2048)
-let oldkernel
+let memsize = 1024*1024*1024
+let kernel //= gen.gen.createCallback(0, memsize)
+let oldkernel //= gen.gen.createCallback(0, memsize)
 let mixerXfade = 0
 // 5ms crossfade:
 let mixerXfadeStep = 1/(audio.samplerate*0.005)
+let mixerGain = 0.1
+
+// build a lookup table for all the named memory slots in the graph:
+// (this is needed to stash state for memory retention between edits)
+function getMemoryMap(graph) {
+	let map = {},
+	memo = {};
+	function visit(ugen) {
+		if (Array.isArray(ugen)) {
+			ugen.forEach(visit);
+		} else if (typeof ugen == "object") {
+			if (!memo[ugen.name]) {
+				memo[ugen.name] = true;
+				for (let k in ugen.memory) {
+					map[`${ugen.name}_${k}`] = ugen.memory[k].idx;
+				}
+				if (ugen.inputs) ugen.inputs.forEach(visit);
+			}
+		}
+		return map;
+	}
+	return visit(graph);
+}
+
+// cache all the current ugen memory slot values
+// returns a JS object:
+function getstash(kernel) {
+	let stash = {};
+	// stash the graph's current state:
+	Object.entries(kernel.memorymap).map((e) => {
+		let [key, idx] = e;
+		stash[key] = kernel.memory[idx];
+	});
+	return stash;
+}
+
+// apply any matching names from `stash`
+// to the corresponding memory slots of `kernel`
+function applystash(kernel, stash) {
+	Object.entries(kernel.memorymap).map((e) => {
+		let [key, idx] = e;
+		if (stash.hasOwnProperty(key)) kernel.memory[idx] = stash[key];
+	});
+}
 
 // handle messages from main thread:
 parentPort.on("message", (msg) => {
@@ -59,11 +104,36 @@ parentPort.on("message", (msg) => {
 				console.log("received graph from parent", msg.graph);
 				// make a basic graph:
 				let graph = eval(msg.graph)
-				// 2nd argument here is a memory allocation
-				// TODO we need to figure out how to assign this more sensibly
+				// swap kernel over and initiate crossfade:
+				let stash = kernel ? getstash(kernel) : {}
 				oldkernel = kernel
 				mixerXfade = 1
-				kernel = gen.gen.createCallback(graph, 2048)
+				// 2nd argument here is a memory allocation
+				// TODO we need to figure out how to assign this more sensibly
+				kernel = gen.gen.createCallback(graph, memsize)
+				kernel.graph = graph
+				// after compiling, build up the index map for stashing:
+				kernel.memorymap = getMemoryMap(graph);
+				applystash(kernel, stash);
+
+				console.log("map", kernel.memorymap);
+				// this is our list of parameters:
+				console.log("params", graph.params);
+				// this is how to update a param:
+				//graph.params["knob_2_voltage"].value = 200;
+
+				// if we had any external audio inputs:
+				console.log("number of inputs", kernel.inputs.size);
+				//console.log("input objects", graph.kernel.inputs);
+				// this is our outputs:
+				console.log("number of outputs", kernel.out.length);
+				console.log("output values", kernel.out);
+				// for external buffers:
+				//console.log("data objects", graph.kernel.data);
+				// I'm not sure what this is for:
+				//console.log("members", graph.kernel.members);
+				
+  
 			} break;
 			case "end": {
 				audio.end()
@@ -112,8 +182,8 @@ function runAudioProcess() {
 		let R = L 
 		mixerXfade = Math.max(0, mixerXfade - mixerXfadeStep)
 		// write to output:
-		outframe[0] += L+L0;
-		outframe[1] += R+R0;
+		outframe[0] += mixerGain*(L+L0);
+		outframe[1] += mixerGain*(R+R0);
 		// time passes:
 		time += secondsPerFrame; 
 		frameIdx = (frameIdx+1) % audio.frames;

@@ -19,7 +19,7 @@ const worker = new Worker("./genish-worker.js", {
 	//workerData: "hello"  // pass initial data to worker
 });
 // here's a message channel to receive messages from it:
-const workerChannel = new MessageChannel();
+//const workerChannel = new MessageChannel();
 
 // receicve a message:
 worker.on('message', function(msg) {
