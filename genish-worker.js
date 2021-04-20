@@ -11,8 +11,7 @@ if (isMainThread) {
 
 // Set up audio driver
 const audio = require('./audio.js');
-//console.log("AUDIO DEVICES")
-//console.log(audio.devices)
+//console.log("AUDIO DEVICES", audio.devices)
 // start audio processing
 // optional argument to specify settings, defaults to:
 // {
@@ -23,8 +22,7 @@ const audio = require('./audio.js');
 // 	outchannels: 2,
 // }
 audio.start()
-// console.log("AUDIO")
-// console.log(audio)
+// console.log("AUDIO", audio)
 
 // Now setup genish.js
 const gen = require("./genish.js")
@@ -44,11 +42,14 @@ const {
 	attack, decay, env, ad, adsr, bang, pan, 
 	data, peek, peekDyn, poke, delay, 
 } = gen;
-console.log("GEN")
-console.log(gen)
+//console.log("GEN", gen)
 // this will hold our generated audio code
 // left undefined for now:
 let kernel = gen.gen.createCallback(cycle(440), 2048)
+let oldkernel
+let mixerXfade = 0
+// 5ms crossfade:
+let mixerXfadeStep = 1/(audio.samplerate*0.005)
 
 // handle messages from main thread:
 parentPort.on("message", (msg) => {
@@ -60,6 +61,8 @@ parentPort.on("message", (msg) => {
 				let graph = eval(msg.graph)
 				// 2nd argument here is a memory allocation
 				// TODO we need to figure out how to assign this more sensibly
+				oldkernel = kernel
+				mixerXfade = 1
 				kernel = gen.gen.createCallback(graph, 2048)
 			} break;
 			default:
@@ -99,11 +102,14 @@ function runAudioProcess() {
 		let inframe = audio.inbuffer.subarray(frameIdx*inch)
 		let outframe = audio.outbuffer.subarray(frameIdx*ouch)
 		// compute next output:
-		let L = kernel ? kernel.call(kernel) : 0
-		let R = L
+		let L0 = oldkernel && mixerXfade > 0 ? oldkernel.call(oldkernel)*mixerXfade : 0
+		let R0 = L0
+		let L = kernel ? kernel.call(kernel)*(1-mixerXfade) : 0
+		let R = L 
+		mixerXfade = Math.max(0, mixerXfade - mixerXfadeStep)
 		// write to output:
-		outframe[0] += L;
-		outframe[1] += R;
+		outframe[0] += L+L0;
+		outframe[1] += R+R0;
 		// time passes:
 		time += secondsPerFrame; 
 		frameIdx = (frameIdx+1) % audio.frames;
