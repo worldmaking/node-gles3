@@ -65,6 +65,10 @@ parentPort.on("message", (msg) => {
 				mixerXfade = 1
 				kernel = gen.gen.createCallback(graph, 2048)
 			} break;
+			case "end": {
+				audio.end()
+				process.exit()
+			}
 			default:
 				console.log("got message object from parent", msg);
 		}
@@ -115,13 +119,13 @@ function runAudioProcess() {
 		frameIdx = (frameIdx+1) % audio.frames;
 	}
 
-	// play for 10 seconds:
-	if (time > 10) {
-		audio.end()
-		process.exit()
-	} else {
+	// // play for 10 seconds:
+	// if (time > 10) {
+	// 	audio.end()
+	// 	process.exit()
+	// } else {
 		//console.log(dt)
 		setTimeout(runAudioProcess, audio.pollms/2);
-	}
+	//}
 }
 runAudioProcess();

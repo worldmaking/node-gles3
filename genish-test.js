@@ -45,7 +45,7 @@ worker.on('exit', (code) => {
 // 	console.log('received:', value);
 // });
 
-
+// periodically send random graphs:
 setInterval(()=>{
 	let n = Math.ceil(Math.random()*10 + 20) * Math.random() * 10
 	let graph
@@ -56,3 +56,8 @@ setInterval(()=>{
 		graph: graph
 	})
 }, 1000)
+
+// kill the audio thread after 10 seconds
+setTimeout(() => {
+	worker.postMessage({ cmd: "end" })
+}, 10*1000)
