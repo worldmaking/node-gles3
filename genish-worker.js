@@ -104,6 +104,7 @@ parentPort.on("message", (msg) => {
 				console.log("received graph from parent", msg.graph);
 				// make a basic graph:
 				let graph = eval(msg.graph)
+				//console.log(graph)
 				// swap kernel over and initiate crossfade:
 				let stash = kernel ? getstash(kernel) : {}
 				oldkernel = kernel
@@ -118,16 +119,16 @@ parentPort.on("message", (msg) => {
 
 				console.log("map", kernel.memorymap);
 				// this is our list of parameters:
-				console.log("params", graph.params);
+				//console.log("params", graph.params);
 				// this is how to update a param:
 				//graph.params["knob_2_voltage"].value = 200;
 
 				// if we had any external audio inputs:
-				console.log("number of inputs", kernel.inputs.size);
+				//console.log("number of inputs", kernel.inputs.size);
 				//console.log("input objects", graph.kernel.inputs);
 				// this is our outputs:
-				console.log("number of outputs", kernel.out.length);
-				console.log("output values", kernel.out);
+				//console.log("number of outputs", kernel.out.length);
+				//console.log("output values", kernel.out);
 				// for external buffers:
 				//console.log("data objects", graph.kernel.data);
 				// I'm not sure what this is for:
