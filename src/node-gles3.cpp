@@ -326,30 +326,6 @@ napi_value CullFace(napi_env env, napi_callback_info info) {
 	return NULL;
 }
 
-napi_value DeleteBuffers(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLsizei n = getInt32(env, args[0]);
-	GLuint * buffers = nullptr;
-	status = getTypedArray(env, args[1], buffers);
-	// void glDeleteBuffers(GLsizei n, const GLuint *buffers)
-	glDeleteBuffers(n, buffers);
-	return NULL;
-}
-
-napi_value DeleteFramebuffers(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLsizei n = getInt32(env, args[0]);
-	GLuint * framebuffers = nullptr;
-	status = getTypedArray(env, args[1], framebuffers);
-	// void glDeleteFramebuffers(GLsizei n, const GLuint *framebuffers)
-	glDeleteFramebuffers(n, framebuffers);
-	return NULL;
-}
-
 napi_value DeleteProgram(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
 	napi_value args[1];
@@ -379,18 +355,6 @@ napi_value DeleteShader(napi_env env, napi_callback_info info) {
 	GLuint shader = getUint32(env, args[0]);
 	// void glDeleteShader(GLuint shader)
 	glDeleteShader(shader);
-	return NULL;
-}
-
-napi_value DeleteTextures(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLsizei n = getInt32(env, args[0]);
-	GLuint * textures = nullptr;
-	status = getTypedArray(env, args[1], textures);
-	// void glDeleteTextures(GLsizei n, const GLuint *textures)
-	glDeleteTextures(n, textures);
 	return NULL;
 }
 
@@ -1993,18 +1957,6 @@ napi_value BindVertexArray(napi_env env, napi_callback_info info) {
 	return NULL;
 }
 
-napi_value DeleteVertexArrays(napi_env env, napi_callback_info info) {
-	napi_status status = napi_ok;
-	napi_value args[2];
-	size_t argc = checkArgCount(env, info, args, 2, 2);
-	GLsizei n = getInt32(env, args[0]);
-	GLuint * arrays = nullptr;
-	status = getTypedArray(env, args[1], arrays);
-	// void glDeleteVertexArrays(GLsizei n, const GLuint *arrays)
-	glDeleteVertexArrays(n, arrays);
-	return NULL;
-}
-
 napi_value GenVertexArrays(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
 	napi_value args[2];
@@ -2930,11 +2882,15 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "clearBufferfv", 0, ClearBufferfv, 0, 0, 0, napi_default, 0 },
 		{ "bufferData", 0, BufferData, 0, 0, 0, napi_default, 0 },
 		{ "createBuffer", 0, CreateBuffer, 0, 0, 0, napi_default, 0 },
+		{ "deleteBuffers", 0, DeleteBuffers, 0, 0, 0, napi_default, 0 },
 		{ "createFramebuffer", 0, CreateFramebuffer, 0, 0, 0, napi_default, 0 },
+		{ "deleteFramebuffers", 0, DeleteFramebuffers, 0, 0, 0, napi_default, 0 },
 		{ "createProgram", 0, CreateProgram, 0, 0, 0, napi_default, 0 },
 		{ "createRenderbuffer", 0, CreateRenderbuffer, 0, 0, 0, napi_default, 0 },
 		{ "createTexture", 0, CreateTexture, 0, 0, 0, napi_default, 0 },
+		{ "deleteTextures", 0, DeleteTextures, 0, 0, 0, napi_default, 0 },
 		{ "createVertexArray", 0, CreateVertexArray, 0, 0, 0, napi_default, 0 },
+		{ "deleteVertexArrays", 0, DeleteVertexArrays, 0, 0, 0, napi_default, 0 },
 		{ "drawBuffers", 0, DrawBuffers, 0, 0, 0, napi_default, 0 },
 		{ "getAttribLocation", 0, GetAttribLocation, 0, 0, 0, napi_default, 0 },
 		{ "getInteger64v", 0, GetInteger64v, 0, 0, 0, napi_default, 0 },
@@ -2976,12 +2932,9 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "copyTexSubImage2D", 0, CopyTexSubImage2D, 0, 0, 0, napi_default, 0 },
 		{ "createShader", 0, CreateShader, 0, 0, 0, napi_default, 0 },
 		{ "cullFace", 0, CullFace, 0, 0, 0, napi_default, 0 },
-		{ "deleteBuffers", 0, DeleteBuffers, 0, 0, 0, napi_default, 0 },
-		{ "deleteFramebuffers", 0, DeleteFramebuffers, 0, 0, 0, napi_default, 0 },
 		{ "deleteProgram", 0, DeleteProgram, 0, 0, 0, napi_default, 0 },
 		{ "deleteRenderbuffers", 0, DeleteRenderbuffers, 0, 0, 0, napi_default, 0 },
 		{ "deleteShader", 0, DeleteShader, 0, 0, 0, napi_default, 0 },
-		{ "deleteTextures", 0, DeleteTextures, 0, 0, 0, napi_default, 0 },
 		{ "depthFunc", 0, DepthFunc, 0, 0, 0, napi_default, 0 },
 		{ "depthMask", 0, DepthMask, 0, 0, 0, napi_default, 0 },
 		{ "depthRangef", 0, DepthRangef, 0, 0, 0, napi_default, 0 },
@@ -3106,7 +3059,6 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "framebufferTextureLayer", 0, FramebufferTextureLayer, 0, 0, 0, napi_default, 0 },
 		{ "flushMappedBufferRange", 0, FlushMappedBufferRange, 0, 0, 0, napi_default, 0 },
 		{ "bindVertexArray", 0, BindVertexArray, 0, 0, 0, napi_default, 0 },
-		{ "deleteVertexArrays", 0, DeleteVertexArrays, 0, 0, 0, napi_default, 0 },
 		{ "genVertexArrays", 0, GenVertexArrays, 0, 0, 0, napi_default, 0 },
 		{ "isVertexArray", 0, IsVertexArray, 0, 0, 0, napi_default, 0 },
 		{ "getIntegeri_v", 0, GetIntegeri_v, 0, 0, 0, napi_default, 0 },
