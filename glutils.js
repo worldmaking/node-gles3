@@ -51,6 +51,10 @@ function makeProgram(gl, vertexCode, fragmentCode) {
     let fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentCode);
     // Link the two shaders into a program
     let program = createProgram(gl, vertexShader, fragmentShader);
+
+    // delete shaders now
+    gl.deleteShader(vertexShader);
+    gl.deleteShader(fragmentShader);
 	
 	let uniforms = {}
 	uniformsFromCode(gl, program, vertexCode, uniforms)
@@ -63,6 +67,10 @@ function makeProgram(gl, vertexCode, fragmentCode) {
 			uniforms[name].set(x, y, z, w);
 			return this; 
 		},
+
+        dispose() {
+            gl.deleteProgram(this.id)
+        },
 	}
 }
 
@@ -171,6 +179,11 @@ function loadTexture(gl, url, flipY=false, premultiply=false) {
             gl.activeTexture(gl.TEXTURE0 + unit);
             gl.enable(gl.TEXTURE_2D);
             gl.bindTexture(gl.TEXTURE_2D, null);
+            return this;
+        },
+
+        dispose() {
+            gl.deleteTextures(this.id)
             return this;
         },
     };
@@ -301,7 +314,12 @@ function createTexture(gl, opt) {
             let y = Math.floor(pos[1]);
             let idx = (y*this.width + x) * this.channels; // TODO: assumes single-channel
             return this.data[idx];
-        }
+        },
+
+        dispose() {
+            gl.deleteTextures(this.id)
+            return this;
+        },
     };
 
     tex.allocate().bind().submit();
@@ -435,6 +453,11 @@ function createPixelTexture(gl, width, height, floatingpoint=false) {
                  + this.data[idx+1] * xyz[1]
                  + this.data[idx+2] * xyz[2];
         },
+
+        dispose() {
+            gl.deleteTextures(this.id)
+            return this;
+        },
     };
 
     tex.allocate().bind().submit();
@@ -505,6 +528,13 @@ function makeFboWithDepth(gl, width=1024, height=1024, mipmap=false) {
                 gl.bindTexture(gl.TEXTURE_2D, colorTexture);
 		        gl.generateMipmap(gl.TEXTURE_2D);
             }
+        },
+
+        dispose() {
+            gl.deleteFramebuffers(this.id)
+            gl.deleteTextures(this.colorTexture)
+            gl.deleteTextures(this.depthTexture)
+            return this;
         },
 	}
 }
@@ -592,6 +622,13 @@ function makeGbuffer(gl, width=1024, height=1024, config=[
         end() {
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         },
+
+        dispose() {
+            gl.deleteFramebuffers(this.id)
+            for (let tex in textures) gl.deleteTextures(tex)
+            gl.deleteTextures(this.depthTexture)
+            return this;
+        },
 	}
 }
 
@@ -673,6 +710,13 @@ function createFBO(gl, width, height, floatingpoint=false) {
             gl.readPixels(0, 0, this.front.width, this.front.height, this.front.format, this.front.dataType, this.front.data);
             return this;
         },
+
+        dispose() {
+            gl.deleteFramebuffers(this.id)
+            this.front.dispose();
+            this.back.dispose();
+            return this;
+        },
     };
 
     fbo.bind().swap().unbind();
@@ -685,6 +729,7 @@ function createVao(gl, geom, program) {
 		id: gl.createVertexArray(),
         geom: geom,
         program: program,
+
         init(program) {
             this.bind();
             if (geom) {
@@ -859,6 +904,15 @@ function createVao(gl, geom, program) {
             else gl.drawArraysInstanced(primitive, 0, geom.vertices.length/geom.vertexComponents, instanceCount)
 			return this;
         },
+
+        dispose() {
+            if(this.indexBuffer) gl.deleteBuffers(this.indexBuffer)
+            if(this.texCoordBuffer) gl.deleteBuffers(this.texCoordBuffer)
+            if(this.normalBuffer) gl.deleteBuffers(this.normalBuffer)
+            if(this.colorBuffer) gl.deleteBuffers(this.colorBuffer)
+            if(this.vertexBuffer) gl.deleteBuffers(this.vertexBuffer)
+            gl.deleteVertexArrays(this.id)
+        },
     }
     if (program) self.init(program);
 
@@ -930,7 +984,16 @@ function createQuadVao(gl, program) {
             let count = 6;
             gl.drawArrays(primitiveType, offset, count);
             return this;
-        }
+        },
+
+        dispose() {
+            if(this.indexBuffer) gl.deleteBuffers(this.indexBuffer)
+            if(this.texCoordBuffer) gl.deleteBuffers(this.texCoordBuffer)
+            if(this.normalBuffer) gl.deleteBuffers(this.normalBuffer)
+            if(this.colorBuffer) gl.deleteBuffers(this.colorBuffer)
+            if(this.vertexBuffer) gl.deleteBuffers(this.vertexBuffer)
+            gl.deleteVertexArrays(this.id)
+        },
     }
     if (program) self.init(program);
 
@@ -1021,6 +1084,10 @@ function createInstances(gl, fields, count=0) {
 			vao.bind().setAttributes(this.id, this.bytestride, this.fields, true).unbind();
 			return this;
 		},
+
+        dispose() {
+            gl.deleteBuffers(this.id)
+        },
 	}
 
 	if (count) instances.allocate(count);
@@ -1067,6 +1134,11 @@ void main() {
         draw() {
             this.quad.bind().draw();
             return this;
+        },
+
+        dispose() {
+            this.program.dispose()
+            this.quad.dispose()
         },
     };
     self.use();

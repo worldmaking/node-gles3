@@ -111,6 +111,19 @@ napi_value CreateBuffer(napi_env env, napi_callback_info info) {
 	return (status == napi_ok) ? result_value : nullptr;
 }
 
+// TODO: this should really handle receiving an array
+napi_value DeleteBuffers(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[1];
+	size_t argc = checkArgCount(env, info, args, 1, 1);
+	GLsizei id = getInt32(env, args[0]);
+	GLuint buffers[1];
+	buffers[0] = id;
+	// glDeleteBuffers(1, const GLuint *buffers)
+	glDeleteBuffers(1, buffers);
+	return NULL;
+}
+
 napi_value CreateFramebuffer(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
 	GLuint result;
@@ -118,6 +131,16 @@ napi_value CreateFramebuffer(napi_env env, napi_callback_info info) {
 	napi_value result_value;
 	status = napi_create_uint32(env, (uint32_t)result, &result_value);
 	return (status == napi_ok) ? result_value : nullptr;
+}
+
+napi_value DeleteFramebuffers(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[1];
+	size_t argc = checkArgCount(env, info, args, 1, 1);
+	GLuint framebuffers[1];
+	framebuffers[0] = getInt32(env, args[0]);
+	glDeleteFramebuffers(1, framebuffers);
+	return NULL;
 }
 
 napi_value CreateProgram(napi_env env, napi_callback_info info) {
@@ -146,6 +169,16 @@ napi_value CreateTexture(napi_env env, napi_callback_info info) {
 	return (status == napi_ok) ? result_value : nullptr;
 }
 
+napi_value DeleteTextures(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[1];
+	size_t argc = checkArgCount(env, info, args, 1, 1);
+	GLuint textures[1];
+	textures[0] = getInt32(env, args[0]);
+	glDeleteTextures(1, textures);
+	return NULL;
+}
+
 napi_value CreateVertexArray(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
 	GLuint result;
@@ -153,6 +186,17 @@ napi_value CreateVertexArray(napi_env env, napi_callback_info info) {
 	napi_value result_value;
 	status = napi_create_uint32(env, (uint32_t)result, &result_value);
 	return (status == napi_ok) ? result_value : nullptr;
+}
+
+napi_value DeleteVertexArrays(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[1];
+	size_t argc = checkArgCount(env, info, args, 1, 1);
+	GLsizei id = getInt32(env, args[0]);
+	GLuint arrays[1];
+	arrays[0] = id;
+	glDeleteVertexArrays(1, arrays);
+	return NULL;
 }
 
 napi_value DrawBuffers(napi_env env, napi_callback_info info) {
