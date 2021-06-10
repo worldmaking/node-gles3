@@ -236,6 +236,38 @@
             }],
             ['OS=="linux"', {}],
         ],
+    },
+    {
+        "target_name": "zed",
+        "sources": [ "src/node-zed.cpp" ],
+        "defines": [],
+        "cflags": ["-std=c++11", "-Wall", "-pedantic"],
+        "include_dirs": [ 
+          "<!(node -p \"require('node-addon-api').include_dir\")",
+          "$(CUDA_PATH)/include",
+          "$(ZED_SDK_ROOT_DIR)/include"
+        ],
+        "libraries": [],
+        "dependencies": [],
+        "conditions": [
+            ['OS=="win"', {
+              'include_dirs': [],
+              'library_dirs': [
+                '$(ZED_SDK_ROOT_DIR)/lib',
+              ],
+              'libraries': [
+                'sl_zed64.lib'
+              ],
+              'msvs_settings': {
+                'VCCLCompilerTool': { 'ExceptionHandling': 1 }
+              }
+            }],
+            ['OS=="mac"', {
+              'cflags+': ['-fvisibility=hidden'],
+              'xcode_settings': {},
+            }],
+            ['OS=="linux"', {}],
+        ],
     }
   ]
 }
