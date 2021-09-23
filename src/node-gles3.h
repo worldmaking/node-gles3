@@ -46,6 +46,26 @@ napi_value GetError(napi_env env, napi_callback_info info) {
 	return (status == napi_ok) ? result_value : nullptr;
 }
 
+napi_value GetErrorString(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[1];
+	size_t argc = checkArgCount(env, info, args, 1, 1);
+	napi_value result_value = nullptr;
+	uint32_t err = getUint32(env, args[0]);
+	if (err) {
+		const char * description = (const char *) glewGetErrorString(err);
+		const char * name = (const char *) glewGetString(err);
+		if (description) printf("description %s %d\n", description, strlen(description));
+		if (name) printf("name %s %d\n", name, strlen(name));
+		// if (description) {
+		// 	napi_create_string_utf8(env, description, strlen(description), &result_value);
+		// } else {	
+		// 	napi_create_string_utf8(env, name, strlen(name), &result_value);
+		// }
+	}
+	return result_value;
+}
+
 napi_value ClearBufferfv(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
 	napi_value args[3];

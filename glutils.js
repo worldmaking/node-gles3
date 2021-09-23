@@ -1,5 +1,12 @@
 const assert = require("assert")
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
+
+function ok(gl, msg="gl not ok: ") {
+	let err = gl.getError();
+    if (err) console.log(msg+" "+err+" "+gl.getErrorString(err))
+	//assert(!err, msg+" "+err+" "+gl.getErrorString(err));
+}
+
 // utility to get byte size of various GL types:
 function byteSizeForGLType(gl, gltype) {
 	switch (gltype) {
@@ -1646,6 +1653,8 @@ module.exports = {
 
 	quat_rotate: quat_rotate,
     quat_unrotate: quat_unrotate,
+
+    ok: ok,
     
     requestAnimationFrame: function(callback, delay=1000/60) {
         let t0 = process.hrtime();

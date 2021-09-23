@@ -2879,6 +2879,7 @@ napi_value init(napi_env env, napi_value exports) {
 	napi_property_descriptor properties[] = {
 		{ "glewInit", 0, glewInit, 0, 0, 0, napi_default, 0 },
 		{ "getError", 0, GetError, 0, 0, 0, napi_default, 0 },
+		{ "getErrorString", 0, GetErrorString, 0, 0, 0, napi_default, 0 },
 		{ "clearBufferfv", 0, ClearBufferfv, 0, 0, 0, napi_default, 0 },
 		{ "bufferData", 0, BufferData, 0, 0, 0, napi_default, 0 },
 		{ "createBuffer", 0, CreateBuffer, 0, 0, 0, napi_default, 0 },
@@ -3129,7 +3130,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "texStorage3D", 0, TexStorage3D, 0, 0, 0, napi_default, 0 },
 		{ "getInternalformativ", 0, GetInternalformativ, 0, 0, 0, napi_default, 0 }
 	};
-	status = napi_define_properties(env, exports, 251, properties);
+	status = napi_define_properties(env, exports, 252, properties);
 	//assert(status == napi_ok);
 	return exports;
 }

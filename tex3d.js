@@ -34,10 +34,7 @@ console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '
 // Enable vertical sync (on cards that support it)
 glfw.swapInterval(1); // 0 for vsync off
 
-function glok(msg="gl not ok: ") {
-	let err = gl.getError();
-	assert(!err, msg+err);
-}
+let glok = glutils.ok
 
 function createTexture3D(gl, opt={}) {
     const isFloat = !!opt.float;//&& EXT_color_buffer_float;
@@ -70,10 +67,10 @@ function createTexture3D(gl, opt={}) {
         }
     }
 
-    console.log("texture", isFloat, channels, width, height, depth)
+    //console.log("texture", isFloat, channels, width, height, depth)
     //console.log(format, gl.RGBA);
     //console.log(internalFormat, gl.RGBA32F);
-	glok('texture')
+	glok(gl, 'texture')
 
     let tex = {
         id: gl.createTexture(),
@@ -83,6 +80,7 @@ function createTexture3D(gl, opt={}) {
 		height: height,
 		depth: depth,
         channels: channels,
+		elements: 0,
         format: format,
         type: type,
         filter_min: opt.filter_min || opt.filter || gl.LINEAR,
@@ -93,6 +91,7 @@ function createTexture3D(gl, opt={}) {
         allocate() {
             if (!this.data) {
                 let elements = this.width * this.height * this.depth * this.channels;
+				this.elements = elements;
                 if (this.isFloat) {
                     this.data = new Float32Array(elements);
                 } else {
@@ -107,7 +106,7 @@ function createTexture3D(gl, opt={}) {
 			//gl.enable(gl.TEXTURE_3D)
 			//gl.texImage3D(gl.TEXTURE_3D, mipLevel, this.internalFormat, this.width, this.height, this.depth, border, this.format, this.type, this.data);
 			gl.texImage3D(gl.TEXTURE_3D, 0, this.internalFormat, this.width, this.height, this.depth, 0, this.format, this.type, this.data);
-			console.log(gl.TEXTURE_3D, this.internalFormat == gl.RGBA32F, this.format == gl.RGBA, this.type == gl.FLOAT);
+			//console.log(gl.TEXTURE_3D, this.internalFormat == gl.RGBA32F, this.format == gl.RGBA, this.type == gl.FLOAT);
 			let err = gl.getError();
             assert(!err, 'gl error in texture submit: '+err);
             return this;
@@ -119,7 +118,7 @@ function createTexture3D(gl, opt={}) {
 			gl.activeTexture(gl.TEXTURE0 + unit);
 			err = gl.getError();
             assert(!err, 'gl error in activeTexture: '+err);
-			gl.enable(gl.TEXTURE_3D)
+		//	gl.enable(gl.TEXTURE_3D) // not needed in core profile
 			err = gl.getError();
             assert(!err, 'gl error in enable: '+err);
 			gl.bindTexture(gl.TEXTURE_3D, this.id);
@@ -129,7 +128,7 @@ function createTexture3D(gl, opt={}) {
         },
         unbind(unit = 0) {
 			gl.activeTexture(gl.TEXTURE0 + unit);
-			gl.enable(gl.TEXTURE_3D)
+			//gl.enable(gl.TEXTURE_3D)  // not needed in core profile
             gl.bindTexture(gl.TEXTURE_3D, null);
             return this;
         },
@@ -145,9 +144,11 @@ function createTexture3D(gl, opt={}) {
 	};
 	
 	
-	glok('tex')
+	glok(gl, 'tex')
 
-    tex.allocate().bind().submit();
+    tex.allocate().bind().submit()
+
+	glok(gl, 'submitted')
 
     // unless we get `OES_texture_float_linear` we can not filter floating point
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -155,22 +156,27 @@ function createTexture3D(gl, opt={}) {
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, tex.filter_min);
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, tex.filter_mag);
+	glok(gl, 'param')
     
     return tex.unbind();
 }
 
-glok('befoe 3d texture')
+glok(gl, 'befoe 3d texture')
 
 
-let N = 10;
+let N = 8;
 
-let tex3d = createTexture3D(gl, { float:true, width:N });
-// for (let i=0; i<tex3d.data.length; i++) {
-// 	tex3d.data[i] = Math.random();
-// }
+let tex3d = createTexture3D(gl, { 
+	float:true, 
+	channels: 4,
+	width:N 
+});
+for (let i=0; i<tex3d.data.length; i++) {
+	tex3d.data[i] = Math.random() //*255;
+}
+tex3d.bind().submit()
 console.log(tex3d)
-glok('made 3d texture')
-
+glok(gl, 'made 3d texture')
 
 let cubeprogram = glutils.makeProgram(gl,
 `#version 330
@@ -223,10 +229,16 @@ out vec4 outColor;
 
 void main() {
 	outColor = v_color;
+	//outColor = vec4(1.);
+	outColor.a = (1.);
 }
 `);
+
+glok(gl, 'cubeprogram')
 // create a VAO from a basic geometry and shader
 let cube = glutils.createVao(gl, glutils.makeCube({ min:-0.1, max:0.1, div: 8 }), cubeprogram.id);
+
+glok(gl, 'cubevao')
 
 // create a VBO & friendly interface for the instances:
 // TODO: could perhaps derive the fields from the vertex shader GLSL?
@@ -260,6 +272,11 @@ cubes.attachTo(cube);
 let t = glfw.getTime();
 let fps = 60;
 
+
+glok(gl, 'preanimate')
+
+console.log("ok")
+
 function animate() {
 	if(glfw.windowShouldClose(window) || glfw.getKey(window, glfw.KEY_ESCAPE)) {
 		shutdown();
@@ -276,6 +293,12 @@ function animate() {
 	let dim = glfw.getFramebufferSize(window);
 
 	// update scene:
+
+	// randomize field:
+	for (let i=0; i<100; i++) {
+		let idx = Math.floor(Math.random()*tex3d.data.length)
+		tex3d.data[idx] = Math.random()//*255
+	}
 
 	// // pick a random instance:
 	// let obj = cubes.instances[Math.floor(Math.random() * cubes.count)];
@@ -296,17 +319,21 @@ function animate() {
 	gl.viewport(0, 0, dim[0], dim[1]);
 	gl.clearColor(0.2, 0.2, 0.2, 1);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
 	gl.enable(gl.DEPTH_TEST)
 
-	//tex3d.bind()
+	glok(gl, 'prebind')
+	
 
+	tex3d.bind().submit()
 	cubeprogram.begin();
 	cubeprogram.uniform("u_viewmatrix", viewmatrix);
 	cubeprogram.uniform("u_projmatrix", projmatrix);
 	cubeprogram.uniform("u_N", N);
+	cubeprogram.uniform("u_tex", 0);
 	cube.bind().drawInstanced(cubes.count).unbind()
 	cubeprogram.end();
+
+	tex3d.unbind()
 
 	// Swap buffers
 	glfw.swapBuffers(window);
