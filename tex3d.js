@@ -251,11 +251,19 @@ void main() {
 	//float t0 = fract(tmax/dt);
 	
 	for (float t=0.; t < tmax; t += dt) {
-		float weight = dt * min(1., tmax-t);
+		float weight = min(1., tmax-t);
 		vec3 pt = ro + t*rd;
 		float c = texture(u_tex, pt).x;
 		//a = max(a, c);
-		a += c*weight*8.;
+		// naive additive blending
+		//a += c*dt * weight*8.; 
+		// transmittance:
+		float opacity = exp(-t * abs(c));
+		//a += trans * dt * weight;
+		//a = max(a, c*dt * weight*50.);
+		// Cout(v) = Cin(v) * (1 - Opacity(x)) + Color(x) * Opacity(x)
+		float c1 = c*weight*8;
+		a = mix(c1, a, opacity);
 	}
 
 	outColor = vec4(v_tc, 0.2);
