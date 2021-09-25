@@ -1342,8 +1342,8 @@ function makeCube(options) {
                 idx+0, idx+1, idx+2,
                 idx+2, idx+3, idx+0,
                 // back:
-                idx+4, idx+5, idx+6,
-                idx+6, idx+7, idx+4,
+                idx+4, idx+6, idx+5,
+                idx+7, idx+6, idx+4,
             );
         }
     }
@@ -1396,8 +1396,8 @@ function makeCube(options) {
                 0, -1, 0
             );
             indices.push(
-                idx+0, idx+1, idx+2,
-                idx+2, idx+3, idx+0,
+                idx+0, idx+2, idx+1,
+                idx+3, idx+2, idx+0,
                 idx+4, idx+5, idx+6,
                 idx+6, idx+7, idx+4
             );
@@ -1458,8 +1458,8 @@ function makeCube(options) {
             indices.push(
                 idx+0, idx+1, idx+2,
                 idx+2, idx+3, idx+0,
-                idx+4, idx+5, idx+6,
-                idx+6, idx+7, idx+4
+                idx+4, idx+6, idx+5,
+                idx+7, idx+6, idx+4
             );
         }
     }

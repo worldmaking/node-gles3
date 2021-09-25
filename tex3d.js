@@ -45,7 +45,7 @@ let tex3d = glutils.createTexture3D(gl, {
 	width:N 
 });
 // create a duplicate: 
-tex3d.data.forEach((v,i,a) => a[i] = 0.1*Math.random())   // or data.slice()
+//tex3d.data.forEach((v,i,a) => a[i] = 0.1*Math.random())   // or data.slice()
 tex3d.data1 = tex3d.data.slice()
 // copy it back
 tex3d.data.set(tex3d.data1)
@@ -164,7 +164,7 @@ in vec2 a_texCoord;
 out vec4 v_color;
 out vec3 v_normal;
 out vec3 v_tc;
-out vec3 v_eyepos, v_raydir, v_rayorigin;
+out vec3 v_eyepos, v_raydir, v_rayexit;
 
 // http://www.geeks3d.com/20141201/how-to-rotate-a-vertex-by-a-quaternion-in-glsl/
 vec3 quat_rotate( vec4 q, vec3 v ){
@@ -208,7 +208,8 @@ void main() {
 	v_eyepos = -(u_viewmatrix[3].xyz)*mat3(u_viewmatrix);
 
 	// derive ray (texture-space)
-	v_rayorigin = v_tc;
+	// this assumes rendering with front-face culling:
+	v_rayexit = v_tc;
 	v_raydir = (quat_unrotate(i_quat, worldpos.xyz - v_eyepos));
 	// could we compute the ray end? intersection of ray & bounding box
 
@@ -224,10 +225,11 @@ void main() {
 precision mediump float;
 
 uniform sampler3D u_tex;
+uniform float u_N;
 in vec4 v_color;
 in vec3 v_normal;
 in vec3 v_tc;
-in vec3 v_eyepos, v_raydir, v_rayorigin;
+in vec3 v_eyepos, v_raydir, v_rayexit;
 out vec4 outColor;
 
 // assume box b:  0,0,0 to 1,1,1
@@ -239,15 +241,27 @@ float rayBoxExitDistance(vec3 ro, vec3 rd) {
 	return min(min(max(t1.x, t2.x), max(t1.z, t2.z)), max(t1.y, t2.y));
 }
 
-void main() {
-	vec3 ro = v_rayorigin;
-	vec3 rd = normalize(v_raydir);
+// assume box b:  0,0,0 to 1,1,1
+float rayBoxEntryDistance(vec3 ro, vec3 rd) {
+	// pt = ro + rd*t => t = (pt-ro)/rd
+	// assumes glsl handles case of rd component==0
+    vec3 t1 = (0. - ro)/rd;
+    vec3 t2 = (1. - ro)/rd;
+	return max(max(min(t1.x, t2.x), min(t1.z, t2.z)), min(t1.y, t2.y));
+}
 
-	float tmax = rayBoxExitDistance(ro, rd);
+void main() {
+	vec3 rd = normalize(v_raydir);
+	// this assumes we rendered with front-face culling
+	// for back-face culling, 
+	// ro = v_rayentry, 
+	// and tmax = rayBoxExitDistance(ro, rd)
+	float tmax = rayBoxExitDistance(v_rayexit, -rd);
+	vec3 ro = v_rayexit - tmax*rd;
 
 	// ok now step from t=0 to t=tmax
 	float a = 0.;
-	float dt = 1./10.;
+	float dt = 1./u_N;
 	//float t0 = fract(tmax/dt);
 	
 	for (float t=0.; t < tmax; t += dt) {
@@ -256,21 +270,29 @@ void main() {
 		float c = texture(u_tex, pt).x;
 		//a = max(a, c);
 		// naive additive blending
-		//a += c*dt * weight*8.; 
+		a += c*dt * weight*16.; 
 		// transmittance:
 		float opacity = exp(-t * abs(c));
 		//a += trans * dt * weight;
 		//a = max(a, c*dt * weight*50.);
 		// Cout(v) = Cin(v) * (1 - Opacity(x)) + Color(x) * Opacity(x)
-		float c1 = c*weight*8;
-		a = mix(c1, a, opacity);
+		// float c1 = c*weight*8;
+		// a = mix(c1, a, opacity);
+
+		//a += 0.5*dt * weight;
 	}
+
+	a = 1. - exp(-(a)/tmax);
+	//a = 1.-exp(a/tmax);
 
 	outColor = vec4(v_tc, 0.2);
 	// float v = texture(u_tex, v_tc).r;
 	// outColor = vec4(rd, 0.5);
 	outColor *= vec4(tmax);
 	outColor = vec4(a);
+	// outColor = vec4(0.1);
+	// outColor = vec4(v_normal*0.5+0.5, 1.);
+	//outColor = vec4(tmax);
 }
 `);
 
@@ -485,6 +507,9 @@ function animate() {
 	mat4.translate(modelmatrix, modelmatrix, [-1, 0.5, -1, 1])
 	mat4.scale(modelmatrix, modelmatrix, [2, 2, 2])
 
+	gl.enable(gl.CULL_FACE);
+	gl.cullFace(gl.FRONT)
+
 	volprogram.begin();
 	volprogram.uniform("u_viewmatrix", viewmatrix);
 	volprogram.uniform("u_projmatrix", projmatrix);
@@ -493,6 +518,8 @@ function animate() {
 	volprogram.uniform("u_tex", 0);
 	vol.bind().draw().unbind()
 	volprogram.end();
+
+	gl.disable(gl.CULL_FACE);
 
 	gl.disable(gl.BLEND);
 	gl.depthMask(true)
