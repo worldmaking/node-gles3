@@ -479,6 +479,118 @@ function createPixelTexture(gl, width, height, floatingpoint=false) {
     return tex.unbind();
 }
 
+function createTexture3D(gl, opt={}) {
+    const isFloat = !!opt.float;//&& EXT_color_buffer_float;
+    const channels = opt.channels || 4; // RGBA
+    const width = opt.width || 16;
+    const height = opt.height || width;
+    const depth = opt.depth || width;
+    
+    let format = gl.RGBA;
+    if (channels == 1) {
+        format = gl.RED;
+    } else if (channels == 2) {
+        format = gl.LUMINANCE_ALPHA;
+    } else if (channels == 3) {
+        format = gl.RGB;
+    }
+
+    let internalFormat = format;
+    let type = gl.UNSIGNED_BYTE;
+    if (isFloat) {
+        type = gl.FLOAT;
+        if (channels == 1) {
+            internalFormat = gl.R32F;
+        } else if (channels == 2) {
+            internalFormat = gl.RG32F;
+        } else if (channels == 3) {
+            internalFormat = gl.RGB32F;
+        } else {	
+            internalFormat = gl.RGBA32F;
+        }
+    }
+
+    //console.log("texture", isFloat, channels, width, height, depth)
+    //console.log(format, gl.RGBA);
+    //console.log(internalFormat, gl.RGBA32F);
+
+    let tex = {
+        id: gl.createTexture(),
+        data: null,
+        isFloat: isFloat,
+        width: width,
+		height: height,
+		depth: depth,
+        channels: channels,
+		elements: 0,
+        format: format,
+        type: type,
+        filter_min: opt.filter_min || opt.filter || gl.LINEAR,
+        filter_mag: opt.filter_mag || opt.filter || gl.LINEAR,
+        internalFormat: internalFormat,  // type of data we are supplying,
+        
+        // allocate local data
+        allocate() {
+            if (!this.data) {
+                let elements = this.width * this.height * this.depth * this.channels;
+				this.elements = elements;
+                if (this.isFloat) {
+                    this.data = new Float32Array(elements);
+                } else {
+                    this.data = new Uint8Array(elements);
+                }
+            }
+            return this;
+        },
+        
+        // bind() first
+        submit() {
+			//gl.enable(gl.TEXTURE_3D)
+			//gl.texImage3D(gl.TEXTURE_3D, mipLevel, this.internalFormat, this.width, this.height, this.depth, border, this.format, this.type, this.data);
+			gl.texImage3D(gl.TEXTURE_3D, 0, this.internalFormat, this.width, this.height, this.depth, 0, this.format, this.type, this.data);
+			//console.log(gl.TEXTURE_3D, this.internalFormat == gl.RGBA32F, this.format == gl.RGBA, this.type == gl.FLOAT);
+            return this;
+        },
+        
+        bind(unit = 0) {
+			gl.activeTexture(gl.TEXTURE0 + unit);
+		//	gl.enable(gl.TEXTURE_3D) // not needed in core profile
+			gl.bindTexture(gl.TEXTURE_3D, this.id);
+            return this;
+        },
+        unbind(unit = 0) {
+			gl.activeTexture(gl.TEXTURE0 + unit);
+			//gl.enable(gl.TEXTURE_3D)  // not needed in core profile
+            gl.bindTexture(gl.TEXTURE_3D, null);
+            return this;
+        },
+
+        dispose() {
+            gl.deleteTextures(this.id)
+        },
+
+        // TODO read / readInto methods for accessing underlying data
+        read(pos) {
+            let x = Math.floor(pos[0]);
+            let y = Math.floor(pos[1]);
+            let z = Math.floor(pos[2]);
+            let idx = ((this.height*z + y)*this.width + x) * this.channels; // TODO: assumes single-channel
+            return this.data[idx];
+        }
+	};
+
+    tex.allocate().bind().submit()
+
+    // unless we get `OES_texture_float_linear` we can not filter floating point
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, tex.filter_min);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, tex.filter_mag);
+    
+    return tex.unbind();
+}
+
 function makeFboWithDepth(gl, width=1024, height=1024, mipmap=false) {
 	const id = gl.createFramebuffer();
 	const colorTexture = gl.createTexture();
@@ -1635,6 +1747,7 @@ module.exports = {
     createTexture: createTexture,
 	createPixelTexture: createPixelTexture,
 	createCheckerTexture: createCheckerTexture,
+    createTexture3D: createTexture3D,
 
 	createVao: createVao,
     createQuadVao: createQuadVao,
