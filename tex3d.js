@@ -55,6 +55,7 @@ let cubeprogram = glutils.makeProgram(gl,
 `#version 330
 uniform mat4 u_viewmatrix;
 uniform mat4 u_projmatrix;
+uniform mat4 u_modelmatrix;
 uniform float u_N;
 uniform sampler3D u_tex;
 
@@ -86,7 +87,7 @@ void main() {
 	vec4 vertex = vec4(a_position * s, 1.);
 	vertex = quat_rotate(i_quat, vertex);
 	vertex.xyz += i_pos.xyz;
-	gl_Position = u_projmatrix * u_viewmatrix * vertex;
+	gl_Position = u_projmatrix * u_viewmatrix * u_modelmatrix * vertex;
 
 	v_normal = quat_rotate(i_quat, a_normal);
 
@@ -144,6 +145,129 @@ cubes.bind().submit().unbind();
 // attach these instances to an existing VAO:
 cubes.attachTo(cube);
 
+
+let volprogram = glutils.makeProgram(gl,
+`#version 330
+uniform mat4 u_viewmatrix;
+uniform mat4 u_projmatrix;
+uniform mat4 u_modelmatrix;
+uniform float u_N;
+uniform sampler3D u_tex;
+
+// instanced variable:
+in vec4 i_pos;
+in vec4 i_quat;
+
+in vec3 a_position;
+in vec3 a_normal;
+in vec2 a_texCoord;
+out vec4 v_color;
+out vec3 v_normal;
+out vec3 v_tc;
+out vec3 v_eyepos, v_raydir, v_rayorigin;
+
+// http://www.geeks3d.com/20141201/how-to-rotate-a-vertex-by-a-quaternion-in-glsl/
+vec3 quat_rotate( vec4 q, vec3 v ){
+	return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v );
+}
+vec4 quat_rotate( vec4 q, vec4 v ){
+	return vec4(v.xyz + 2.0 * cross( q.xyz, cross( q.xyz, v.xyz ) + q.w * v.xyz), v.w );
+}
+
+// equiv. quat_rotate(quat_conj(q), v):
+// q must be a normalized quaternion
+vec3 quat_unrotate(in vec4 q, in vec3 v) {
+	// return quat_mul(quat_mul(quat_conj(q), vec4(v, 0)), q).xyz;
+	// reduced:
+	vec4 p = vec4(
+		q.w*v.x - q.y*v.z + q.z*v.y,  // x
+		q.w*v.y - q.z*v.x + q.x*v.z,  // y
+		q.w*v.z - q.x*v.y + q.y*v.x,  // z
+		q.x*v.x + q.y*v.y + q.z*v.z   // w
+	);
+	return vec3(
+		p.w*q.x + p.x*q.w + p.y*q.z - p.z*q.y,  // x
+		p.w*q.y + p.y*q.w + p.z*q.x - p.x*q.z,  // y
+		p.w*q.z + p.z*q.w + p.x*q.y - p.y*q.x   // z
+	);
+}
+
+
+void main() {
+	v_tc = a_position.xyz;
+	//v_color = texture(u_tex, tc);
+	
+	// Multiply the position by the matrix.
+	vec4 vertex = vec4(a_position, 1.);
+	vertex = quat_rotate(i_quat, vertex);
+	vertex.xyz += i_pos.xyz;
+	vec4 worldpos = u_modelmatrix * vertex;
+	gl_Position = u_projmatrix * u_viewmatrix * worldpos;
+
+	// derive eyepos (worldspace)
+	v_eyepos = -(u_viewmatrix[3].xyz)*mat3(u_viewmatrix);
+
+	// derive ray (texture-space)
+	v_rayorigin = v_tc;
+	v_raydir = (quat_unrotate(i_quat, worldpos.xyz - v_eyepos));
+	// could we compute the ray end? intersection of ray & bounding box
+
+	v_normal = quat_rotate(i_quat, a_normal);
+
+	// v_color = vec4(v_normal*0.25+0.25, 1.);
+	// v_color += vec4(a_texCoord*0.5, 0., 1.);
+	v_color = vec4(v_tc, 1.);
+	//v_color = vec4(texture(u_tex, tc));
+}
+`,
+`#version 330
+precision mediump float;
+
+uniform sampler3D u_tex;
+in vec4 v_color;
+in vec3 v_normal;
+in vec3 v_tc;
+in vec3 v_eyepos, v_raydir, v_rayorigin;
+out vec4 outColor;
+
+// assume box b:  0,0,0 to 1,1,1
+float rayBoxExitDistance(vec3 ro, vec3 rd) {
+	// pt = ro + rd*t => t = (pt-ro)/rd
+	// assumes glsl handles case of rd component==0
+    vec3 t1 = (0. - ro)/rd;
+    vec3 t2 = (1. - ro)/rd;
+	return min(min(max(t1.x, t2.x), max(t1.z, t2.z)), max(t1.y, t2.y));
+}
+
+void main() {
+	vec3 ro = v_rayorigin;
+	vec3 rd = normalize(v_raydir);
+
+	float tmax = rayBoxExitDistance(ro, rd);
+
+	// ok now step from t=0 to t=tmax
+	float a = 0.;
+	float dt = 1./10.;
+	//float t0 = fract(tmax/dt);
+	
+	for (float t=0.; t < tmax; t += dt) {
+		float weight = dt * min(1., tmax-t);
+		vec3 pt = ro + t*rd;
+		float c = texture(u_tex, pt).x;
+		//a = max(a, c);
+		a += c*weight*8.;
+	}
+
+	outColor = vec4(v_tc, 0.2);
+	// float v = texture(u_tex, v_tc).r;
+	// outColor = vec4(rd, 0.5);
+	outColor *= vec4(tmax);
+	outColor = vec4(a);
+}
+`);
+
+// create a VAO from a basic geometry and shader
+let vol = glutils.createVao(gl, glutils.makeCube({ min:0, max:1, div: 4 }), volprogram.id);
 
 let t = glfw.getTime();
 let fps = 60;
@@ -309,17 +433,18 @@ function animate() {
 	al_simple_diffuse(DIM, tex3d.data1, tex3d.data)
 
 	// track total content of field:
-	console.log(tex3d.data.reduce((a, b) => a+b) / tex3d.data.length)
+	//console.log(tex3d.data.reduce((a, b) => a+b) / tex3d.data.length)
 
 	// Compute the matrix
 	let viewmatrix = mat4.create();
 	let projmatrix = mat4.create();
 	let modelmatrix = mat4.create();
-	let angle = t/6;
-	let camera_pos = [N/2+N*Math.cos(angle), N/2, N/2+N*Math.sin(angle)];
-	let camera_at = [N/2, N/2, N/2];
+	let angle = t;
+	let r = 2;
+	let camera_pos = [r*Math.cos(angle), 1.5, r*Math.sin(angle)];
+	let camera_at = [0, 1.5, 0];
 	mat4.lookAt(viewmatrix, camera_pos, camera_at, [0, 1, 0]);
-	mat4.perspective(projmatrix, Math.PI/3, dim[0]/dim[1], 0.01, N*3);
+	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 20);
 
 	gl.viewport(0, 0, dim[0], dim[1]);
 	gl.clearColor(0.1, 0.1, 0.1, 1);
@@ -328,22 +453,38 @@ function animate() {
 	tex3d.bind().submit()
 
 	
-	
+	mat4.identity(modelmatrix)
+	mat4.translate(modelmatrix, modelmatrix, [-1, 0.5, -1, 1])
+	mat4.scale(modelmatrix, modelmatrix, [2/N, 2/N, 2/N])
 	
 	cubeprogram.begin();
 	cubeprogram.uniform("u_viewmatrix", viewmatrix);
 	cubeprogram.uniform("u_projmatrix", projmatrix);
+	cubeprogram.uniform("u_modelmatrix", modelmatrix);
 	cubeprogram.uniform("u_N", M);
 	cubeprogram.uniform("u_tex", 0);
 	cube.bind().drawInstanced(cubes.count).unbind()
 	cubeprogram.end();
+
+	
 
 
 	gl.enable(gl.BLEND);
 	gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
 	gl.depthMask(false)
 
+	mat4.identity(modelmatrix)
+	mat4.translate(modelmatrix, modelmatrix, [-1, 0.5, -1, 1])
+	mat4.scale(modelmatrix, modelmatrix, [2, 2, 2])
 
+	volprogram.begin();
+	volprogram.uniform("u_viewmatrix", viewmatrix);
+	volprogram.uniform("u_projmatrix", projmatrix);
+	volprogram.uniform("u_modelmatrix", modelmatrix);
+	volprogram.uniform("u_N", M);
+	volprogram.uniform("u_tex", 0);
+	vol.bind().draw().unbind()
+	volprogram.end();
 
 	gl.disable(gl.BLEND);
 	gl.depthMask(true)
