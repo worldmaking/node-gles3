@@ -71,6 +71,7 @@ uniform mat4 u_projmatrix;
 
 // instanced variable:
 in vec4 i_pos;
+in vec3 i_scale; // could maybe use i_pos.w for a uniform scale?
 in vec4 i_quat;
 
 in vec3 a_position;
@@ -80,6 +81,7 @@ out vec4 v_color;
 out vec4 v_normal;
 out vec4 v_world;
 out vec2 v_texCoord;
+out vec3 v_raypos, v_raydir, v_eyepos;
 
 // http://www.geeks3d.com/20141201/how-to-rotate-a-vertex-by-a-quaternion-in-glsl/
 vec3 quat_rotate( vec4 q, vec3 v ){
@@ -110,6 +112,7 @@ vec3 quat_unrotate(in vec4 q, in vec3 v) {
 void main() {
 	// Multiply the position by the matrix.
 	vec4 vertex = vec4(a_position, 1.);
+	vertex.xyz *= i_scale.xyz;
 	vertex = quat_rotate(i_quat, vertex);
 	vertex.xyz += i_pos.xyz;
 
@@ -117,6 +120,11 @@ void main() {
 	vec4 world = u_modelmatrix * vertex;
 	vec4 view = u_viewmatrix * world;
 	gl_Position = u_projmatrix * view;
+
+	// derive eyepos (worldspace)
+	v_eyepos = -(u_viewmatrix[3].xyz)*mat3(u_viewmatrix);
+	v_raypos = a_position.xyz;
+	v_raydir = (quat_unrotate(i_quat, world.xyz - v_eyepos));
 	
 	v_world = vec4(world.xyz, length(view.xyz));
 	v_normal = vec4(mat3(u_modelmatrix) * quat_rotate(i_quat, a_normal), length(view.xyz));
@@ -138,6 +146,7 @@ in vec4 v_color;
 in vec4 v_normal;
 in vec4 v_world;
 in vec2 v_texCoord;
+in vec3 v_eyepos, v_raypos, v_raydir;
 out vec4 outColor;
 
 
@@ -315,11 +324,47 @@ vec4 render(vec4 albedo_opacity, vec4 normal_w, vec4 world_distance, vec4 metal_
 	return vec4(vec3(color), 1.);
 }
 
+
+float fSphere(vec3 p, float r) {
+	return length(p) - r;
+}
+
+
+float DE(vec3 p) {
+	return fSphere(p, 1.);
+}
+
 void main() {
 
 	outColor = vec4(1.);
 
-	// // generate the tangent-space matrix TBN:
+	vec3 rd = normalize(v_raydir);
+	vec3 ro = v_raypos;
+
+	// TRACE:
+
+	#define STEPS 64
+	#define EPS 0.003
+	#define FAR 3.0
+	vec3 p = ro;
+	float t = 0.;
+	float stepsize = 1.;
+	int step = 0;
+	float d = 0.;
+	for (; step < STEPS; step++) {
+		d = DE(p);
+		if (abs(d) < EPS) break;
+
+		t += d * stepsize;
+		p = ro + t*rd;
+		if (t >= FAR) break;
+
+	}
+
+	float glow = float(step)/float(STEPS);
+
+
+	// generate the tangent-space matrix TBN:
 	vec3 denormTangent = dFdx(v_texCoord.y)*dFdy(v_world.xyz)-dFdx(v_world.xyz)*dFdy(v_texCoord.y);
 	vec3 N = normalize(v_normal.xyz);
 	vec3 T = normalize(denormTangent-N*dot(N,denormTangent));
@@ -346,17 +391,22 @@ void main() {
 		vec4(normal, v_normal.w), 
 		vec4(worldpos, distance), 
 		vec4(metalness, roughness, ao, emissive));
+
+	outColor.rgb = rd;
+
+	outColor.rgb = vec3(p);
 }
 `);
 // create a VAO from a basic geometry and shader
-let cuberadius = 0.1;
-let cube = glutils.createVao(gl, glutils.makeCube({ min:-cuberadius, max:cuberadius, div: 8 }), cubesprogram.id);
+let geom = glutils.makeCube({ min:-1, max:1, div: 8 })
+let cube = glutils.createVao(gl, geom, cubesprogram.id);
 
 // create a VBO & friendly interface for the instances:
 // TODO: could perhaps derive the fields from the vertex shader GLSL?
 let cubes = glutils.createInstances(gl, [
 	{ name:"i_pos", components:4 },
 	{ name:"i_quat", components:4 },
+	{ name:"i_scale", components:3 }, // maybe use i_pos.w instead?
 ], 100)
 
 // the .instances provides a convenient interface to the underlying arraybuffer
@@ -372,6 +422,8 @@ cubes.instances.forEach(obj => {
 	);
 	quat.set(obj.i_quat, 0, 0, 0, 1);
 	//quat.random(obj.i_quat);
+
+	vec3.set(obj.i_scale, 0.1, 0.1, 0.1)
 })
 cubes.bind().submit().unbind();
 
