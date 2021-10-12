@@ -45,7 +45,7 @@ struct Hmd {
 	};
 
     // attrs:
-	float near_clip = 0.15f;
+	float near_clip = 0.25f;
 	float far_clip = 50.f;
     Frustum frustum[2];
 
