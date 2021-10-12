@@ -45,7 +45,7 @@ let tex3d = glutils.createTexture3D(gl, {
 	width:N 
 });
 // create a duplicate: 
-//tex3d.data.forEach((v,i,a) => a[i] = 0.1*Math.random())   // or data.slice()
+tex3d.data.forEach((v,i,a) => a[i] = 0.1*Math.random())   // or data.slice()
 tex3d.data1 = tex3d.data.slice()
 // copy it back
 tex3d.data.set(tex3d.data1)
@@ -113,7 +113,7 @@ void main() {
 `);
 
 // create a VAO from a basic geometry and shader
-let cube = glutils.createVao(gl, glutils.makeCube({ min:-0.5, max:0.5, div: 2 }), cubeprogram.id);
+let cube = glutils.createVao(gl, glutils.makeCube({ min:-0.25, max:0.25, div: 2 }), cubeprogram.id);
 
 let M = N
 
@@ -250,6 +250,17 @@ float rayBoxEntryDistance(vec3 ro, vec3 rd) {
 	return max(max(min(t1.x, t2.x), min(t1.z, t2.z)), min(t1.y, t2.y));
 }
 
+vec3 normal4(in vec3 p, in sampler3D tex, float eps) {
+	vec2 e = vec2(-eps, eps);
+	// tetra points
+	float t1 = texture(u_tex, p+e.yxx).x;
+	float t2 = texture(u_tex, p+e.xxy).x;
+	float t3 = texture(u_tex, p+e.xyx).x;
+	float t4 = texture(u_tex, p+e.yyy).x;
+	vec3 n = t1*e.yxx + t2*e.xxy + t3*e.xyx + t4*e.yyy;
+	return normalize(n);
+}
+
 void main() {
 	vec3 rd = normalize(v_raydir);
 	// this assumes we rendered with front-face culling
@@ -261,16 +272,19 @@ void main() {
 
 	// ok now step from t=0 to t=tmax
 	float a = 0.;
-	float dt = 1./u_N;
+	float dt = 0.25 / u_N;
 	//float t0 = fract(tmax/dt);
-	
-	for (float t=0.; t < tmax; t += dt) {
+
+
+	float t=0.;
+	for (; t < tmax; t += dt) {
 		float weight = min(1., tmax-t);
+		//float weight = min(t, 1.);
 		vec3 pt = ro + t*rd;
 		float c = texture(u_tex, pt).x;
 		//a = max(a, c);
 		// naive additive blending
-		a += c*dt * weight*16.; 
+		a += max(c, 0.)*dt * weight*16.; 
 		// transmittance:
 		float opacity = exp(-t * abs(c));
 		//a += trans * dt * weight;
@@ -280,16 +294,29 @@ void main() {
 		// a = mix(c1, a, opacity);
 
 		//a += 0.5*dt * weight;
+		if (c*weight > 0.1) {
+			break;
+		}
 	}
 
-	a = 1. - exp(-(a)/tmax);
+	a = t < tmax ? 1. : 0. ;
+
+	vec3 pt = ro + t*rd;
+	vec3 n = normal4(pt, u_tex, dt);
+
+	outColor = vec4(n*0.5+0.5, 1.);
+	float ndotr = dot(n, rd);
+	ndotr = pow(abs(ndotr), 0.5);
+	outColor = vec4(1.-abs(ndotr) );
+
+	//a = 1. - exp(-(a)/tmax);
 	//a = 1.-exp(a/tmax);
 
-	outColor = vec4(v_tc, 0.2);
+	//outColor = vec4(v_tc, 0.2);
 	// float v = texture(u_tex, v_tc).r;
 	// outColor = vec4(rd, 0.5);
-	outColor *= vec4(tmax);
-	outColor = vec4(a);
+	//outColor *= vec4(tmax);
+	outColor *= vec4(a);
 	// outColor = vec4(0.1);
 	// outColor = vec4(v_normal*0.5+0.5, 1.);
 	//outColor = vec4(tmax);
@@ -469,12 +496,12 @@ function animate() {
 	let viewmatrix = mat4.create();
 	let projmatrix = mat4.create();
 	let modelmatrix = mat4.create();
-	let angle = t;
-	let r = 2;
-	let camera_pos = [r*Math.cos(angle), 1.5, r*Math.sin(angle)];
+	let angle = t/6;
+	let r = 1;
+	let camera_pos = [r*Math.cos(angle), 1.5 + 0.1*Math.sin(t/Math.PI), r*Math.sin(angle)];
 	let camera_at = [0, 1.5, 0];
 	mat4.lookAt(viewmatrix, camera_pos, camera_at, [0, 1, 0]);
-	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 20);
+	mat4.perspective(projmatrix, Math.PI*0.6, dim[0]/dim[1], 0.01, 20);
 
 	gl.viewport(0, 0, dim[0], dim[1]);
 	gl.clearColor(0.1, 0.1, 0.1, 1);
@@ -507,6 +534,11 @@ function animate() {
 	mat4.translate(modelmatrix, modelmatrix, [-1, 0.5, -1, 1])
 	mat4.scale(modelmatrix, modelmatrix, [2, 2, 2])
 
+	// use back-face culling if you want to render from inside the cloud
+	// this would be easier if the entire thing was handled by a cloud-pass, e.g. in gbuffer
+	// then the near-plane origin & ray direction are in the shader pass,
+	// the front & rear face intersections can be computed by the bounding box using model & view matrices
+	// and any depth-buffer terminations can be handled in the same way
 	gl.enable(gl.CULL_FACE);
 	gl.cullFace(gl.FRONT)
 

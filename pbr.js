@@ -62,52 +62,84 @@ let normal_tex = jpg2tex(gl, 'Metal007_1K_Normal.jpg')
 let metalness_tex = jpg2tex(gl, 'Metal007_1K_Metalness.jpg') 
 let roughness_tex = jpg2tex(gl, 'Metal007_1K_Roughness.jpg') 
 
-/*
-	g-buffer layers:
-	0: basecolor/albedo/diffuse RGB + opacity A
-	1: normal XYZ + distance W
-	2: worldpos XYZ + distance W
-	3: PBR metalness, roughness, AO, emissive
-
-
-	Other possible:
-	heightmap
-	texcoords (ST / STU)?
-
-*/
-
-let quadprogram = glutils.makeProgram(gl,
+let cubesprogram = glutils.makeProgram(gl,
 `#version 330
-in vec4 a_position;
+uniform mat4 u_modelmatrix;
+uniform mat4 u_viewmatrix;
+uniform mat4 u_projmatrix;
+
+
+// instanced variable:
+in vec4 i_pos;
+in vec4 i_quat;
+
+in vec3 a_position;
+in vec3 a_normal;
 in vec2 a_texCoord;
-uniform vec2 u_scale;
+out vec4 v_color;
+out vec4 v_normal;
+out vec4 v_world;
 out vec2 v_texCoord;
+
+// http://www.geeks3d.com/20141201/how-to-rotate-a-vertex-by-a-quaternion-in-glsl/
+vec3 quat_rotate( vec4 q, vec3 v ){
+	return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v );
+}
+vec4 quat_rotate( vec4 q, vec4 v ){
+	return vec4(v.xyz + 2.0 * cross( q.xyz, cross( q.xyz, v.xyz ) + q.w * v.xyz), v.w );
+}
+
+// equiv. quat_rotate(quat_conj(q), v):
+// q must be a normalized quaternion
+vec3 quat_unrotate(in vec4 q, in vec3 v) {
+	// return quat_mul(quat_mul(quat_conj(q), vec4(v, 0)), q).xyz;
+	// reduced:
+	vec4 p = vec4(
+		q.w*v.x - q.y*v.z + q.z*v.y,  // x
+		q.w*v.y - q.z*v.x + q.x*v.z,  // y
+		q.w*v.z - q.x*v.y + q.y*v.x,  // z
+		q.x*v.x + q.y*v.y + q.z*v.z   // w
+	);
+	return vec3(
+		p.w*q.x + p.x*q.w + p.y*q.z - p.z*q.y,  // x
+		p.w*q.y + p.y*q.w + p.z*q.x - p.x*q.z,  // y
+		p.w*q.z + p.z*q.w + p.x*q.y - p.y*q.x   // z
+	);
+}
+
 void main() {
-    gl_Position = a_position;
-    vec2 adj = vec2(1, -1);
-    gl_Position.xy = (gl_Position.xy + adj)*u_scale.xy - adj;
+	// Multiply the position by the matrix.
+	vec4 vertex = vec4(a_position, 1.);
+	vertex = quat_rotate(i_quat, vertex);
+	vertex.xyz += i_pos.xyz;
+
+	//gl_Position = u_projmatrix * u_viewmatrix * vertex;
+	vec4 world = u_modelmatrix * vertex;
+	vec4 view = u_viewmatrix * world;
+	gl_Position = u_projmatrix * view;
+	
+	v_world = vec4(world.xyz, length(view.xyz));
+	v_normal = vec4(mat3(u_modelmatrix) * quat_rotate(i_quat, a_normal), length(view.xyz));
+	v_color = vec4(1);
 	v_texCoord = a_texCoord;
-}`,
+}
+`,
 `#version 330
 precision mediump float;
 
-/*
-	PBR rendering adapted from https://learnopengl.com/PBR/Lighting
-*/
-
-uniform sampler2D u_tex0;
-uniform sampler2D u_tex1;
-uniform sampler2D u_tex2;
-uniform sampler2D u_tex3;
-
-uniform sampler2D u_depthtex;
-
+uniform sampler2D u_color_tex;
+uniform sampler2D u_normal_tex;
+uniform sampler2D u_metalness_tex;
+uniform sampler2D u_roughness_tex;
 uniform vec3 u_camera_pos;
-
 uniform vec3 u_light0_pos;
 
+in vec4 v_color;
+in vec4 v_normal;
+in vec4 v_world;
 in vec2 v_texCoord;
 out vec4 outColor;
+
 
 const float PI = 3.14159265359;
 const vec2 invAtan = vec2(0.1591, 0.3183);
@@ -146,17 +178,16 @@ vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
 } 
 
-void main() {
-	
-	vec3 albedo = texture(u_tex0, v_texCoord).rgb;
-	float opacity = texture(u_tex0, v_texCoord).a;
-	vec3 normal = texture(u_tex1, v_texCoord).rgb;
-	vec3 worldpos = texture(u_tex2, v_texCoord).rgb;
-	float distance = texture(u_tex2, v_texCoord).a;
-	float metalness = texture(u_tex3, v_texCoord).r;
-	float roughness = texture(u_tex3, v_texCoord).g;
-	float ao = texture(u_tex3, v_texCoord).b;
-	float emissive = texture(u_tex3, v_texCoord).a;
+vec4 render(vec4 albedo_opacity, vec4 normal_w, vec4 world_distance, vec4 metal_rough_ao_emissive) {
+	vec3 albedo = albedo_opacity.rgb;
+	float opacity = albedo_opacity.a;
+	vec3 normal = normal_w.xyz;
+	vec3 worldpos = world_distance.xyz;
+	float distance = world_distance.w;
+	float metalness = metal_rough_ao_emissive.r;
+	float roughness = metal_rough_ao_emissive.g;
+	float ao = metal_rough_ao_emissive.b;
+	float emissive = metal_rough_ao_emissive.a;
 
 	// outgoing vector from surface to eye, world space
 	vec3 V = normalize(u_camera_pos - worldpos);
@@ -260,138 +291,61 @@ void main() {
     // // gamma correct
     // color = pow(color, vec3(1.0/2.2)); 
 
-	outColor = vec4(albedo, 1.0 );
-	outColor = vec4(normal, 1.0 );
-	outColor = vec4( worldpos, 1.0 );
-	outColor = vec4( distance );
-	outColor = vec4( metalness );
-	outColor = vec4( roughness );
-	outColor = vec4( ao );
-	outColor = vec4( emissive );
+	//return vec4(albedo, 1.0 );
+	// return vec4(normal, 1.0 );
+	// return vec4( worldpos, 1.0 );
+	// return vec4( distance );
+	// return vec4( metalness );
+	// return vec4( roughness );
+	// return vec4( ao );
+	// return vec4( emissive );
 	
-	outColor = vec4(V, 1.0 );
-	outColor = vec4(N, 1.0 );
-	outColor = vec4(R, 1.0 );
-	outColor = vec4(F0, 1.0 );
-	outColor = vec4(direct_lighting, 1.0 );
-	outColor = vec4(kAD, 1.0 );
-	outColor = vec4(irradiance, 1.0 );
-	outColor = vec4(diffuse, 1.0 );
-	outColor = vec4(prefilteredColor, 1.0 );
-	outColor = vec4(specular, 1.0 );
-	outColor = vec4(ambient, 1.0 );
+	// return vec4(V, 1.0 );
+	// return vec4(N, 1.0 );
+	// return vec4(R, 1.0 );
+	// return vec4(F0, 1.0 );
+	// return vec4(direct_lighting, 1.0 );
+	// return vec4(kAD, 1.0 );
+	// return vec4(irradiance, 1.0 );
+	// return vec4(diffuse, 1.0 );
+	// return vec4(prefilteredColor, 1.0 );
+	// return vec4(specular, 1.0 );
+	// return vec4(ambient, 1.0 );
 
-	outColor = vec4(vec3(color), 1.);
-}
-`);
-let quad = glutils.createVao(gl, glutils.makeQuad(), quadprogram.id);
-
-
-let fbo = glutils.makeGbuffer(gl, 4096, 2048, [
-	{ float:false }, 	// basecolor
-	{ float:true }, 	// normal
-	{ float:true }, 	// worldpos
-	{ float:false },	// pbr 
-]);
-
-console.log(fbo)
-let cubesprogram = glutils.makeProgram(gl,
-`#version 330
-uniform mat4 u_modelmatrix;
-uniform mat4 u_viewmatrix;
-uniform mat4 u_projmatrix;
-
-
-// instanced variable:
-in vec4 i_pos;
-in vec4 i_quat;
-
-in vec3 a_position;
-in vec3 a_normal;
-in vec2 a_texCoord;
-out vec4 v_color;
-out vec4 v_normal;
-out vec4 v_world;
-out vec2 v_texCoord;
-
-// http://www.geeks3d.com/20141201/how-to-rotate-a-vertex-by-a-quaternion-in-glsl/
-vec3 quat_rotate( vec4 q, vec3 v ){
-	return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v );
-}
-vec4 quat_rotate( vec4 q, vec4 v ){
-	return vec4(v.xyz + 2.0 * cross( q.xyz, cross( q.xyz, v.xyz ) + q.w * v.xyz), v.w );
-}
-
-// equiv. quat_rotate(quat_conj(q), v):
-// q must be a normalized quaternion
-vec3 quat_unrotate(in vec4 q, in vec3 v) {
-	// return quat_mul(quat_mul(quat_conj(q), vec4(v, 0)), q).xyz;
-	// reduced:
-	vec4 p = vec4(
-		q.w*v.x - q.y*v.z + q.z*v.y,  // x
-		q.w*v.y - q.z*v.x + q.x*v.z,  // y
-		q.w*v.z - q.x*v.y + q.y*v.x,  // z
-		q.x*v.x + q.y*v.y + q.z*v.z   // w
-	);
-	return vec3(
-		p.w*q.x + p.x*q.w + p.y*q.z - p.z*q.y,  // x
-		p.w*q.y + p.y*q.w + p.z*q.x - p.x*q.z,  // y
-		p.w*q.z + p.z*q.w + p.x*q.y - p.y*q.x   // z
-	);
+	return vec4(vec3(color), 1.);
 }
 
 void main() {
-	// Multiply the position by the matrix.
-	vec4 vertex = vec4(a_position, 1.);
-	vertex = quat_rotate(i_quat, vertex);
-	vertex.xyz += i_pos.xyz;
 
-	//gl_Position = u_projmatrix * u_viewmatrix * vertex;
-	vec4 world = u_modelmatrix * vertex;
-	vec4 view = u_viewmatrix * world;
-	gl_Position = u_projmatrix * view;
-	
-	v_world = vec4(world.xyz, length(view.xyz));
-	v_normal = vec4(mat3(u_modelmatrix) * quat_rotate(i_quat, a_normal), length(view.xyz));
-	v_color = vec4(1);
-	v_texCoord = a_texCoord;
-}
-`,
-`#version 330
-precision mediump float;
-uniform sampler2D u_color_tex;
-uniform sampler2D u_normal_tex;
-uniform sampler2D u_metalness_tex;
-uniform sampler2D u_roughness_tex;
+	outColor = vec4(1.);
 
-in vec4 v_color;
-in vec4 v_normal;
-in vec4 v_world;
-in vec2 v_texCoord;
-out vec4 outColor[4];
-
-void main() {
-
-	// generate the tangent-space matrix TBN:
+	// // generate the tangent-space matrix TBN:
 	vec3 denormTangent = dFdx(v_texCoord.y)*dFdy(v_world.xyz)-dFdx(v_world.xyz)*dFdy(v_texCoord.y);
 	vec3 N = normalize(v_normal.xyz);
 	vec3 T = normalize(denormTangent-N*dot(N,denormTangent));
 	vec3 B = cross(N,T);
 	mat3 TBN = mat3(T, B, N);
 	
-	vec3 normalmap = texture(u_normal_tex, v_texCoord).xyz*2.0 - 1.0;
-	vec3 normal = normalize(TBN * normalmap);
+	vec3 normalmap = texture( u_normal_tex, v_texCoord ).xyz * 2.0 - 1.0 ;
 	
-	vec3 albedo = pow(texture(u_color_tex, v_texCoord).xyz, vec3(2.2));
+	vec3 albedo = v_color.rgb * pow(texture(u_color_tex, v_texCoord).xyz, vec3(2.2));
+	float opacity = 1.;
+
+	vec3 worldpos = v_world.xyz;
+	float distance = v_world.w;
+
+	vec3 normal = normalize(TBN * normalmap);
+
 	float metalness = texture(u_metalness_tex, v_texCoord).r;
 	float roughness = texture(u_roughness_tex, v_texCoord).r;
 	float ao = 1.;
 	float emissive = 0.;
-
-	outColor[0] = v_color * vec4(albedo, 1.);
-	outColor[1] = vec4(normal, v_normal.w);
-	outColor[2] = v_world;
-	outColor[3] = vec4(metalness, roughness, ao, emissive);
+	
+	outColor = render(
+		vec4(albedo, 1.), 
+		vec4(normal, v_normal.w), 
+		vec4(worldpos, distance), 
+		vec4(metalness, roughness, ao, emissive));
 }
 `);
 // create a VAO from a basic geometry and shader
@@ -480,54 +434,30 @@ function animate() {
 	// submit to GPU:
 	cubes.bind().submit().unbind()
 
-	fbo.begin()
-	{
-		gl.viewport(0, 0, fbo.width, fbo.height);
-		gl.enable(gl.DEPTH_TEST)
-		gl.depthMask(true)
-		gl.clearColor(0, 0, 0, 1);
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-		roughness_tex.bind(3)
-		metalness_tex.bind(2)
-		normal_tex.bind(1)
-		color_tex.bind(0)
-
-		cubesprogram.begin();
-		cubesprogram.uniform("u_modelmatrix", modelmatrix);
-		cubesprogram.uniform("u_viewmatrix", viewmatrix);
-		cubesprogram.uniform("u_projmatrix", projmatrix);
-		cubesprogram.uniform("u_roughness_tex", 3);
-		cubesprogram.uniform("u_metalness_tex", 2);
-		cubesprogram.uniform("u_normal_tex", 1);
-		cubesprogram.uniform("u_color_tex", 0);
-		cube.bind().drawInstanced(cubes.count).unbind()
-		cubesprogram.end();
-	}
-	fbo.end();
-
 	gl.viewport(0, 0, dim[0], dim[1]);
 	gl.enable(gl.DEPTH_TEST)
 	gl.depthMask(true)
 	gl.clearColor(0., 0., 0., 1);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+	roughness_tex.bind(3)
+	metalness_tex.bind(2)
+	normal_tex.bind(1)
+	color_tex.bind(0)
 
-	// render the cube with the texture we just rendered to
-	
-	quadprogram.begin();
-	for (let i=0; i<fbo.textures.length; i++) {
-		gl.activeTexture(gl.TEXTURE0 + i);
-		gl.bindTexture(gl.TEXTURE_2D, fbo.textures[i]);
-		quadprogram.uniform("u_tex"+i, i);
-	}
-	quadprogram.uniform("u_scale", 1, 1);
-	gl.activeTexture(gl.TEXTURE0 + fbo.textures.length);
-	gl.bindTexture(gl.TEXTURE_2D, fbo.depthTexture);
-	quadprogram.uniform("u_depthtex", fbo.textures.length)
-	quadprogram.uniform("u_camera_pos", camera_pos);
-	quadprogram.uniform("u_light0_pos", light_pos);
-	quad.bind().draw().unbind();
-	quadprogram.end();
+
+	cubesprogram.begin();
+	cubesprogram.uniform("u_modelmatrix", modelmatrix);
+	cubesprogram.uniform("u_viewmatrix", viewmatrix);
+	cubesprogram.uniform("u_projmatrix", projmatrix);
+	cubesprogram.uniform("u_roughness_tex", 3);
+	cubesprogram.uniform("u_metalness_tex", 2);
+	cubesprogram.uniform("u_normal_tex", 1);
+	cubesprogram.uniform("u_color_tex", 0);
+	cubesprogram.uniform("u_camera_pos", camera_pos);
+	cubesprogram.uniform("u_light0_pos", light_pos);
+	cube.bind().drawInstanced(cubes.count).unbind()
+	cubesprogram.end();
+
 
 	// Swap buffers
 	glfw.swapBuffers(window);
