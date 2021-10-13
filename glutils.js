@@ -751,7 +751,7 @@ function makeGbuffer(gl, width=1024, height=1024, config=[
 	}
 }
 
-function createFBO(gl, width, height, floatingpoint=false) {
+function createFBO(gl, width=1024, height=1024, floatingpoint=false) {
     let id = gl.createFramebuffer();
 
     let colorRenderbuffer = gl.createRenderbuffer();
@@ -1245,8 +1245,13 @@ void main() {
             return this;
         },
 
-        use() {
+        begin() {
             gl.useProgram(this.program);
+            return this;
+        },
+
+        end() {
+            gl.useProgram(null);
             return this;
         },
 
@@ -1260,9 +1265,10 @@ void main() {
             this.quad.dispose()
         },
     };
-    self.use();
+    self.begin();
     self.uniform("u_scale", 1, 1);
     if (uniforms) self.setuniforms(uniforms);
+    self.end()
     return self;
 }
 

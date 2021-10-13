@@ -36,7 +36,9 @@ glfw.swapInterval(1); // 0 for vsync off
 
 
 let fbo = glutils.makeFboWithDepth(gl)
+console.log(fbo)
 
+let fboslab = glutils.createFBO(gl, 256, 256)
 
 let quadprogram = glutils.makeProgram(gl,
 `#version 330
@@ -52,13 +54,16 @@ void main() {
 }`,
 `#version 330
 precision mediump float;
-uniform sampler2D u_tex;
+uniform sampler2D u_tex0;
+uniform sampler2D u_tex1;
 in vec2 v_texCoord;
 out vec4 outColor;
 
 void main() {
 	outColor = vec4(v_texCoord, 0., 1.);
-	outColor = texture(u_tex, v_texCoord);
+	vec4 raw = texture(u_tex0, v_texCoord);
+	vec4 blur = texture(u_tex1, v_texCoord);
+	outColor = max(raw, blur);
 }
 `);
 let quad = glutils.createVao(gl, glutils.makeQuad(), quadprogram.id);
@@ -72,6 +77,7 @@ in vec3 a_position;
 in vec3 a_normal;
 in vec2 a_texCoord;
 out vec4 v_color;
+out vec2 v_tc;
 
 void main() {
 	// Multiply the position by the matrix.
@@ -83,19 +89,66 @@ void main() {
 
 	v_color = vec4(a_normal*0.25+0.25, 1.);
 	v_color += vec4(a_texCoord*0.5, 0., 1.);
+
+	v_tc = a_texCoord;
 }
 `,
 `#version 330
 precision mediump float;
 
 in vec4 v_color;
+in vec2 v_tc;
 out vec4 outColor;
 
 void main() {
+
+	vec2 tc = abs(mod(v_tc * 4., 1.)-0.5);
+	float t = max(tc.x, tc.y) > 0.4 ? 1. : 0.;
 	outColor = v_color;
+	outColor.rgb = vec3( t );
 }
 `);
 let cube = glutils.createVao(gl, glutils.makeCube({ div: 8 }), cubeprogram.id);
+
+
+let blurslab = glutils.createSlab(gl, `#version 330
+precision mediump float;
+
+uniform sampler2D u_tex0;
+in vec2 v_texCoord;
+out vec4 outColor;
+
+
+// gaussian
+float u_kernel[9] = float[9](
+	0.045, 0.122, 0.045,
+	0.122, 0.332, 0.122,
+	0.045, 0.122, 0.045
+);
+
+float weight = 1./(0.045*4. + 0.122*4 + 0.332);
+
+void main() {
+	vec2 onePixel = vec2(1) / vec2(textureSize(u_tex0, 0));
+
+	vec4 centre = texture(u_tex0, v_texCoord);
+
+	vec4 colorSum =
+      texture(u_tex0, v_texCoord + onePixel * vec2(-1, -1)) * u_kernel[0] +
+      texture(u_tex0, v_texCoord + onePixel * vec2( 0, -1)) * u_kernel[1] +
+      texture(u_tex0, v_texCoord + onePixel * vec2( 1, -1)) * u_kernel[2] +
+      texture(u_tex0, v_texCoord + onePixel * vec2(-1,  0)) * u_kernel[3] +
+	  centre * u_kernel[4] +
+      texture(u_tex0, v_texCoord + onePixel * vec2( 1,  0)) * u_kernel[5] +
+      texture(u_tex0, v_texCoord + onePixel * vec2(-1,  1)) * u_kernel[6] +
+      texture(u_tex0, v_texCoord + onePixel * vec2( 0,  1)) * u_kernel[7] +
+      texture(u_tex0, v_texCoord + onePixel * vec2( 1,  1)) * u_kernel[8] ;
+
+	outColor = vec4((colorSum * weight).rgb, 1);
+
+	outColor = colorSum;
+}
+`)
 
 let t = glfw.getTime();
 let fps = 60;
@@ -129,9 +182,7 @@ function animate() {
 	mat4.rotate(modelmatrix, modelmatrix, t, axis)
 
 
-	//fbo.begin()
-	// render to our targetTexture by binding the framebuffer
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.id);
+	fbo.begin()
 	{
 		gl.viewport(0, 0, fbo.width, fbo.height);
 		gl.enable(gl.DEPTH_TEST)
@@ -148,9 +199,29 @@ function animate() {
 		cube.unbind();
 		cubeprogram.end();
 	}
-	//fbo.end();
-	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+	fbo.end();
 
+	let src = fbo.colorTexture
+
+	for (let i=0; i<10; i++) {
+		fboslab.begin()
+		{
+			gl.viewport(0, 0, fboslab.width, fboslab.height);
+			gl.disable(gl.DEPTH_TEST)
+			gl.depthMask(false)
+			gl.clearColor(1, 0, 0, 1);
+			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+			gl.bindTexture(gl.TEXTURE_2D, src);
+			blurslab.begin()
+			blurslab.draw()
+			blurslab.end()
+
+			src = fboslab.back.id
+		}
+		fboslab.end()
+	}
+	
 	gl.viewport(0, 0, dim[0], dim[1]);
 	gl.enable(gl.DEPTH_TEST)
 	gl.depthMask(true)
@@ -158,11 +229,18 @@ function animate() {
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 	// render the cube with the texture we just rendered to
-    gl.bindTexture(gl.TEXTURE_2D, fbo.colorTexture);
+   	fboslab.back.bind(1)
+	gl.activeTexture(gl.TEXTURE0);
+	gl.bindTexture(gl.TEXTURE_2D, fbo.colorTexture);
+	
+	//fbo.back.bind(0)
 	quadprogram.begin();
 	quadprogram.uniform("u_scale", 1, 1);
+	quadprogram.uniform("u_tex0", 0);
+	quadprogram.uniform("u_tex1", 1);
 	quad.bind().draw().unbind();
 	quadprogram.end();
+
 
 	// Swap buffers
 	glfw.swapBuffers(window);
