@@ -2893,6 +2893,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "createVertexArray", 0, CreateVertexArray, 0, 0, 0, napi_default, 0 },
 		{ "deleteVertexArrays", 0, DeleteVertexArrays, 0, 0, 0, napi_default, 0 },
 		{ "drawBuffers", 0, DrawBuffers, 0, 0, 0, napi_default, 0 },
+		{ "texStorage2DMultisample", 0, TexStorage2DMultisample, 0, 0, 0, napi_default, 0 },
 		{ "getAttribLocation", 0, GetAttribLocation, 0, 0, 0, napi_default, 0 },
 		{ "getInteger64v", 0, GetInteger64v, 0, 0, 0, napi_default, 0 },
 		{ "getInteger64i_v", 0, GetInteger64i_v, 0, 0, 0, napi_default, 0 },
@@ -3130,7 +3131,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "texStorage3D", 0, TexStorage3D, 0, 0, 0, napi_default, 0 },
 		{ "getInternalformativ", 0, GetInternalformativ, 0, 0, 0, napi_default, 0 }
 	};
-	status = napi_define_properties(env, exports, 252, properties);
+	status = napi_define_properties(env, exports, 253, properties);
 	//assert(status == napi_ok);
 	return exports;
 }

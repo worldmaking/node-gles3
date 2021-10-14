@@ -35,7 +35,7 @@ console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '
 glfw.swapInterval(1); // 0 for vsync off
 
 
-let fbo = glutils.makeFboWithDepth(gl)
+let fbo = glutils.makeFboWithDepth(gl, 2048, 2048)
 console.log(fbo)
 
 let fboslab = glutils.createFBO(gl, 256, 256)
@@ -56,14 +56,16 @@ void main() {
 precision mediump float;
 uniform sampler2D u_tex0;
 uniform sampler2D u_tex1;
+uniform int u_usebloom;
 in vec2 v_texCoord;
 out vec4 outColor;
 
+
 void main() {
-	outColor = vec4(v_texCoord, 0., 1.);
+	vec4 blur = texture(u_tex1, v_texCoord) ;
+
 	vec4 raw = texture(u_tex0, v_texCoord);
-	vec4 blur = texture(u_tex1, v_texCoord);
-	outColor = max(raw, blur);
+	outColor = u_usebloom > 0 ? max(raw, blur) : raw;
 }
 `);
 let quad = glutils.createVao(gl, glutils.makeQuad(), quadprogram.id);
@@ -126,8 +128,6 @@ float u_kernel[9] = float[9](
 	0.045, 0.122, 0.045
 );
 
-float weight = 1./(0.045*4. + 0.122*4 + 0.332);
-
 void main() {
 	vec2 onePixel = vec2(1) / vec2(textureSize(u_tex0, 0));
 
@@ -143,8 +143,6 @@ void main() {
       texture(u_tex0, v_texCoord + onePixel * vec2(-1,  1)) * u_kernel[6] +
       texture(u_tex0, v_texCoord + onePixel * vec2( 0,  1)) * u_kernel[7] +
       texture(u_tex0, v_texCoord + onePixel * vec2( 1,  1)) * u_kernel[8] ;
-
-	outColor = vec4((colorSum * weight).rgb, 1);
 
 	outColor = colorSum;
 }
@@ -238,6 +236,7 @@ function animate() {
 	quadprogram.uniform("u_scale", 1, 1);
 	quadprogram.uniform("u_tex0", 0);
 	quadprogram.uniform("u_tex1", 1);
+	quadprogram.uniform("u_usebloom", Math.floor(t) % 2);
 	quad.bind().draw().unbind();
 	quadprogram.end();
 

@@ -235,6 +235,7 @@ function generate_handler(name, s_name, ret, arg, out_blocks) {
 {
 	const modulename = "gles3"
 	const header = fs.readFileSync(path.join(__dirname, "..", "src", "GLES3", "gl3.h"), "utf-8")
+	const header2 = fs.readFileSync(path.join(__dirname, "..", "src", "GLES3", "gl2ext.h"), "utf-8")
 	const module_header = fs.readFileSync(path.join(__dirname, "..", "src", `node-${modulename}.h`), "utf-8")
 
 	
@@ -253,13 +254,25 @@ function generate_handler(name, s_name, ret, arg, out_blocks) {
 	let out_properties = [];
 
 	{
+		let visited = []
+		
 		// capture the #define GL_...    0x... lines
-		const regex = /#define ([A-Z0-9_]+)\s+([0-9A-Fx]+)/g
+		const regex = /#define (GL_[A-Z][A-Z0-9_]+)\s+([0-9A-Fx]+)/g
 		let match
 		while (match = regex.exec(header)) {
 			const name = match[1], val = match[2];
+			visited[name] = true
 			out_defines.push(`${modulename}.${name.substring(3)} = ${val};`);
 		}
+
+		while (match = regex.exec(header2)) {
+			const name = match[1], val = match[2];
+			if (!visited[name]) {
+				visited[name] = true
+				out_defines.push(`${modulename}.${name.substring(3)} = ${val};`);
+			}
+		}
+
 	}
 
 	{

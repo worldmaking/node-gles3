@@ -238,6 +238,20 @@ napi_value DrawBuffers(napi_env env, napi_callback_info info) {
 	return NULL;
 }
 
+napi_value TexStorage2DMultisample(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[6];
+	size_t argc = checkArgCount(env, info, args, 6, 6);
+	GLenum target = getUint32(env, args[0]);
+	GLsizei samples = getInt32(env, args[1]);
+	GLenum internalformat = getUint32(env, args[2]);
+	GLsizei width = getInt32(env, args[3]);
+	GLsizei height = getInt32(env, args[4]);
+	GLboolean fixedsamplelocations = getBool(env, args[5]);
+	glTexStorage2DMultisample(target, samples, internalformat, width, height, fixedsamplelocations);
+	return nullptr;
+}
+
 napi_value GetAttribLocation(napi_env env, napi_callback_info info) {
 	napi_status status = napi_ok;
 	napi_value args[2];

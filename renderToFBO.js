@@ -35,8 +35,9 @@ console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '
 glfw.swapInterval(1); // 0 for vsync off
 
 
-let fbo = glutils.makeFboWithDepth(gl)
+let fbo = glutils.makeFboWithDepth(gl, 1024, 1024, false)
 
+console.log("fbo", fbo)
 
 let quadprogram = glutils.makeProgram(gl,
 `#version 330
@@ -107,6 +108,14 @@ function animate() {
 		setImmediate(animate)
 	}
 
+	let windim = glfw.getFramebufferSize(window)
+	if (!fbo || fbo.width != windim[0] || fbo.height != windim[1]) {
+		// resolution change
+		if (fbo) fbo.dispose()
+		fbo = glutils.makeFboWithDepth(gl, windim[0], windim[1], false)
+	}
+
+
 	let t1 = glfw.getTime();
 	let dt = t1-t;
 	fps += 0.1*((1/dt)-fps);
@@ -124,14 +133,16 @@ function animate() {
 	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 10);
 
 	//mat4.identity(modelmatrix);
-	let axis = vec3.fromValues(Math.sin(t), 1., 0.);
+	let axis = vec3.fromValues(Math.sin(t*0.1), 1., 0.);
 	vec3.normalize(axis, axis);
-	mat4.rotate(modelmatrix, modelmatrix, t, axis)
+	mat4.rotate(modelmatrix, modelmatrix, t*0.1, axis)
 
+	// alternate between using FBO and direct path:
+	let usefbo = Math.floor(t) % 2
 
-	//fbo.begin()
+	if (usefbo) fbo.begin()
 	// render to our targetTexture by binding the framebuffer
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.id);
+    //gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.id);
 	{
 		gl.viewport(0, 0, fbo.width, fbo.height);
 		gl.enable(gl.DEPTH_TEST)
@@ -148,21 +159,23 @@ function animate() {
 		cube.unbind();
 		cubeprogram.end();
 	}
-	//fbo.end();
-	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+	if (usefbo) {
+		fbo.end();
+		//gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
-	gl.viewport(0, 0, dim[0], dim[1]);
-	gl.enable(gl.DEPTH_TEST)
-	gl.depthMask(true)
-	gl.clearColor(0.2, 0.2, 0.2, 1);
-	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		gl.viewport(0, 0, dim[0], dim[1]);
+		gl.enable(gl.DEPTH_TEST)
+		gl.depthMask(true)
+		gl.clearColor(0.2, 0.2, 0.2, 1);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-	// render the cube with the texture we just rendered to
-    gl.bindTexture(gl.TEXTURE_2D, fbo.colorTexture);
-	quadprogram.begin();
-	quadprogram.uniform("u_scale", 1, 1);
-	quad.bind().draw().unbind();
-	quadprogram.end();
+		// render the cube with the texture we just rendered to
+		gl.bindTexture(gl.TEXTURE_2D, fbo.colorTexture);
+		quadprogram.begin();
+		quadprogram.uniform("u_scale", 1, 1);
+		quad.bind().draw().unbind();
+		quadprogram.end();
+	}
 
 	// Swap buffers
 	glfw.swapBuffers(window);
