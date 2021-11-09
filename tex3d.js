@@ -275,6 +275,7 @@ void main() {
 	float dt = 0.25 / u_N;
 	//float t0 = fract(tmax/dt);
 
+	float v = 0.;
 
 	float t=0.;
 	for (; t < tmax; t += dt) {
@@ -282,6 +283,7 @@ void main() {
 		//float weight = min(t, 1.);
 		vec3 pt = ro + t*rd;
 		float c = texture(u_tex, pt).x;
+		v += c * weight;
 		//a = max(a, c);
 		// naive additive blending
 		a += max(c, 0.)*dt * weight*16.; 
@@ -295,7 +297,7 @@ void main() {
 
 		//a += 0.5*dt * weight;
 		if (c*weight > 0.1) {
-			break;
+			//break;
 		}
 	}
 
@@ -320,6 +322,9 @@ void main() {
 	// outColor = vec4(0.1);
 	// outColor = vec4(v_normal*0.5+0.5, 1.);
 	//outColor = vec4(tmax);
+
+	outColor = vec4(v * 0.1 );
+	//outColor = v < 1. ? vec4(v) : outColor;
 }
 `);
 
@@ -497,14 +502,16 @@ function animate() {
 	let projmatrix = mat4.create();
 	let modelmatrix = mat4.create();
 	let angle = t/6;
-	let r = 1;
-	let camera_pos = [r*Math.cos(angle), 1.5 + 0.1*Math.sin(t/Math.PI), r*Math.sin(angle)];
-	let camera_at = [0, 1.5, 0];
+	let r = 1.5;
+	let x = r*Math.cos(angle), y = r*Math.sin(angle)
+	
+	let camera_pos = [x, 1.5 + 0.1*Math.sin(t/Math.PI), y];
+	let camera_at = [0, 1.5 - 0.1*Math.sin(t/Math.PI), 0];
 	mat4.lookAt(viewmatrix, camera_pos, camera_at, [0, 1, 0]);
 	mat4.perspective(projmatrix, Math.PI*0.6, dim[0]/dim[1], 0.01, 20);
 
 	gl.viewport(0, 0, dim[0], dim[1]);
-	gl.clearColor(0.1, 0.1, 0.1, 1);
+	gl.clearColor(0., 0., 0., 1);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 	gl.enable(gl.DEPTH_TEST)
 	tex3d.bind().submit()
@@ -514,15 +521,16 @@ function animate() {
 	mat4.translate(modelmatrix, modelmatrix, [-1, 0.5, -1, 1])
 	mat4.scale(modelmatrix, modelmatrix, [2/N, 2/N, 2/N])
 	
-	cubeprogram.begin();
-	cubeprogram.uniform("u_viewmatrix", viewmatrix);
-	cubeprogram.uniform("u_projmatrix", projmatrix);
-	cubeprogram.uniform("u_modelmatrix", modelmatrix);
-	cubeprogram.uniform("u_N", M);
-	cubeprogram.uniform("u_tex", 0);
-	cube.bind().drawInstanced(cubes.count).unbind()
-	cubeprogram.end();
-
+	if (Math.floor(t) % 2) {
+		cubeprogram.begin();
+		cubeprogram.uniform("u_viewmatrix", viewmatrix);
+		cubeprogram.uniform("u_projmatrix", projmatrix);
+		cubeprogram.uniform("u_modelmatrix", modelmatrix);
+		cubeprogram.uniform("u_N", M);
+		cubeprogram.uniform("u_tex", 0);
+		cube.bind().drawInstanced(cubes.count).unbind()
+		cubeprogram.end();
+	}
 	
 
 

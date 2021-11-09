@@ -44,12 +44,9 @@ let quadprogram = glutils.makeProgram(gl,
 `#version 330
 in vec4 a_position;
 in vec2 a_texCoord;
-uniform vec2 u_scale;
 out vec2 v_texCoord;
 void main() {
     gl_Position = a_position;
-    vec2 adj = vec2(1, -1);
-    gl_Position.xy = (gl_Position.xy + adj)*u_scale.xy - adj;
 	v_texCoord = a_texCoord;
 }`,
 `#version 330
@@ -231,9 +228,7 @@ function animate() {
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, fbo.colorTexture);
 	
-	//fbo.back.bind(0)
 	quadprogram.begin();
-	quadprogram.uniform("u_scale", 1, 1);
 	quadprogram.uniform("u_tex0", 0);
 	quadprogram.uniform("u_tex1", 1);
 	quadprogram.uniform("u_usebloom", Math.floor(t) % 2);

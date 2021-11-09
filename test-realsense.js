@@ -44,6 +44,7 @@ uniform mat4 u_viewmatrix;
 uniform mat4 u_projmatrix;
 uniform float u_pixelsize;
 in vec3 a_position;
+in vec2 a_texCoord;
 out vec4 v_color;
 
 void main() {
@@ -55,7 +56,7 @@ void main() {
 		gl_PointSize = 0.0;
 	}
 
-	v_color = vec4(1.);
+	v_color = vec4(a_texCoord, 0., 1.);
 	//v_color = vec4(u_viewmatrix[3].xyz * 0.5 + 0.5, 0.5);
 	//v_color = vec4(gl_Position.xyz * 0.5 + 0.5, 0.5);
 }
@@ -82,15 +83,15 @@ pipe.grab(true) // true means wait for a result
 
 
 const NUM_POINTS = 640 * 480 // = 307200
-let vertices = pipe.vertices; //new Float32Array(NUM_POINTS * 3)
 
-let points = glutils.createVao(gl, {
-	vertices: vertices,
-}, cloudprogram.id);
+let points_geom = {
+	vertices: pipe.vertices,
+	texCoords: new Float32Array(NUM_POINTS*2)
+}
 
-for (let i=0; i<vertices.length/3; i++) {
-	// vec3_random_bound(points.geom.vertices.subarray(i*3), world_min, world_max)
-	// points.geom.vertices[i*3+1] = 0
+let points = glutils.createVao(gl, points_geom, cloudprogram.id);
+
+for (let i=0; i<NUM_POINTS; i++) {
 	let r = Math.random()*Math.random()*2
 	let a = Math.random()*2*Math.PI
 	vec3.set(points.geom.vertices.subarray(i*3), 
@@ -98,7 +99,25 @@ for (let i=0; i<vertices.length/3; i++) {
 		Math.random() * 2, 
 		r*Math.sin(a)
 	);
+
+	let col = i % 640, row = Math.floor(i/640)
+	let u = (col+0.5) / 640
+	let v = (row+0.5) / 480
+	points.geom.texCoords[i*2+0] = u
+	points.geom.texCoords[i*2+1] = v
 }
+
+glutils.ok(gl, "after vao")
+
+// // let's also create a float texture from this data:
+// let htex = glutils.createTexture(gl, {
+// 	float: true,
+// 	channels: 1,
+// 	width: 640,
+// 	height: 480,
+// 	//data: pipe.depth
+// })
+// console.log(htex)
 
 let t = glfw.getTime();
 let fps = 60;
@@ -117,35 +136,18 @@ function animate() {
 	fps += 0.1*((1/dt)-fps);
 	t = t1;
 	glfw.setWindowTitle(window, `fps ${fps}`);
-	// Get window size (may be different than the requested size)
 	let dim = glfw.getFramebufferSize(window);
-	//if(wsize) console.log("FB size: "+wsize.width+', '+wsize.height);
 
 	if (pipe.grab()) points.bind().submit()
 
-	// // update scene:
-	// for (let i=0; i<NUM_POINTS/10; i++) {
-	// 	let idx = Math.floor(Math.random() * vertices.length);
-	// 	vertices[idx] += (Math.random()-0.5) * 0.1;
-	// }
-	// // update GPU buffers:
-	// gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-	// gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW);
 
 	gl.viewport(0, 0, dim[0], dim[1]);
-	gl.clearColor(0., 0., 0., 1);
+	gl.clearColor(0.9, 0.9, 0.9, 1);
 	gl.clear(gl.COLOR_BUFFER_BIT);
 
 	gl.enable(gl.BLEND);
-	gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-
-	// //gl.enable(gl.PROGRAM_POINT_SIZE);  not needed gles3?
-
-	// Compute the matrix
-	// let viewmatrix = mat4.create();
-	// let projmatrix = mat4.create();
-	// mat4.lookAt(viewmatrix, [0, 0, 1], [0, 0, 0], [0, 1, 0]);
-	// mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 10);
+	//gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA )
 
 	// Compute the matrix
 	let h = 1

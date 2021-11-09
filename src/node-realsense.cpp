@@ -29,6 +29,7 @@
 	// storage for the vertex xyz points
 	Napi::ArrayBuffer vertices_ab;
 
+//	Napi::TypedArrayOf<float> depth;
 	Napi::TypedArrayOf<float> vertices;
 
 // 	// .getWidth(), .getHeight(), .getResolution(), .getChannels()
@@ -210,30 +211,50 @@
 		const int sz = depth.get_data_size ();
 		const void * data = depth.get_data ();
 		// Query the distance from the Pipeline to the object in the center of the image
-		float dist_to_center = depth.get_distance(width / 2, height / 2);
+		//float dist_to_center = depth.get_distance(width / 2, height / 2);
 		// Print the distance
 		// printf("The Pipeline is facing an object %f x %f meters away \n", depth.get_units(), dist_to_center);
 		// printf("size %d points %d x %d = %d \n", sz, width, height, width*height);
 
-		// Generate the pointcloud and texture mappings
-		points = pc.calculate(depth);
-		//const rs2::vertex * vertices = points.get_vertices ();
-		const float * vertices = (float *)points.get_vertices ();  // xyz
-		//const rs2::texture_coordinate * texcoords = points.get_texture_coordinates (); // uv
-		const float * texcoords = (float *)points.get_texture_coordinates (); // uv
-		
-		const size_t num_vertices = points.size();
-		const size_t num_floats = num_vertices * 3;
-		const size_t num_bytes = num_floats * sizeof(float);
-		if (!this->vertices || this->vertices.ElementLength() != num_floats) {
-			// reallocate it:
-			printf("reallocating %d floats\n", num_floats);
-			this->vertices = Napi::TypedArrayOf<float>::New(env, num_floats, napi_float32_array);
-			// vertices_ab = Napi::ArrayBuffer::New(env, num_bytes);
-			This.Set("vertices", this->vertices);
-		}
+		// {
+		// 	const size_t num_vertices = width * height; //points.size();
+		// 	const size_t num_floats = num_vertices;
+		// 	const float units = depth.get_units();
+		// 	const float * vertices = (float *)data; // (float *)depth.get_data();  // xyz
 
-		memcpy(this->vertices.Data(), vertices, num_bytes);
+		// 	printf("depth count %d point %f\n", num_vertices, vertices[640*240 + 320] * units);
+
+		// 	// const size_t num_bytes = num_floats * sizeof(float);
+		// 	if (!this->depth || this->depth.ElementLength() != num_floats) {
+		// 		// reallocate it:
+		// 		printf("reallocating %d floats\n", num_floats);
+		// 		this->depth = Napi::TypedArrayOf<float>::New(env, num_floats, napi_float32_array);
+		// 		This.Set("depth", this->depth);
+		// 	}
+
+		// 	//memcpy(this->vertices.Data(), vertices, num_bytes);
+		// }
+
+		{
+			// Generate the pointcloud and texture mappings
+			points = pc.calculate(depth);
+			//const rs2::vertex * vertices = points.get_vertices ();
+			const float * vertices = (float *)points.get_vertices ();  // xyz
+			//const rs2::texture_coordinate * texcoords = points.get_texture_coordinates (); // uv
+			const float * texcoords = (float *)points.get_texture_coordinates (); // uv
+			
+			const size_t num_vertices = points.size();
+			const size_t num_floats = num_vertices * 3;
+			const size_t num_bytes = num_floats * sizeof(float);
+			if (!this->vertices || this->vertices.ElementLength() != num_floats) {
+				// reallocate it:
+				printf("reallocating %d floats\n", num_floats);
+				this->vertices = Napi::TypedArrayOf<float>::New(env, num_floats, napi_float32_array);
+				This.Set("vertices", this->vertices);
+			}
+
+			memcpy(this->vertices.Data(), vertices, num_bytes);
+		}
 
 
 		// auto color = frames.get_color_frame();

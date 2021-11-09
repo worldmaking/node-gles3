@@ -178,13 +178,13 @@ function loadTexture(gl, url, flipY=false, premultiply=false) {
 
         bind(unit = 0) {
             gl.activeTexture(gl.TEXTURE0 + unit);
-            gl.enable(gl.TEXTURE_2D);
+            //gl.enable(gl.TEXTURE_2D);
             gl.bindTexture(gl.TEXTURE_2D, this.id);
             return this;
         },
         unbind(unit = 0) {
             gl.activeTexture(gl.TEXTURE0 + unit);
-            gl.enable(gl.TEXTURE_2D);
+            //gl.enable(gl.TEXTURE_2D);
             gl.bindTexture(gl.TEXTURE_2D, null);
             return this;
         },
@@ -233,7 +233,7 @@ function loadTexture(gl, url, flipY=false, premultiply=false) {
 }
 
 function createTexture(gl, opt) {
-    const isFloat = opt.float;//&& EXT_color_buffer_float;
+    const isFloat = !!opt.float;//&& EXT_color_buffer_float;
     const channels = opt.channels || 4; // RGBA
     const width = opt.width || 16;
     const height = opt.height || 1;
@@ -269,14 +269,14 @@ function createTexture(gl, opt) {
 
     let tex = {
         id: gl.createTexture(),
-        data: null,
+        data: opt.data,
         isFloat: isFloat,
         width: width,
         height: height,
         channels: channels,
         format: format,
         type: type,
-        multisample: opt.multisample,
+        multisample: !!opt.multisample,
         filter_min: opt.filter_min || opt.filter || gl.NEAREST,
         filter_mag: opt.filter_mag || opt.filter || gl.NEAREST,
         internalFormat: internalFormat,  // type of data we are supplying,
@@ -302,21 +302,21 @@ function createTexture(gl, opt) {
                 gl.texStorage2DMultisample(gl.TEXTURE_2D_MULTISAMPLE, this.multisample, this.internalFormat, this.width, this.height, false)
             } else {
                 gl.texImage2D(gl.TEXTURE_2D, mipLevel, this.internalFormat, this.width, this.height, border, this.format, this.type, this.data);
+                gl.generateMipmap(gl.TEXTURE_2D);
             }
-            gl.generateMipmap(gl.TEXTURE_2D);
             assert(!gl.getError(), 'gl error in texture submit');
             return this;
         },
         
         bind(unit = 0) {
             gl.activeTexture(gl.TEXTURE0 + unit);
-            gl.enable(gl.TEXTURE_2D);
+            //gl.enable(gl.TEXTURE_2D);
             gl.bindTexture(gl.TEXTURE_2D, this.id);
             return this;
         },
         unbind(unit = 0) {
             gl.activeTexture(gl.TEXTURE0 + unit);
-            gl.enable(gl.TEXTURE_2D);
+            //gl.enable(gl.TEXTURE_2D);
             gl.bindTexture(gl.TEXTURE_2D, null);
             return this;
         },
@@ -430,13 +430,13 @@ function createPixelTexture(gl, width, height, floatingpoint=false) {
         
         bind(unit = 0) {
             gl.activeTexture(gl.TEXTURE0 + unit);
-            gl.enable(gl.TEXTURE_2D);
+            //gl.enable(gl.TEXTURE_2D);
             gl.bindTexture(gl.TEXTURE_2D, this.id);
             return this;
         },
         unbind(unit = 0) {
             gl.activeTexture(gl.TEXTURE0 + unit);
-            gl.enable(gl.TEXTURE_2D);
+            //gl.enable(gl.TEXTURE_2D);
             gl.bindTexture(gl.TEXTURE_2D, null);
             return this;
         },
@@ -623,7 +623,7 @@ function makeFboWithDepth(gl, width=1024, height=1024, mipmap=false, multisample
             gl.texStorage2DMultisample(gl.TEXTURE_2D_MULTISAMPLE, multisample, gl.DEPTH_COMPONENT, width, height, true)
             gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D_MULTISAMPLE, depthTexture, level);
         } else {
-            gl.enable(gl.TEXTURE_2D)
+            //gl.enable(gl.TEXTURE_2D)
 		    gl.bindTexture(gl.TEXTURE_2D, colorTexture);
 		    gl.texImage2D(gl.TEXTURE_2D, level, gl.RGBA, width, height, border, gl.RGBA, gl.UNSIGNED_BYTE, null);
             if (mipmap) gl.generateMipmap(gl.TEXTURE_2D); 
@@ -708,7 +708,7 @@ function makeGbuffer(gl, width=1024, height=1024, config=[
 			}
 		
 			// define size and format of level 0
-			gl.enable(gl.TEXTURE_2D)
+			//gl.enable(gl.TEXTURE_2D)
 			const tex = gl.createTexture();
 			gl.bindTexture(gl.TEXTURE_2D, tex);
 			gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, width, height, 0,
@@ -749,23 +749,37 @@ function makeGbuffer(gl, width=1024, height=1024, config=[
 	return {
 		id: id,
 		textures: textures,
+        colorTexture: textures[0],
 		depthTexture: depthTexture,
 		width: width,
         height: height,
+        data: null,
         
         // be sure to set viewport & clear after begin()
         begin() {
             gl.bindFramebuffer(gl.FRAMEBUFFER, id);
+            return this; 
         },
 
         end() {
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            return this; 
         },
 
         dispose() {
             gl.deleteFramebuffers(this.id)
             for (let tex in textures) gl.deleteTextures(tex)
             gl.deleteTextures(this.depthTexture)
+            return this;
+        },
+        
+        // reads the GPU memory back into this.data
+        // must begin() first!
+        // warning: can be slow
+        readPixels(attachment = gl.COLOR_ATTACHMENT0) {
+            if (!this.data) this.data = new Uint8Array(this.width * this.height * 4);
+            gl.readBuffer(attachment);
+            gl.readPixels(0, 0, this.width, this.height, gl.RGBA, gl.UNSIGNED_BYTE, this.data);
             return this;
         },
 	}
@@ -1008,15 +1022,15 @@ function createVao(gl, geom, program) {
                 gl.bufferData(gl.ARRAY_BUFFER, geom.colors, gl.DYNAMIC_DRAW);
             }
             if (geom.normals) {
-                gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
                 gl.bufferData(gl.ARRAY_BUFFER, geom.normals, gl.DYNAMIC_DRAW);
             }
             if (geom.texCoords) {
-                gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
                 gl.bufferData(gl.ARRAY_BUFFER, geom.texCoords, gl.DYNAMIC_DRAW);
             }
             if (geom.indices) {
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
                 gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geom.indices, gl.DYNAMIC_DRAW);
             }
 			return this;
@@ -1236,12 +1250,9 @@ function createSlab(gl, fragCode, uniforms) {
     let vertCode = `#version 300 es
 in vec4 a_position;
 in vec2 a_texCoord;
-uniform vec2 u_scale;
 out vec2 v_texCoord;
 void main() {
     gl_Position = a_position;
-    vec2 adj = vec2(1, -1);
-    gl_Position.xy = (gl_Position.xy + adj)*u_scale.xy - adj;
     v_texCoord = a_texCoord;
 }`
     let program = makeProgramFromCode(gl, vertCode, fragCode);
@@ -1279,12 +1290,12 @@ void main() {
         },
 
         dispose() {
-            this.program.dispose()
+            //this.program.dispose()
+            if (this.program) gl.deleteProgram(this.program);
             this.quad.dispose()
         },
     };
     self.begin();
-    self.uniform("u_scale", 1, 1);
     if (uniforms) self.setuniforms(uniforms);
     self.end()
     return self;
