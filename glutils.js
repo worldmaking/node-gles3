@@ -68,7 +68,7 @@ function makeProgram(gl, vertexCode, fragmentCode) {
 	uniformsFromCode(gl, program, fragmentCode, uniforms)
 	return {
 		id: program,
-		begin: function() { gl.useProgram(program); return this; },
+		begin: function() { gl.useProgram(this.id); return this; },
 		end: function() { gl.useProgram(0); return this; },
 		uniform: function(name, x, y, z, w) {
 			uniforms[name].set(x, y, z, w);
@@ -659,6 +659,7 @@ function makeFboWithDepth(gl, width=1024, height=1024, mipmap=false, multisample
         // be sure to set viewport & clear after begin()
         begin() {
             gl.bindFramebuffer(gl.FRAMEBUFFER, id);
+            return this;
         },
 
         end() {
@@ -667,6 +668,18 @@ function makeFboWithDepth(gl, width=1024, height=1024, mipmap=false, multisample
                 gl.bindTexture(texture_target, colorTexture);
 		        if (mipmap && !multisample) gl.generateMipmap(gl.TEXTURE_2D);
             }
+            return this;
+        },
+
+        bind(unit=0) {
+            gl.activeTexture(gl.TEXTURE0 + unit);
+			gl.bindTexture(texture_target, colorTexture);
+            return this;
+        },
+        unbind(unit=0) {
+            gl.activeTexture(gl.TEXTURE0 + unit);
+			gl.bindTexture(texture_target, null);
+            return this;
         },
 
         dispose() {
