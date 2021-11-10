@@ -1722,6 +1722,34 @@ function geomAppend(self, other) {
     
     return self;
 }
+
+// get the rotation that will turn `q` 
+// so that its local `fwd` vector 
+// points in the same direction as `dir`
+function quat_rotation_to(out, q, dir, fwd=[0,0,-1]) {
+	let v = vec3.create()
+	let axis = vec3.create()
+	// viewer's look direction in world space
+	vec3.transformQuat(v, fwd, q); 
+	// axis of rotation (not normalized)
+	vec3.cross(axis, v, dir);
+	let la = vec3.length(axis);
+	let ld = vec3.length(dir); 
+	// skips rotation if a) we are too close, 
+	// or b) we are pointing in opposite directions
+	if (ld > 0.000001 && la > 0.000001) {
+		let sin_a = la / ld;
+		let cos_a = vec3.dot(v, dir) / ld;
+		let a = Math.atan2(sin_a, cos_a)
+		// n becomes axis, but must first be normalized:
+		vec3.scale(axis, axis, 1/la)
+		quat.setAxisAngle(out, axis, a);
+	} else {
+		quat.identity(out);
+	}
+	return out
+}
+
     
     //	q must be a normalized quaternion
   function quat_rotate(out, q, v) {
@@ -1812,8 +1840,9 @@ module.exports = {
     geomFromOBJ: geomFromOBJ,
     geomAppend: geomAppend,
 
-	quat_rotate: quat_rotate,
-    quat_unrotate: quat_unrotate,
+	quat_rotate,
+    quat_unrotate,
+    quat_rotation_to,
 
     ok: ok,
     

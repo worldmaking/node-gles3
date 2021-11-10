@@ -97,31 +97,6 @@ let view = {
 let t = glfw.getTime();
 let fps = 60;
 
-// get the rotation that will turn `q` 
-// so that its local `fwd` vector 
-// points in the same direction as `dir`
-function rotationTo(out, q, dir, fwd=[0,0,-1]) {
-	let v = vec3.create()
-	// viewer's look direction in world space
-	vec3.transformQuat(v, fwd, q); 
-	// axis of rotation (not normalized)
-	let n = vec3.cross(vec3.create(), v, dir);
-	let ln = vec3.length(n);
-	let ld = vec3.length(dir); 
-	// skips rotation if a) we are too close, 
-	// or b) we are pointing in opposite directions
-	if (ld > 0.000001 && ln > 0.000001) {
-		let sin_a = ln / ld;
-		let cos_a = vec3.dot(v, dir) / ld;
-		let a = Math.atan2(sin_a, cos_a)
-		// n becomes axis, but must first be normalized:
-		vec3.scale(n, n, 1/ln)
-		quat.setAxisAngle(out, n, a);
-	} else {
-		quat.identity(out);
-	}
-	return out
-}
 
 
 function lookToward(view_quat, view_pos, target_pos=[0,0,0], amt=1, fwd=[0,0,-1]) {
@@ -130,7 +105,7 @@ function lookToward(view_quat, view_pos, target_pos=[0,0,0], amt=1, fwd=[0,0,-1]
 	let dir = vec3.create()
 	vec3.sub(dir, target_pos, view_pos);
 	let r = quat.create()
-	rotationTo(r, view_quat, dir, fwd);
+	glutils.quat_rotation_to(r, view_quat, dir, fwd);
 	
 	let q1 = quat.create()
 	quat.multiply(q1, r, view_quat)
