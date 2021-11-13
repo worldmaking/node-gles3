@@ -78,15 +78,6 @@ gl.bindTexture(gl.TEXTURE_2D, null);
 
 
 
-
-
-
-
-
-let fbo = glutils.makeFboWithDepth(gl, 1024, 1024, false)
-
-console.log("fbo", fbo)
-
 let quadprogram = glutils.makeProgram(gl,
 `#version 330
 in vec4 a_position;
@@ -150,7 +141,7 @@ let shadowprogram = glutils.makeProgram(gl,
 	`#version 330
 	uniform mat4 u_modelmatrix;
 	uniform mat4 u_viewmatrix;
-	uniform mat4 u_projmatrix;
+	uniform mat4 u_projmatrix; 
 	in vec3 a_position;
 	
 	void main() {
@@ -246,38 +237,38 @@ float random(vec4 seed) {
 }
 
 
-float shadowRaw(sampler2D shadowmap, vec2 tc, float biasedCurrentDepth) {
+float shadowRaw(sampler2D shadowmap, vec2 tc, float biasedCurrentDepth, float spread) {
 	return biasedCurrentDepth > texture(shadowmap, tc).r ? 1.0 : 0.0; 
 }
 
-float shadowBilinear(sampler2D shadowmap, vec2 tc, float biasedCurrentDepth) {
+float shadowBilinear(sampler2D shadowmap, vec2 tc, float biasedCurrentDepth, float spread) {
 	vec2 texSize = textureSize(shadowmap, 0);
 	vec2 texelSize = 1.0 / texSize;
 
 	// bilinear interp four nearest samples in the shadowmap:
-	float d00 = shadowRaw(shadowmap, tc + vec2(-0.5,-0.5)*texelSize, biasedCurrentDepth);
-	float d01 = shadowRaw(shadowmap, tc + vec2(-0.5, 0.5)*texelSize, biasedCurrentDepth); 
-	float d10 = shadowRaw(shadowmap, tc + vec2( 0.5,-0.5)*texelSize, biasedCurrentDepth); 
-	float d11 = shadowRaw(shadowmap, tc + vec2( 0.5, 0.5)*texelSize, biasedCurrentDepth); 
+	float d00 = shadowRaw(shadowmap, tc + vec2(-0.5,-0.5)*texelSize, biasedCurrentDepth, spread);
+	float d01 = shadowRaw(shadowmap, tc + vec2(-0.5, 0.5)*texelSize, biasedCurrentDepth, spread); 
+	float d10 = shadowRaw(shadowmap, tc + vec2( 0.5,-0.5)*texelSize, biasedCurrentDepth, spread); 
+	float d11 = shadowRaw(shadowmap, tc + vec2( 0.5, 0.5)*texelSize, biasedCurrentDepth, spread); 
 
 	vec2 a = fract(tc*texSize);
 	float avg = mix(mix(d00, d01, a.y), mix(d10, d11, a.y), a.x);
 	return avg;
 }
 
-float shadow3x3(sampler2D shadowmap, vec2 tc, float biasedCurrentDepth) {
+float shadow3x3(sampler2D shadowmap, vec2 tc, float biasedCurrentDepth, float spread) {
 	vec2 texSize = textureSize(shadowmap, 0);
 	vec2 texelSize = 1.0 / texSize;
 	float shadow = 0.;
 	for (int x = -1; x <= 1; ++x) {
 		for (int y = -1; y <= 1; ++y) {
-			shadow += shadowRaw(shadowmap, tc + vec2(x,y)*texelSize, biasedCurrentDepth); 
+			shadow += shadowRaw(shadowmap, tc + vec2(x,y)*texelSize, biasedCurrentDepth, spread); 
 		}    
 	}
 	return shadow / 9.0;
 }
 
-float shadowPCF(sampler2D shadowmap, vec2 tc, float biasedCurrentDepth, float spread=1.0) {
+float shadowPCF(sampler2D shadowmap, vec2 tc, float biasedCurrentDepth, float spread) {
 	// PCF: percentage-closer filtering
 	float shadow = 0.0;
 	vec2 texSize = textureSize(shadowmap, 0);
@@ -285,26 +276,28 @@ float shadowPCF(sampler2D shadowmap, vec2 tc, float biasedCurrentDepth, float sp
 	const int halfkernelWidth = 3;
 	for(int x = -halfkernelWidth; x <= halfkernelWidth; ++x) {
 		for(int y = -halfkernelWidth; y <= halfkernelWidth; ++y) {
-			shadow += shadowRaw(shadowmap, tc + vec2(x,y)*texelSize, biasedCurrentDepth);
+			shadow += shadowRaw(shadowmap, tc + vec2(x,y)*texelSize, biasedCurrentDepth, spread);
 		}
 	}
 	return shadow / ((halfkernelWidth*2+1)*(halfkernelWidth*2+1));
 }
 
 
-float shadowDisk(sampler2D shadowmap, vec2 tc, float biasedCurrentDepth, float spread=1.0) {
+float shadowDisk(sampler2D shadowmap, vec2 tc, float biasedCurrentDepth, float spread) {
 	float shadow = 0.0;
 	vec2 texSize = textureSize(shadowmap, 0);
 	vec2 texelSize = spread / texSize;
 	for (int i=0;i<16;i++) {
 		// randomized index
 		int index = int(16.0*random(vec4(gl_FragCoord.xyy, i)))%16;
-		shadow += shadowRaw(shadowmap, tc + poissonDisk[index]*texelSize, biasedCurrentDepth);
+		shadow += shadowRaw(shadowmap, tc + poissonDisk[index]*texelSize, biasedCurrentDepth, spread);
 	}
 	return shadow / 16.0;
 }
 
 void main() {
+
+	outColor = vec4(1.);
 
 	vec3 shadowprojcoords = (v_shadowndc.xyz / v_shadowndc.w) * 0.5 + 0.5;
 
@@ -351,29 +344,30 @@ void main() {
 	vec2 texSize = textureSize(u_tex, 0);
 	vec2 texelSize = 1.0 / texSize;
 
-	shadow = shadowRaw(u_tex, shadowprojcoords.xy, currentDepth - bias);
-	shadow = shadowBilinear(u_tex, shadowprojcoords.xy, currentDepth - bias);
-	shadow = shadow3x3(u_tex, shadowprojcoords.xy, currentDepth - bias);
+	shadow = shadowRaw(u_tex, shadowprojcoords.xy, currentDepth - bias, 1);
+	shadow = shadowBilinear(u_tex, shadowprojcoords.xy, currentDepth - bias, 1);
+	shadow = shadow3x3(u_tex, shadowprojcoords.xy, currentDepth - bias, 1.);
 	shadow = shadowPCF(u_tex, shadowprojcoords.xy, currentDepth - bias, 1.); 
-	shadow = shadowDisk(u_tex, shadowprojcoords.xy, currentDepth - bias, 1.);  
+	//shadow = shadowDisk(u_tex, shadowprojcoords.xy, currentDepth - bias, 1.);  
 	
 	isUnshadowed = 1. - shadow;
 	float visibility = 1. - shadow;
 	
 	// outColor = vec4(shadowprojcoords, 1.); 
-	outColor = vec4(ndc );  
-	outColor = vec4(lightpos.xyz, 1.);
+	// outColor = vec4(ndc );  
+	// outColor = vec4(lightpos.xyz, 1.);
 	//outColor = vec4(lightpos.z);
-	outColor = vec4(z);
+	//outColor = vec4(z);
 	// outColor = vec4(v_texCoord, 0., 1.);
-	outColor = vec4(rawDepth);
+	//outColor = vec4(rawDepth);
 
 	//outColor = vec4(isUnshadowed);
 	//outColor = vec4(shadow);
 	//outColor = vec4(a, 0., 1.);
-	outColor = vec4(dz);
+	//outColor = vec4(dz);
 
 	outColor = vec4(visibility);
+
 }
 `);
 let w = 8
@@ -390,13 +384,7 @@ function animate() {
 	}
 
 	let windim = glfw.getFramebufferSize(window)
-	if (!fbo || fbo.width != windim[0] || fbo.height != windim[1]) {
-		// resolution change
-		if (fbo) fbo.dispose()
-		fbo = glutils.makeFboWithDepth(gl, windim[0], windim[1], false)
-	}
-
-
+	
 	let t1 = glfw.getTime();
 	let dt = t1-t;
 	fps += 0.1*((1/dt)-fps);
@@ -473,7 +461,7 @@ function animate() {
 	}
 
 	{
-		gl.viewport(0, 0, fbo.width, fbo.height);
+		gl.viewport(0, 0, windim[0], windim[1]);
 		gl.enable(gl.DEPTH_TEST)
 		gl.depthMask(true)
 		gl.clearColor(0.2, 0.2, 0.2, 1);

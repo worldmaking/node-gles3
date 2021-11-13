@@ -131,6 +131,7 @@ napi_status getCharacterArray(napi_env env, napi_value &arg, char *& buf, size_t
 	status = napi_typeof(env, arg, &valuetype);
 	if (status == napi_ok && valuetype == napi_string) {
 		status = napi_get_value_string_utf8(env, arg, nullptr, 0, &len);
+		len++; // for null terminator
 		// allocate string buffer:
 		napi_value ab;
 		status = napi_create_arraybuffer(env, len, (void **)&buf, &ab);

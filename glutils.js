@@ -59,7 +59,7 @@ function makeProgram(gl, vertexCode, fragmentCode) {
     // Link the two shaders into a program
     let program = createProgram(gl, vertexShader, fragmentShader);
 
-    // delete shaders now
+    // can delete shaders now
     gl.deleteShader(vertexShader);
     gl.deleteShader(fragmentShader);
 	

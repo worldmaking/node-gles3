@@ -418,14 +418,22 @@ napi_value ShaderSource(napi_env env, napi_callback_info info) {
 
 	GLuint shader = getUint32(env, args[0]);
 
-	char * buf;
 	size_t len;
-	getCharacterArray(env, args[1], buf, len);
+	status = napi_get_value_string_utf8(env, args[1], nullptr, 0, &len);
+	len++; // for null terminator
+
+	char * buf = (char*)calloc(len+1, sizeof(char));
+
+	napi_get_value_string_utf8(env, args[1], buf, len, &len);
 
 	const char* codes[1];
 	codes[0] = buf;
 	GLint size = len;
+	// OpenGL copies the shader source code strings when glShaderSource is called, so an application may free its copy of the source code strings immediately after the function returns
 	glShaderSource(shader, 1, codes, &size);
+
+	free(buf);
+
 	return nullptr;
 }
 
