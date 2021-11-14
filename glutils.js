@@ -1520,6 +1520,82 @@ function makeCube(options) {
 	}
 }
 
+/*
+options: {
+    min: -1, // base height
+    max: 1,  // top height
+    div: [4, 1] // cols, rows
+    radius: 1
+}
+*/
+function makeOpenCylinder(options) {
+    let opt = options || {}
+    let min = opt.min; if (min == undefined) min = -1;
+    let max = opt.max; if (max == undefined) max = +1;
+    let div = opt.div; if (div == undefined) div = [4,1];
+    if (typeof div == "number") div = [div, div];
+    let radius = opt.radius; if (radius == undefined) radius = 1;
+    let step = [1/div[0], 1/div[1]];
+    let span = max-min;
+    let vertices = [];
+    let normals = [];
+    let texCoords = [];
+    let indices = [];
+
+    // rows
+    for (let y=0; y<div[1]; y++) {
+        let ay = step[1] * y;
+        let by = ay + step[1];
+        let vay = min + ay*span;
+        let vby = min + by*span;
+        for (let x=0; x<div[0]; x++) {
+            let ax = step[0] * x;
+            let bx = ax + step[0];
+            let nax = Math.sin(Math.PI * 2 * (ax))
+            let naz = Math.cos(Math.PI * 2 * (ax))
+            let nbx = Math.sin(Math.PI * 2 * (bx))
+            let nbz = Math.cos(Math.PI * 2 * (bx))
+
+            let vax = radius * nax
+            let vaz = radius * naz
+            let vbx = radius * nbx
+            let vbz = radius * nbz
+
+            let idx = vertices.length/3;
+            vertices.push(
+                vax, vay, vaz,
+                vbx, vay, vbz,
+                vbx, vby, vbz,
+                vax, vby, vaz
+            ); 
+            texCoords.push(
+                ax, ay,
+                bx, ay,
+                bx, by,
+                ax, by
+            );
+            normals.push(
+                nax, 0, naz,
+                nbx, 0, nbz,
+                nbx, 0, nbz,
+                nax, 0, naz
+            );
+            indices.push(
+                idx+0, idx+1, idx+2,
+                idx+2, idx+3, idx+0
+            );
+        }
+    }
+
+	return {
+		vertexComponents: 3,
+		vertices: new Float32Array(vertices),
+		normals: new Float32Array(normals),
+		texCoords: new Float32Array(texCoords),
+		indices: new Uint16Array(indices),
+	}
+}
+
 function makeQuad(options) {
     let opt = options || {}
     let min = opt.min;
@@ -1834,11 +1910,13 @@ module.exports = {
 	createFBO: createFBO,
 	createSlab: createSlab,
 
-	makeCube: makeCube,
-    makeQuad: makeQuad,
-    makeLine: makeLine,
-    geomFromOBJ: geomFromOBJ,
-    geomAppend: geomAppend,
+	makeCube,
+    makeQuad,
+    makeLine,
+    makeOpenCylinder,
+
+    geomFromOBJ,
+    geomAppend,
 
 	quat_rotate,
     quat_unrotate,
