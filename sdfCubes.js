@@ -395,16 +395,10 @@ out vec3 v_eyepos;
 out vec3 v_raypos;
 out vec3 v_raydir;
 
-out vec4 v_world;
-//out vec4 v_color;
-out vec2 v_texCoord;
-
 out vec4 v_quat;
-out vec4 v_pos;
 out vec4 v_bounds;
 out mat4 v_viewprojmatrix;
-
-vec3 scale = vec3(1.);
+out vec4 v_world; // xyz is position, w is dist to camera
 
 ${vertex_shader_lib}
 
@@ -426,14 +420,11 @@ void main() {
 	v_raypos = a_position.xyz * i_bounds.xyz;
 	v_raydir = (quat_unrotate(i_quat, world.xyz - v_eyepos));
 
-	// // if we needed precision, compute this in frag shader based on the surface function
-	v_world = vec4(world.xyz, length(view.xyz));
+	// if we needed precision, refine this in frag shader based on the surface function
+	v_world = vec4(i_pos.xyz, length(view.xyz));
 	v_normal = vec3(/* mat3(u_modelmatrix) * */ quat_rotate(i_quat, a_normal));
-	//v_color = vec4(1);
-	v_texCoord = a_texCoord;
 
 	v_quat = i_quat;
-	v_pos = i_pos;
 	v_bounds = i_bounds;
 	v_viewprojmatrix = u_projmatrix * u_viewmatrix;
 
@@ -478,11 +469,10 @@ precision mediump float;
 uniform vec2 u_nearfar;
 
 in vec4 v_quat;
-in vec4 v_pos; // xyz, scale
-in vec4 v_bounds;
+in vec4 v_world; 
+in vec4 v_bounds; // xyz, scale
 //in vec4 v_color;
 in vec3 v_normal;
-in vec4 v_world;
 in vec2 v_texCoord;
 in vec3 v_eyepos, v_raypos, v_raydir;
 in mat4 v_viewprojmatrix;
@@ -497,8 +487,34 @@ float scene(vec3 p) {
 	float d0 = fSphere(p, 0.3);
 	float d1 = fCylinder(p, 0.4, 0.5);
 	float d2 = sdCapsule2(p, vec3(0., 0, -0.4), vec3(0., 0., -.4), 0.2, 0.3);
-	float d3 = sdCube(p, vec3(0.4, 0.2, 0.1));
+	float d3 = sdCube(p, vec3(0.1, 0.2, 0.4));
+	//return d0;
 	return min(d0, d3);
+}
+
+vec2 texcoord(vec3 p) {
+	// get a texture coordinate from the scene
+	// a simple cheat is cylindrical mapping of p
+	vec3 pn = normalize(p);
+	// atan2(y,x)/2pi gives -0.5..0.5 range
+	return vec2(atan(pn.y, pn.x) * 0.159154943091895 + 0.5, pn.z);
+}
+
+mat3 tbn4(in vec3 p, float eps) {
+	vec2 e = vec2(-eps, eps);
+	// get four nearby points (tetrahedral distribution):
+	vec3 p1 = p + e.yxx, p2 = p + e.xxy, p3 = p + e.xyx, p4 = p + e.yyy;
+	// get distances at these points:
+	float t1 = scene(p + e.yxx), t2 = scene(p + e.xxy), t3 = scene(p + e.xyx), t4 = scene(p + e.yyy);
+	vec3 N = normalize(e.yxx*t1 + e.xxy*t2 + e.xyx*t3 + e.yyy*t4);
+	// get texcoords at these points:
+	vec2 tc1 = texcoord(p1), tc2 = texcoord(p2), tc3 = texcoord(p3), tc4 = texcoord(p4); 
+	vec3 T = normalize(e.yxx*tc1.y + e.xxy*tc2.y + e.xyx*tc3.y + e.yyy*tc4.y);
+	// force it to be orthogonal:
+	T = normalize(T - N*dot(N,T));
+	// bitangent is orthogonal to both:
+	vec3 B = cross(N, T);//normalize(e.yxx*tc1.y + e.xxy*tc2.y + e.xyx*tc3.y + e.yyy*tc4.y);
+	return mat3(T, B, N);
 }
 
 // compute normal from a SDF gradient by sampling 4 tetrahedral points around a location p
@@ -512,11 +528,58 @@ vec3 normal4(in vec3 p, float eps) {
 	vec2 e = vec2(-eps, eps);
 	// tetrahedral points
 	float t1 = scene(p + e.yxx), t2 = scene(p + e.xxy), t3 = scene(p + e.xyx), t4 = scene(p + e.yyy); 
-		vec3 n = (e.yxx*t1 + e.xxy*t2 + e.xyx*t3 + e.yyy*t4);
-		// normalize for a consistent SDF:
-		//return n / (4.*eps*eps);
-		// otherwise:
-		return normalize(n);
+	vec3 n = (e.yxx*t1 + e.xxy*t2 + e.xyx*t3 + e.yyy*t4);
+	// normalize for a consistent SDF:
+	//return n / (4.*eps*eps);
+	// otherwise:
+	return normalize(n);
+}
+
+vec4 shade(vec3 p) {
+	const float EPS = 0.003;
+	vec4 outColor;
+
+	// get a texcoord from the surface
+	// ideally, the sdf itself would return a texcoord
+	vec2 tc = texcoord(p);
+
+	// for normal, we approximate it by testing the scene at nearby points
+	// for tangent/bitangent, we do the same, using texcoords for the surface orientation
+	mat3 TBN = tbn4(p, EPS);
+
+	// all of these are in object-space:
+	// rotate to world space
+	vec3 T = quat_rotate(v_quat, TBN[0]);
+	vec3 B = quat_rotate(v_quat, TBN[1]);
+	vec3 N = quat_rotate(v_quat, TBN[2]);
+	
+	outColor = vec4(N*0.5+0.5, 1.);
+	outColor = vec4(T*0.5+0.5, 1.);
+	outColor = vec4(B*0.5+0.5, 1.);
+	// outColor = vec4( abs(dot(N, T)) ); // verify that N, T are orthogonal; should be zero
+	// outColor = vec4( abs(dot(N, B)) ); // verify that N, B are orthogonal; should be zero
+	// outColor = vec4( abs(dot(T, B)) ); // verify that B, T are orthogonal; should be zero
+	outColor = vec4(tc, 0., 1.);
+	// demo texture for debugging:
+	vec2 chk = mod(tc*2., 1.)-0.5;
+	float checker = sign(chk.x*chk.y)*0.5+0.5;
+	outColor = vec4(N*checker, 1.);
+
+	// now go ahead and do the lighting & texturing of choice
+	return outColor;
+}
+
+// p is the vec3 position of the surface at the fragment
+// p should be in world-space
+// viewProjectionMatrix would be typically passed in as a uniform
+// assign result to gl_FragDepth:
+float computeDepth(vec3 p, mat4 viewProjectionMatrix) {
+	float dfar = 1.;//gl_DepthRange.far;
+	float dnear = 0.;//gl_DepthRange.near;
+	vec4 clip_space_pos = viewProjectionMatrix * vec4(p, 1.);
+	float ndc_depth = clip_space_pos.z / clip_space_pos.w;	
+	// standard perspective:
+	return (((dfar-dnear) * ndc_depth) + dnear + dfar) / 2.0;
 }
 
 void main() {
@@ -524,64 +587,53 @@ void main() {
 	vec3 rd = normalize(v_raydir);
 	vec3 ro = v_raypos;
 	float scale = v_bounds.w;
+	vec3 worldpos = v_world.xyz;
+	float dist = v_world.w; // maybe used for fog etc.
 
 	#define STEPS 64
-	#define EPS 0.003
 	#define FAR 3.0
+	const float EPS = 0.03;
 	vec3 p = ro;
 	float t = 0.;
 	float stepsize = 1.;
 	int step = 0;
 	float d = 0.;
+	float d0 = 0.;
 	int contact = 0;
-	for (; step < STEPS; step++) {
-		d = scene(p);
-		if (abs(d) < EPS) {
-			contact++;
-			break;
-		}
-		t += d * stepsize;
+	for (; step < STEPS && t < FAR; step++) {
 		p = ro + t*rd;
-		if (t >= FAR) break;
-
+		d = scene(p);
+		if (sign(d)*sign(d0) == -1.) { // surface crossing
+			contact++;
+			// render at corrected surface position:
+			p = ro + (t-abs(d))*rd;
+			// += for additive blending
+			// max() for max blendinig
+			outColor += shade(p) * (1. / float(contact));
+			//outColor = max(outColor, shade(p));
+			if (contact == 1) {
+				// first contact defines actual world position:
+				worldpos += quat_rotate(v_quat, p * scale);
+			}
+			//break;  // break here for solid shape
+		}
+		d0 = d;
+		// always move forward:
+		t += max(EPS,abs(d));
 	}
+
 	float glow = float(step)/float(STEPS);
-
-
-	if (contact > 0) {
-		// normal, in object-space
-		vec3 N = normal4(p, EPS );
-
-		// get a texcoord from the surface
-		// ideally, the sdf itself would return a texcoord
-		// a lazy way is to normalize p
-		vec2 tc = normalize(p).xy*0.5+0.5;
-
-		// want to build a tangent space for texturing
-		// but DE doesn't really give you one
-		// could cheat by abusing the normal
-		// or by abusing the position
-		vec3 denormTangent = normalize(p.yzx); //N.yzx; // rd;
-		vec3 T = normalize(denormTangent-N*dot(N,denormTangent));
-		// bitangent is easy once you have a tangent
-		vec3 B = cross(N,T);
-		mat3 TBN = mat3(T, B, N);
-
-		// these are all in object-space:
-		outColor = vec4(N*0.5+0.5, 1.);
-		outColor = vec4(T*0.5+0.5, 1.);
-		//outColor = vec4(B*0.5+0.5, 1.);
-		// outColor = vec4( abs(dot(N, T)) ); // verify that N, T are orthogonal
-		// outColor = vec4( abs(dot(N, B)) ); // verify that N, B are orthogonal
-		// outColor = vec4( abs(dot(T, B)) ); // verify that B, T are orthogonal
-		//outColor = vec4(tc, 0., 1.);
-
-	} else {
-		outColor = vec4(0.25);
+	outColor += vec4(glow*glow); // show halo
+	
+	// for deadzone:
+	if (contact == 0) {
+		// outColor += vec4(0.25); // show bounding box
 		// discard;
 	}
+
+	gl_FragDepth = computeDepth(worldpos, v_viewprojmatrix);
 	
-	// outColor = vec4(1.);
+	//outColor = vec4(dist);
 	// outColor = vec4(v_pos);
 	// outColor = vec4(v_bounds);
 	// outColor = vec4(v_normal*0.5+0.5, 1.);
@@ -594,135 +646,9 @@ void main() {
 	// outColor = vec4(d);
 	// outColor = vec4(contact);
 	// outColor = vec4(t * float(contact) + glow);
+	//outColor = vec4(worldpos, 1.);
 }
 
-// float map(vec3 p) {
-// 	float d0 = fSphere(p, 0.3);
-// 	float d1 = fCylinder(p, 0.4, 0.5);
-// 	float d2 = sdCapsule2(p, vec3(0., 0, -0.4), vec3(0., 0., -.4), 0.2, 0.3);
-// 	float d3 = sdCube(p, vec3(0.4, 0.2, 0.1));
-// 	return min(d0, d3);
-// }
-
-// // compute normal from a SDF gradient by sampling 4 tetrahedral points around a location p
-// // (cheaper than the usual technique of sampling 6 cardinal points)
-// // 'fScene' should be the SDF evaluator 'float distance = fScene(vec3 pos)''  
-// // 'eps' is the distance to compare points around the location 'p' 
-// // a smaller eps gives sharper edges, but it should be large enough to overcome sampling error
-// // in theory, the gradient magnitude of an SDF should everywhere = 1, 
-// // but in practice this isn’t always held, so need to normalize() the result
-// vec3 normal4(in vec3 p, float eps) {
-//   vec2 e = vec2(-eps, eps);
-//   // tetrahedral points
-//   float t1 = map(p + e.yxx), t2 = map(p + e.xxy), t3 = map(p + e.xyx), t4 = map(p + e.yyy); 
-//  	vec3 n = (e.yxx*t1 + e.xxy*t2 + e.xyx*t3 + e.yyy*t4);
-//  	// normalize for a consistent SDF:
-//  	//return n / (4.*eps*eps);
-//  	// otherwise:
-//  	return normalize(n);
-// }
-
-// // p is the vec3 position of the surface at the fragment.
-// // viewProjectionMatrix would be typically passed in as a uniform
-// // assign result to gl_FragDepth:
-// float computeDepth(vec3 p, mat4 viewProjectionMatrix) {
-// 	float dfar = 1.;//gl_DepthRange.far;
-// 	float dnear = 0.;//gl_DepthRange.near;
-// 	vec4 clip_space_pos = viewProjectionMatrix * vec4(p, 1.);
-// 	float ndc_depth = clip_space_pos.z / clip_space_pos.w;	
-// 	// standard perspective:
-// 	return (((dfar-dnear) * ndc_depth) + dnear + dfar) / 2.0;
-// }
-
-// void main() {
-// 	// object-space:
-// 	vec3 ro = v_ray_origin;
-// 	vec3 rd = normalize(v_ray_direction);
-
-// 	// world-space:
-// 	float distance = length(v_world_vertex - v_eyepos);
-// 	vec3 nn = v_normal; // normalize(v_normal) not necessary for a cube face
-// 	vec3 lightdir = vec3(0, 4, 0) - v_world_vertex;
-
-// 	vec3 color = vec3(0.1);
-
-// 	// EPS is the threshold we say is close enough to count as the surface
-// 	// as the object gets further away, it makes sense to make EPS bigger
-// 	// think of it in terms of the pixel-volume; 
-// 	// a pixel very far away is a very large cube
-// 	// an EPS of half a pixel is probably the upper limit (Nyquist)
-// 	// for now, it's just hard-coded
-// 	float EPS = 0.01;
-// 	#define FAR 2.*sqrt(3.)
-
-// 	int steps = 0;
-// 	#define STEPS 32
-// 	float rsteps = 1./float(STEPS);
-// 	float l = length(ro);
-// 	//float precise = 0.01;
-// 	float t = 0.;
-// 	vec3 p = ro;
-// 	float d = 0.;
-// 	int contact = 0;
-// 	float s = 0.;
-
-// 	for (; steps<STEPS; steps++) {
-// 		d = map(p);
-// 		float ad = abs(d);
-// 		// count steps:
-// 		s += min(1., EPS/(d*d)); 
-// 		if (ad < EPS) {
-// 			contact++;
-// 			if (contact == 1) {
-// 				// first contact determines normal
-// 				// normal in object space:
-// 				nn = normal4(p, 0.0001);
-// 			}
-// 			// continue through the surface:
-//       		d = EPS;
-// 			ad = EPS;
-// 		}
-		
-// 		//if (abs(d) < precise) break;
-
-// 		// move the ray on:
-// 		t += ad;
-// 		p = ro + t*rd;   // OR: p += ad*rd;
-// 		if (t > FAR) break; // we have surely left the back of the cube
-// 	}
-
-// 	float alpha = 0.5;
-
-// 	if (contact > 0) {
-// 		// also write to depth buffer, for detailed occlusion:
-// 		vec3 world_pos = (v_world_vertex + quat_rotate(v_world_orientation, p));
-// 		//gl_FragDepth = computeDepth(world_pos.xyz, v_viewprojmatrix);
-
-// 		// texcoord from naive normal:
-// 		vec3 tnn = normalize(p)*0.5+0.5;
-// 		// in world space
-// 		vec3 wnn = quat_rotate(v_world_orientation, nn);
-
-// 		color = vec3(wnn.xyz*0.5+0.5);
-
-// 		alpha = 1.;
-// 	} else {
-// 		// we didn't hit anything
-// 		//discard;
-// 		//gl_FragDepth = 0.99999;
-// 		// color = vec3(s * rsteps);
-// 		// alpha = 1.;
-// 	}
-
-// 	// color = vec3((ro));
-// 	// color = vec3((rd));
-// 	// color = vec3(abs(map(ro)));
-	
-// 	// color = vec3(contact > 0 ? 1. : 0);
-// 	// color = vec3(nn * 0.5+0.5);
-
-// 	outColor = alpha * vec4(color, 1.);
-// }
 `);
 // create a VAO from a basic geometry and shader
 let cube = glutils.createVao(gl, glutils.makeCube({ min:-0.5, max:0.5, div: 8 }), cubeprogram.id);
