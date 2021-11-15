@@ -20,7 +20,7 @@ glfw.windowHint(glfw.CONTEXT_VERSION_MINOR, 3);
 glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
 glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
 
-let window = glfw.createWindow(720, 480, "Test");
+let window = glfw.createWindow(1024, 1024, "Test");
 if (!window) {
 	console.log("Failed to open GLFW window");
 	glfw.terminate();
@@ -592,10 +592,9 @@ void main() {
 
 	#define STEPS 64
 	#define FAR 3.0
-	const float EPS = 0.03;
+	const float EPS = 1./float(STEPS);
 	vec3 p = ro;
 	float t = 0.;
-	float stepsize = 1.;
 	int step = 0;
 	float d = 0.;
 	float d0 = 0.;
@@ -608,9 +607,11 @@ void main() {
 			// render at corrected surface position:
 			p = ro + (t-abs(d))*rd;
 			// += for additive blending
-			// max() for max blendinig
-			outColor += shade(p) * (1. / float(contact));
-			//outColor = max(outColor, shade(p));
+			// max() for max blending
+			// mix() for something in between
+			//outColor += shade(p) / float(contact);
+			//outColor = mix(outColor, shade(p), 1. / float(contact));
+			//outColor = max(outColor, shade(p)/ float(contact));
 			if (contact == 1) {
 				// first contact defines actual world position:
 				worldpos += quat_rotate(v_quat, p * scale);
@@ -623,7 +624,8 @@ void main() {
 	}
 
 	float glow = float(step)/float(STEPS);
-	outColor += vec4(glow*glow); // show halo
+	//outColor += vec4(glow*glow); // show halo
+	outColor = mix(outColor, vec4(glow), glow*glow);
 	
 	// for deadzone:
 	if (contact == 0) {
@@ -717,11 +719,10 @@ function animate() {
 	// Compute the matrix
 	let viewmatrix = mat4.create();
 	let projmatrix = mat4.create();
-	let modelmatrix = mat4.create();
 	let near = 0.01, far = 30;
 	let angle = t*0.3;
 	let dist = 4;
-	mat4.lookAt(viewmatrix, [dist*Math.sin(angle), 0, dist*Math.cos(angle)], [0, 0, 0], [0, 1, 0]);
+	mat4.lookAt(viewmatrix, [dist*Math.sin(angle), 0, dist*Math.cos(angle)], [-dist*Math.sin(angle), 0, -dist*Math.cos(angle)], [0, 1, 0]);
 	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], near, far);
 
 	gl.viewport(0, 0, dim[0], dim[1]);
@@ -731,7 +732,10 @@ function animate() {
 	gl.enable(gl.DEPTH_TEST)
 
 	gl.enable(gl.BLEND);
+	gl.blendEquation(gl.FUNC_ADD)
 	gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+	gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
+
 	gl.depthMask(false)
 	gl.enable(gl.CULL_FACE)
 
