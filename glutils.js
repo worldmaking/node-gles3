@@ -894,6 +894,8 @@ function createVao(gl, geom, program) {
         geom: geom,
         program: program,
 
+        indexType: gl.UNSIGNED_SHORT,
+
         init(program) {
             this.bind();
             if (geom) {
@@ -979,6 +981,10 @@ function createVao(gl, geom, program) {
                     this.texCoordBuffer = buffer;
                 }
                 if (geom.indices) {
+
+                    // check type: 
+                    if (geom.indices.constructor == Uint32Array) this.indexType = gl.UNSIGNED_INT 
+
                     let buffer = gl.createBuffer();
                     // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
                     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer);
@@ -1049,22 +1055,22 @@ function createVao(gl, geom, program) {
 			return this;
 		},
         draw(count=0) {
-			if (geom.indices) gl.drawElements(gl.TRIANGLES, count ? count : geom.indices.length, gl.UNSIGNED_SHORT, 0);
+			if (geom.indices) gl.drawElements(gl.TRIANGLES, count ? count : geom.indices.length, this.indexType, 0);
 			else gl.drawArrays(gl.TRIANGLES, 0, count ? count : geom.vertices.length/geom.vertexComponents);
 			return this;
         },
         drawLines(count=0) {
-			if (geom.indices) gl.drawElements(gl.LINES, count ? count : geom.indices.length, gl.UNSIGNED_SHORT, 0);
+			if (geom.indices) gl.drawElements(gl.LINES, count ? count : geom.indices.length, this.indexType, 0);
 			else gl.drawArrays(gl.LINES, 0, count ? count : geom.vertices.length/geom.vertexComponents);
 			return this;
         },
         drawPoints(count=0) {
-            // not using drawElements() here because points don't need them like triangles do
-            gl.drawArrays(gl.POINTS, 0, count ? count : geom.vertices.length/geom.vertexComponents);
+            if (geom.indices) gl.drawElements(gl.POINTS, count ? count : geom.indices.length, this.indexType, 0);
+			else gl.drawArrays(gl.POINTS, 0, count ? count : geom.vertices.length/geom.vertexComponents);
 			return this;
         },
         drawInstanced(instanceCount=1, primitive=gl.TRIANGLES) {
-            if (geom.indices) gl.drawElementsInstanced(primitive, geom.indices.length, gl.UNSIGNED_SHORT, 0, instanceCount);
+            if (geom.indices) gl.drawElementsInstanced(primitive, geom.indices.length, this.indexType, 0, instanceCount);
             else gl.drawArraysInstanced(primitive, 0, geom.vertices.length/geom.vertexComponents, instanceCount)
 			return this;
         },
@@ -1355,19 +1361,11 @@ function makeCube(options) {
             );
             texCoords.push(
                 // front:
-                // 0, 0,
-                // 0, 0,
-                // 0, 0,
-                // 0, 0,
                 ax, ay,
                 bx, ay,
                 bx, by,
                 ax, by,
                 // // back:
-                // 0, 0,
-                // 0, 0,
-                // 0, 0,
-                // 0, 0,
                 1-ax, ay,
                 1-bx, ay,
                 1-bx, by,

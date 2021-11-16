@@ -11,7 +11,7 @@
 
 #include <librealsense2/rs.hpp> // Include RealSense Cross Platform API
 
-
+#include "al/al_glm.h"
 
  struct Pipeline : public Napi::ObjectWrap<Pipeline> {
 
@@ -31,6 +31,8 @@
 
 //	Napi::TypedArrayOf<float> depth;
 	Napi::TypedArrayOf<float> vertices;
+	Napi::TypedArrayOf<float> normals;
+	Napi::TypedArrayOf<uint32_t> indices;
 
 // 	// .getWidth(), .getHeight(), .getResolution(), .getChannels()
 // 	// .getDataType(), .getMemoryType() (CPU or GPU), .getPtr()
@@ -175,8 +177,14 @@
 	Napi::Value grab(const Napi::CallbackInfo& info) {
 		Napi::Env env = info.Env();
 		Napi::Object This = info.This().As<Napi::Object>();
+		
 
-		bool wait = info.Length() && info[0].As<Napi::Boolean>();
+		bool wait = info.Length() > 0 ? info[0].As<Napi::Boolean>() : false;
+
+		float maxarea = This.Has("maxarea") ?  This.Get("maxarea").ToNumber().DoubleValue() : 0.001;
+		glm::mat4 transform = This.Has("modelmatrix") ? glm::make_mat4(This.Get("modelmatrix").As<Napi::Float32Array>().Data()) : glm::mat4();
+		float miny = This.Has("miny") ? This.Get("miny").ToNumber().DoubleValue() : 0.;
+
 
 		rs2::frameset frames;
 		if (wait) {
@@ -203,6 +211,10 @@
 		// Get the depth frame's dimensions
 		int width = depth.get_width();
 		int height = depth.get_height();
+		const size_t num_vertices = width * height;
+		const size_t num_floats = num_vertices * 3;
+		size_t MAX_NUM_FACES = (width - 1)*(height - 1)*2;
+		size_t MAX_NUM_INDICES = MAX_NUM_FACES*6; // two triangles per face
 		// retrieve frame stride, meaning the actual line width in memory in bytes (not the logical image width)
 		int stride = depth.get_stride_in_bytes ();
 		int bitspp = depth.get_bits_per_pixel ();
@@ -243,18 +255,100 @@
 			//const rs2::texture_coordinate * texcoords = points.get_texture_coordinates (); // uv
 			const float * texcoords = (float *)points.get_texture_coordinates (); // uv
 			
-			const size_t num_vertices = points.size();
-			const size_t num_floats = num_vertices * 3;
 			const size_t num_bytes = num_floats * sizeof(float);
 			if (!this->vertices || this->vertices.ElementLength() != num_floats) {
 				// reallocate it:
 				printf("reallocating %d floats\n", num_floats);
+				printf("width %d height %d num vertices %d %d\n", width, height, num_vertices, width * height);
 				this->vertices = Napi::TypedArrayOf<float>::New(env, num_floats, napi_float32_array);
 				This.Set("vertices", this->vertices);
-			}
+				
+				this->normals = Napi::TypedArrayOf<float>::New(env, num_floats, napi_float32_array);
+				This.Set("normals", this->normals);
+				
+				this->indices = Napi::TypedArrayOf<uint32_t>::New(env, MAX_NUM_INDICES, napi_uint32_array);
+				This.Set("indices", this->indices);
 
+				This.Set("count", Napi::Number::New(env, 0));
+			}
+			
 			memcpy(this->vertices.Data(), vertices, num_bytes);
 		}
+
+	
+		// see https://intelrealsense.github.io/librealsense/doxygen/rs__export_8hpp_source.html
+		glm::vec3 * vertices = (glm::vec3 *)this->vertices.Data();
+		glm::vec3 * normals = (glm::vec3 *)this->normals.Data();
+		uint32_t * indices = (uint32_t *)this->indices.Data();
+		// create a triangle mesh
+		int index_count = 0;
+
+		// apply transform:
+		for (int i=0; i<num_vertices; i++) {
+			vertices[i] = glm::vec3(transform * glm::vec4(vertices[i], 1.));
+		}
+
+		for (int y = 0; y < height - 1; ++y) {
+			for (int x = 0; x < width - 1; ++x) {
+				// indices of a quad
+				int a = y * width + x, 
+					b = y * width + (x+1), 
+					c = (y+1)*width + x, 
+					d = (y+1)*width + (x+1);
+
+				// raw point data:
+				// vec3d point_a = { verts[a].x ,  -1 * verts[a].y,  -1 * verts[a].z };
+				// vec3d point_b = { verts[b].x ,  -1 * verts[b].y,  -1 * verts[b].z };
+				// vec3d point_c = { verts[c].x ,  -1 * verts[c].y,  -1 * verts[c].z };
+				// vec3d point_d = { verts[d].x ,  -1 * verts[d].y,  -1 * verts[d].z };
+				glm::vec3& point_a = vertices[a];
+				glm::vec3& point_b = vertices[b];
+				glm::vec3& point_c = vertices[c];
+				glm::vec3& point_d = vertices[d];
+
+				glm::vec3 da = point_d - point_a;
+				glm::vec3 ba = point_b - point_a;
+				glm::vec3 ca = point_c - point_a;
+				
+				// normalized cross product of two triangle edges gives face normal
+				glm::vec3 daba = glm::cross(da, ba);
+				glm::vec3 cada = glm::cross(ca, da);
+				// |cross product| of two sides gives area parallelogram, twice area of triangle
+				// this will be zero if there are degenerate points
+				float abd = glm::length(daba);
+				float acd = glm::length(cada);
+
+				glm::vec3 n12;
+				// skip if any of these points are zero
+				// skip if triangle area is too large (or too small??)
+				if (point_a.y > miny && point_b.y > miny && point_d.y > miny && abd > 0. && abd < maxarea) 
+				{
+					glm::vec3 n = glm::normalize(daba);
+					n12 = n;
+					indices[index_count++] = a;
+					indices[index_count++] = d;
+					indices[index_count++] = b;
+					normals[a] = n;
+					normals[b] = n;
+					normals[d] = n12;
+
+				}
+				if (point_a.y > miny && point_c.y > miny && point_d.y > miny && acd > 0. && acd < maxarea) 
+				{
+					glm::vec3 n = glm::normalize(cada);
+					n12 = glm::normalize(n12 + n);
+					indices[index_count++] = d;
+					indices[index_count++] = a;
+					indices[index_count++] = c;
+					normals[a] = n12;
+					normals[c] = n;
+					normals[d] = n12;
+				}
+			}
+		}
+		//printf("index count: %d %d\n", index_count, MAX_NUM_INDICES);
+		This.Set("count", Napi::Number::New(env, index_count));
+	
 
 
 		// auto color = frames.get_color_frame();

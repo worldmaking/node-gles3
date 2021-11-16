@@ -23,7 +23,7 @@ glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
 glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
 
 
-let window = glfw.createWindow(720, 480, "Test");
+let window = glfw.createWindow(1024, 1024, "Test");
 if (!window) {
 	console.log("Failed to open GLFW window");
 	glfw.terminate();
@@ -31,6 +31,7 @@ if (!window) {
 }
 glfw.makeContextCurrent(window);
 console.log(gl.glewInit());
+glfw.setWindowPos(window, 40, 40)
 
 //can only be called after window creation!
 console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MINOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_REVISION) + " Profile: " + glfw.getWindowAttrib(window, glfw.OPENGL_PROFILE));
@@ -39,7 +40,6 @@ console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '
 glfw.swapInterval(1); // 0 for vsync off
 
 let cloudprogram = glutils.makeProgram(gl, `#version 330
-uniform mat4 u_modelmatrix;
 uniform mat4 u_viewmatrix;
 uniform mat4 u_projmatrix;
 uniform float u_pixelsize;
@@ -49,14 +49,15 @@ out vec4 v_color;
 
 void main() {
 	// Multiply the position by the matrix.
-	gl_Position = u_projmatrix * u_viewmatrix * u_modelmatrix * vec4(a_position.xyz, 1);
+	gl_Position = u_projmatrix * u_viewmatrix * vec4(a_position.xyz, 1);
 	if (gl_Position.w > 0.0) {
 		gl_PointSize = u_pixelsize / gl_Position.w;
 	} else {
 		gl_PointSize = 0.0;
 	}
 
-	v_color = vec4(a_texCoord, 0., 1.);
+	v_color = vec4(0.3);
+	//v_color = vec4(a_texCoord, 0., 1.);
 	//v_color = vec4(u_viewmatrix[3].xyz * 0.5 + 0.5, 0.5);
 	//v_color = vec4(gl_Position.xyz * 0.5 + 0.5, 0.5);
 }
@@ -78,7 +79,13 @@ void main() {
 `);
 
 
+
 let pipe = new rs2.Pipeline().start()
+pipe.modelmatrix = mat4.create();
+mat4.translate(pipe.modelmatrix, pipe.modelmatrix, [0, 2.65, 0])
+mat4.rotateX(pipe.modelmatrix, pipe.modelmatrix, 0.5*Math.PI)
+pipe.maxarea = 0.0001
+pipe.miny = 0.1
 pipe.grab(true) // true means wait for a result
 
 
@@ -109,6 +116,56 @@ for (let i=0; i<NUM_POINTS; i++) {
 
 glutils.ok(gl, "after vao")
 
+let meshprogram = glutils.makeProgram(gl, `#version 330
+uniform mat4 u_viewmatrix;
+uniform mat4 u_projmatrix;
+uniform float u_pixelsize;
+in vec3 a_position;
+in vec3 a_normal;
+out vec4 v_color;
+
+void main() {
+	// Multiply the position by the matrix.
+	gl_Position = u_projmatrix * u_viewmatrix * vec4(a_position.xyz, 1);
+	if (gl_Position.w > 0.0) {
+		gl_PointSize = u_pixelsize / gl_Position.w;
+	} else {
+		gl_PointSize = 0.0;
+	}
+
+	//v_color = vec4(0.4);
+	v_color = vec4(a_normal*0.5+0.5, 1.);
+	//v_color = vec4(u_viewmatrix[3].xyz * 0.5 + 0.5, 0.5);
+	//v_color = vec4(gl_Position.xyz * 0.5 + 0.5, 0.5);
+}
+`, 
+`#version 330
+precision mediump float;
+
+in vec4 v_color;
+out vec4 outColor;
+
+void main() {
+	// get normalized -1..1 point coordinate
+	vec2 pc = (gl_PointCoord - 0.5) * 2.0;
+	// convert to distance:
+	float dist = max(0., 1.0 - length(pc));
+	// paint
+  	outColor = vec4(dist) * v_color;
+
+	outColor = v_color;
+}
+`);
+
+let mesh_geom = {
+	vertices: pipe.vertices,
+	normals: pipe.normals,
+	indices: pipe.indices
+}
+let mesh = glutils.createVao(gl, mesh_geom, meshprogram.id);
+
+console.log(pipe.indices[pipe.count-1])
+
 // // let's also create a float texture from this data:
 // let htex = glutils.createTexture(gl, {
 // 	float: true,
@@ -129,8 +186,6 @@ function animate() {
 		setImmediate(animate)
 	}
 
-	
-
 	let t1 = glfw.getTime();
 	let dt = t1-t;
 	fps += 0.1*((1/dt)-fps);
@@ -138,17 +193,14 @@ function animate() {
 	glfw.setWindowTitle(window, `fps ${fps}`);
 	let dim = glfw.getFramebufferSize(window);
 
-	if (pipe.grab()) points.bind().submit()
+	
+	
 
 
-	gl.viewport(0, 0, dim[0], dim[1]);
-	gl.clearColor(0.9, 0.9, 0.9, 1);
-	gl.clear(gl.COLOR_BUFFER_BIT);
-
-	gl.enable(gl.BLEND);
-	//gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA )
-
+	if (pipe.grab(false, 0.0001)) {
+		points.bind().submit()
+		mesh.bind().submit()
+	}
 	// Compute the matrix
 	let h = 1
 	let a = t/60
@@ -160,18 +212,38 @@ function animate() {
 	let projmatrix = mat4.create();
 	mat4.perspective(projmatrix, Math.PI * 0.7, dim[0]/dim[1], 0.05, 50);
 
-	let modelmatrix = mat4.create();
-	mat4.translate(modelmatrix, modelmatrix, [0, 2.65, 0])
-	mat4.rotateX(modelmatrix, modelmatrix, 0.5*Math.PI)
+	gl.viewport(0, 0, dim[0], dim[1]);
+	gl.clearColor(0.1, 0.1, 0.1, 1);
+	gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT);
 
+	gl.enable(gl.DEPTH_TEST)
+	gl.depthMask(true);
+
+	meshprogram.begin()
+		.uniform("u_viewmatrix", viewmatrix)
+		.uniform("u_projmatrix", projmatrix)
+		.uniform("u_pixelsize", dim[1] / 500)
+	mesh.bind().draw(pipe.count).unbind()
+	meshprogram.end()
+
+	gl.disable(gl.DEPTH_TEST)
+	gl.depthMask(false);
+
+	gl.enable(gl.BLEND);
+	//gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA )
 
 	cloudprogram.begin()
-	cloudprogram.uniform("u_modelmatrix", modelmatrix);
-	cloudprogram.uniform("u_viewmatrix", viewmatrix);
-	cloudprogram.uniform("u_projmatrix", projmatrix);
-	cloudprogram.uniform("u_pixelsize", dim[1] / 500)
-	points.bind().drawPoints(NUM_POINTS).unbind()
+		.uniform("u_viewmatrix", viewmatrix)
+		.uniform("u_projmatrix", projmatrix)
+		.uniform("u_pixelsize", dim[1] / 2000)
+	points.bind().drawPoints().unbind()
 	cloudprogram.end()
+
+	gl.disable(gl.BLEND);
+
+	gl.enable(gl.DEPTH_TEST)
+	gl.depthMask(true);
 
 	// Swap buffers
 	glfw.swapBuffers(window);
