@@ -412,6 +412,47 @@ float shadowESM(sampler2D shadowmap, vec2 tc, float z, float near, float far, fl
 	return d; //z > dz ? 1.0 : 0.0; 
 }
 
+float compute_pcss_shadow(sampler2D shadowmap, vec2 uv, float z, float near, float far) {
+	float u_light_size = 1.;
+	float u_kernel_size = 5;
+
+	// first get region width
+	// proportional to light size, and to the distance from the light nearplane (cz)
+    float search_region_width = u_light_size * (z - near) / z; //  / u_frustum_width;
+
+	// now compute blockers:
+	int blocker_count = 0;
+    float blocker_depth_sum = 0;
+    float step_count = u_kernel_size / 2.;
+	float step_uv = search_region_width / step_count;
+    for(float x=-step_count; x<=step_count; x++){
+        for(float y=-step_count; y<=step_count; y++){
+            vec2 offset = vec2(x, y) * step_uv;
+			// shouldn't this be converted to Z?
+			float dz = distanceFromDepth(texture(shadowmap, uv.xy + offset).r, near, far);
+            if (dz < z){
+                blocker_count++;
+                blocker_depth_sum += dz;
+            }
+        }
+    }
+	if (blocker_count == 0) return 1.0;  // no blockers
+	float average_blocker_depth = blocker_depth_sum / blocker_count;
+    
+
+
+    // float average_blocker_depth = compute_average_blocker_depth(search_region_width);
+    // if(average_blocker_depth == -1.0){
+    //     return 1.0;
+    // }
+    // float blocker_distance = compute_blocker_distance(average_blocker_depth);
+    // float penumbra_width = compute_penumbra_width(blocker_distance);
+    // float pcf_width = compute_pcf_width(penumbra_width);
+    // return compute_pcss(pcf_width);
+
+	return 0.;
+}
+
 void main() {
 
 	outColor = vec4(1.);
@@ -486,7 +527,7 @@ void main() {
 	//outColor = vec4(a, 0., 1.);
 	//outColor = vec4(dz);
 
-	outColor = vec4(visibility);
+	outColor = vec4(z);
 
 }
 `);
