@@ -56,7 +56,7 @@ glfw.swapInterval(1); // 0 for vsync off
 
 
 const depthTexture = gl.createTexture();
-const depthTextureSize = 256;
+const depthTextureSize = 1024;
 gl.bindTexture(gl.TEXTURE_2D, depthTexture);
 gl.texImage2D(
     gl.TEXTURE_2D,      // target
@@ -412,45 +412,75 @@ float shadowESM(sampler2D shadowmap, vec2 tc, float z, float near, float far, fl
 	return d; //z > dz ? 1.0 : 0.0; 
 }
 
-float compute_pcss_shadow(sampler2D shadowmap, vec2 uv, float z, float near, float far) {
-	float u_light_size = 1.;
-	float u_kernel_size = 5;
+float compute_pcss(sampler2D shadowmap, vec2 uv, float dc, float pcf_width, float u_kernel_size, float bias){
+    float result = 0.;
+
+    float step_count = u_kernel_size / 2.;
+    float step_uv = pcf_width / step_count;
+    for(float x=-step_count; x<=step_count; x++){
+        for(float y=-step_count; y<=step_count; y++){
+            vec2 offset = vec2(x, y) * step_uv;
+            float depth = texture(shadowmap, uv.xy + offset).r + bias;
+            if (depth > dc){
+                result += 1.0;
+            } else {
+                result += 0.5;
+            }
+        }
+    }
+    return pow(result / (u_kernel_size * u_kernel_size), 2.2);
+}
+
+float compute_pcss_shadow(sampler2D shadowmap, vec2 uv, float dc, float zc, float near, float far) {
+	float u_light_size = 0.2;
+	float blocker_kernel_size = 25.;
+	float pcf_kernel_size = 25.;
 
 	// first get region width
 	// proportional to light size, and to the distance from the light nearplane (cz)
-    float search_region_width = u_light_size * (z - near) / z; //  / u_frustum_width;
+    float search_region_width = u_light_size * (zc - near) / zc; //  / u_frustum_width;
 
 	// now compute blockers:
 	int blocker_count = 0;
     float blocker_depth_sum = 0;
-    float step_count = u_kernel_size / 2.;
+    float step_count = blocker_kernel_size / 2.;
 	float step_uv = search_region_width / step_count;
     for(float x=-step_count; x<=step_count; x++){
         for(float y=-step_count; y<=step_count; y++){
             vec2 offset = vec2(x, y) * step_uv;
 			// shouldn't this be converted to Z?
-			float dz = distanceFromDepth(texture(shadowmap, uv.xy + offset).r, near, far);
-            if (dz < z){
+			float d = texture(shadowmap, uv.xy + offset).r;
+			//float dz = distanceFromDepth(d, near, far);
+            //if (dz < z){
+			if (d < dc) {
                 blocker_count++;
-                blocker_depth_sum += dz;
+                //blocker_depth_sum += dz; 
+                blocker_depth_sum += d; 
             }
         }
     }
 	if (blocker_count == 0) return 1.0;  // no blockers
 	float average_blocker_depth = blocker_depth_sum / blocker_count;
     
+	float blocker_distance = distanceFromDepth(average_blocker_depth, near, far);
+
+    float penumbra_width =  u_light_size * (zc - blocker_distance) / blocker_distance; // / u_frustum_width;
+	//float penumbra_width = abs(zc - blocker_distance) / blocker_distance;
 
 
-    // float average_blocker_depth = compute_average_blocker_depth(search_region_width);
-    // if(average_blocker_depth == -1.0){
-    //     return 1.0;
-    // }
-    // float blocker_distance = compute_blocker_distance(average_blocker_depth);
-    // float penumbra_width = compute_penumbra_width(blocker_distance);
-    // float pcf_width = compute_pcf_width(penumbra_width);
-    // return compute_pcss(pcf_width);
+	float pcf_width = penumbra_width * near / zc;
+	//pcf_width = 0.1;
 
-	return 0.;
+    // // float penumbra_width = compute_penumbra_width(blocker_distance);
+    // // float pcf_width = compute_pcf_width(penumbra_width);
+    // // return compute_pcss(pcf_width);
+
+	float bias = 0.000001;
+    float pcss = compute_pcss(shadowmap, uv, dc, pcf_width, pcf_kernel_size, bias);
+
+	return pcss;
+
+	//return 0.;
 }
 
 void main() {
@@ -510,6 +540,8 @@ void main() {
 	shadow = shadowRandomBilinear(u_tex, shadowprojcoords.xy, currentDepth - bias, 10.);  
 
 	shadow = shadowESM(u_tex, shadowprojcoords.xy, z, near, far, 1.0);
+
+	shadow = compute_pcss_shadow(u_tex, shadowprojcoords.xy, currentDepth, z, near, far);
 	
 	isUnshadowed = 1. - shadow;
 	float visibility = 1. - shadow;
@@ -523,11 +555,11 @@ void main() {
 	//outColor = vec4(rawDepth);
 
 	//outColor = vec4(isUnshadowed);
-	//outColor = vec4(shadow);
+	outColor = vec4(shadow);
 	//outColor = vec4(a, 0., 1.);
 	//outColor = vec4(dz);
 
-	outColor = vec4(z);
+	//outColor = vec4(z);
 
 }
 `);
