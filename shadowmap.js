@@ -407,9 +407,12 @@ float shadowRandomBilinear(sampler2D shadowmap, vec2 tc, float biasedCurrentDept
 
 
 float shadowESM(sampler2D shadowmap, vec2 tc, float z, float near, float far, float k) {
-	float d = texture(shadowmap, tc).r;
-	float dz = distanceFromDepth(texture(shadowmap, tc).r, near, far);
-	return d; //z > dz ? 1.0 : 0.0; 
+	float d = distanceFromDepth(texture(shadowmap, tc).r, near, far);
+	float ddz = z-d;
+	//return z-d > 0 ? 1.0 : 0.0;
+	// Approximate step function (z-d > 0) by exp(k*(z-d)):
+	//return ddz;
+	return exp(k*-ddz);
 }
 
 float compute_pcss(sampler2D shadowmap, vec2 uv, float dc, float pcf_width, float u_kernel_size, float bias){
@@ -517,7 +520,7 @@ void main() {
 	// first convert back to bipolar NDC coords, then unproject through lightspace:
 	vec4 ndc = vec4(shadowprojcoords.xy, rawDepth, 1.0) * 2.0 - 1.0;
 	vec4 lightpos = u_projmatrix_shadow_inverse * ndc;
-	//float z = lightpos.z; // world units (meters)
+	//lightpos.z; // world units (meters)
 
 	// signed distance from surface:
 	float dz = zc - z;
@@ -542,6 +545,7 @@ void main() {
 	shadow = shadowESM(u_tex, shadowprojcoords.xy, z, near, far, 1.0);
 
 	shadow = compute_pcss_shadow(u_tex, shadowprojcoords.xy, currentDepth, z, near, far);
+	shadow = shadowESM(u_tex, shadowprojcoords.xy, zc - bias, near, far, 1.0);
 	
 	isUnshadowed = 1. - shadow;
 	float visibility = 1. - shadow;
@@ -559,7 +563,11 @@ void main() {
 	//outColor = vec4(a, 0., 1.);
 	//outColor = vec4(dz);
 
-	//outColor = vec4(z);
+	//outColor = vec4(visibility);
+
+	// outColor = vec4(z);
+
+	outColor = vec4(shadow);
 
 }
 `);
@@ -628,8 +636,8 @@ function animate() {
 		// draw to the depth texture
 		gl.bindFramebuffer(gl.FRAMEBUFFER, depthFramebuffer);
 		gl.viewport(0, 0, depthTextureSize, depthTextureSize);
-		// gl.clearDepthf(0.0)
-		// gl.depthFunc(gl.GEQUAL);
+		gl.clearDepthf(0.0)
+		gl.depthFunc(gl.GEQUAL);
 		gl.colorMask(false, false, false, false)
 		gl.clear(gl.DEPTH_BUFFER_BIT);
 		gl.enable(gl.CULL_FACE)
@@ -648,8 +656,8 @@ function animate() {
 		gl.cullFace(gl.BACK)
 		gl.disable(gl.CULL_FACE)
 		gl.colorMask(true, true, true, true)
-		// gl.clearDepthf(1.0)
-		// gl.depthFunc(gl.LEQUAL);
+		gl.clearDepthf(1.0)
+		gl.depthFunc(gl.LEQUAL);
 		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	}
 
