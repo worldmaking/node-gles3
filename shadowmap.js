@@ -541,11 +541,8 @@ void main() {
 	shadow = shadowPCF(u_tex, shadowprojcoords.xy, currentDepth - bias, 1.); 
 	shadow = shadowDisk(u_tex, shadowprojcoords.xy, currentDepth - bias, 5.);  
 	shadow = shadowRandomBilinear(u_tex, shadowprojcoords.xy, currentDepth - bias, 10.);  
-
 	shadow = shadowESM(u_tex, shadowprojcoords.xy, z, near, far, 1.0);
-
 	shadow = compute_pcss_shadow(u_tex, shadowprojcoords.xy, currentDepth, z, near, far);
-	shadow = shadowESM(u_tex, shadowprojcoords.xy, zc - bias, near, far, 1.0);
 	
 	isUnshadowed = 1. - shadow;
 	float visibility = 1. - shadow;
@@ -557,14 +554,11 @@ void main() {
 	//outColor = vec4(z);
 	// outColor = vec4(v_texCoord, 0., 1.);
 	//outColor = vec4(rawDepth);
-
 	//outColor = vec4(isUnshadowed);
-	outColor = vec4(shadow);
+	//outColor = vec4(shadow);
 	//outColor = vec4(a, 0., 1.);
 	//outColor = vec4(dz);
-
 	//outColor = vec4(visibility);
-
 	// outColor = vec4(z);
 
 	outColor = vec4(shadow);
