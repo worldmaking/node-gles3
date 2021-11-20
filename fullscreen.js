@@ -12,32 +12,29 @@ let version = glfw.getVersion();
 console.log('glfw ' + version.major + '.' + version.minor + '.' + version.rev);
 console.log('glfw version-string: ' + glfw.getVersionString());
 
-glfw.defaultWindowHints();
-glfw.windowHint(glfw.CONTEXT_VERSION_MAJOR, 3);
-glfw.windowHint(glfw.CONTEXT_VERSION_MINOR, 3);
-glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
-glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
+
 
 let windows = []
 let scenes = []
+
+let DISPLAY_SYNC = false
+let START_IN_FULLSCREEN = false
 
 // to get the size, we need to know the monitor dimensions:
 let monitors = glfw.getMonitors()
 monitors.forEach((monitor, i) => {
 
-	// no border etc.
-	// fastest way to get a fullscreen is to create a "borderless" window 
-	//glfw.windowHint(glfw.DECORATED, 0);
-	// enable this if you want the window to always be on top (no alt-tabbing)
-	//glfw.windowHint(glfw.FLOATING , 1);
+	glfw.defaultWindowHints();
+	glfw.windowHint(glfw.CONTEXT_VERSION_MAJOR, 3);
+	glfw.windowHint(glfw.CONTEXT_VERSION_MINOR, 3);
+	glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
+	glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
+	if (START_IN_FULLSCREEN) {
+		glfw.windowHint(glfw.DECORATED, 0);
+	}
 
-	let vsync = 0
-	let pos = glfw.getMonitorPos(monitor)
 	let mode = glfw.getVideoMode(monitor)
-	console.log(glfw.getVideoMode(monitor))
-	console.log(glfw.getMonitorPos(monitor))
-
-	
+	console.log("monitor", i, mode)
 	let window = glfw.createWindow(mode.width/2, mode.height/2, "Test");
 	if (!window) {
 		console.log("Failed to open GLFW window");
@@ -46,18 +43,41 @@ monitors.forEach((monitor, i) => {
 	}
 	windows[i] = window
 
-	glfw.setWindowPos(window, pos[0], pos[1])
+	function fullscreen(bool, monitor) {
+		let pos = glfw.getMonitorPos(monitor)
+		let mode = glfw.getVideoMode(monitor)
+		if (bool) {
+			// go fullscreen
+			glfw.setWindowAttrib(window, glfw.DECORATED, 0)
+			// enable this if you want the window to always be on top (no alt-tabbing)
+			//glfw.setWindowAttrib(window, glfw.FLOATING , 1);
+			glfw.setWindowSize(window, mode.width, mode.height)
+			glfw.setWindowPos(window, pos[0], pos[1])
+			// to hide the mouse:
+			glfw.setInputMode(window, glfw.CURSOR, glfw.CURSOR_HIDDEN);
+
+		} else {
+			// exit fullscreen
+			glfw.setWindowAttrib(window, glfw.DECORATED, 1)
+			// enable this if you want the window to always be on top (no alt-tabbing)
+			glfw.setWindowAttrib(window, glfw.FLOATING , 0);
+			glfw.setWindowSize(window, mode.width/2, mode.height/2)
+			glfw.setWindowPos(window, pos[0]+50, pos[1]+50)
+			// to show the mouse:
+			glfw.setInputMode(window, glfw.CURSOR, glfw.CURSOR_NORMAL);
+		}
+	}
+
+	fullscreen(START_IN_FULLSCREEN, monitor)
 
 	// Enable vertical sync (on cards that support it)
 	// NOTE: per issue https://github.com/glfw/glfw/issues/1267 this should happen *before* makeContextCurrent
 	// but I also seem to need to do it *after* as well
-	glfw.swapInterval(vsync)
-
+	glfw.swapInterval(DISPLAY_SYNC)
 	glfw.makeContextCurrent(window);
-	console.log(gl.glewInit());
-	glfw.swapInterval(vsync)
+	glfw.swapInterval(DISPLAY_SYNC)
 
-	
+	console.log(gl.glewInit());
 	//can only be called after window creation!
 	console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MINOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_REVISION) + " Core Profile?: " + (glfw.getWindowAttrib(window, glfw.OPENGL_PROFILE)==glfw.OPENGL_CORE_PROFILE));
 	
@@ -65,30 +85,14 @@ monitors.forEach((monitor, i) => {
 		if (down==1) {
 			if (key == 70) { // F
 				// toggle fullscreen:
-				if (glfw.getWindowAttrib(window, glfw.DECORATED)) {
-					// go fullscreen
-					glfw.setWindowAttrib(window, glfw.DECORATED, 0)
-					// enable this if you want the window to always be on top (no alt-tabbing)
-					//glfw.setWindowAttrib(window, glfw.FLOATING , 1);
-					glfw.setWindowSize(window, mode.width, mode.height)
-					glfw.setWindowPos(window, pos[0], pos[1])
-					// to hide the mouse:
-					glfw.setInputMode(window, glfw.CURSOR, glfw.CURSOR_HIDDEN);
-
-				} else {
-					// exit fullscreen
-					glfw.setWindowAttrib(window, glfw.DECORATED, 1)
-					// enable this if you want the window to always be on top (no alt-tabbing)
-					//glfw.setWindowAttrib(window, glfw.FLOATING , 0);
-					glfw.setWindowSize(window, mode.width/2, mode.height/2)
-					glfw.setWindowPos(window, pos[0], pos[1])
-					// to show the mouse:
-					glfw.setInputMode(window, glfw.CURSOR, glfw.CURSOR_NORMAL);
-				}
+				fullscreen(glfw.getWindowAttrib(window, glfw.DECORATED), monitor);
 			}
 			console.log(key, down, mod);
 		}
 	})
+
+	// some GL items, such as VAOs, must be created uniquely per context
+	// here we just do everything per context to keep it simple
 
 	let program = glutils.makeProgram(gl,
 	`#version 330
