@@ -634,6 +634,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "getPrimaryMonitor", 0, GetPrimaryMonitor, 0, 0, 0, napi_default, 0 },
 		{ "getMonitorPos", 0, GetMonitorPos, 0, 0, 0, napi_default, 0 },
 		{ "getMonitorPhysicalSize", 0, GetMonitorPhysicalSize, 0, 0, 0, napi_default, 0 },
+		{ "getVideoMode", 0, GetVideoMode, 0, 0, 0, napi_default, 0 },
 		{ "createWindow", 0, CreateWindow, 0, 0, 0, napi_default, 0 },
 		{ "getCurrentContext", 0, GetCurrentContext, 0, 0, 0, napi_default, 0 },
 		{ "getWindowPos", 0, GetWindowPos, 0, 0, 0, napi_default, 0 },
@@ -642,6 +643,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "getFramebufferSize", 0, GetFramebufferSize, 0, 0, 0, napi_default, 0 },
 		{ "getWindowFrameSize", 0, GetWindowFrameSize, 0, 0, 0, napi_default, 0 },
 		{ "setWindowMonitor", 0, SetWindowMonitor, 0, 0, 0, napi_default, 0 },
+		{ "setWindowAttrib", 0, SetWindowAttrib, 0, 0, 0, napi_default, 0 },
 		{ "setWindowPosCallback", 0, SetWindowPosCallback, 0, 0, 0, napi_default, 0 },
 		{ "setWindowSizeCallback", 0, SetWindowSizeCallback, 0, 0, 0, napi_default, 0 },
 		{ "setWindowCloseCallback", 0, SetWindowCloseCallback, 0, 0, 0, napi_default, 0 },
@@ -718,7 +720,7 @@ napi_value init(napi_env env, napi_value exports) {
 		{ "swapInterval", 0, SwapInterval, 0, 0, 0, napi_default, 0 },
 		{ "extensionSupported", 0, ExtensionSupported, 0, 0, 0, napi_default, 0 }
 	};
-	status = napi_define_properties(env, exports, 89, properties);
+	status = napi_define_properties(env, exports, 91, properties);
 	//assert(status == napi_ok);
 	return exports;
 }

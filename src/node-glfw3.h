@@ -153,6 +153,42 @@ napi_value GetMonitorPhysicalSize(napi_env env, napi_callback_info info) {
 }
 
 
+napi_value GetVideoMode(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[1];
+	size_t argc = checkArgCount(env, info, args, 1, 1);
+	napi_value result_value = nullptr;
+
+	GLFWmonitor* monitor;
+	napi_valuetype monitor_type;
+	status = napi_typeof(env, args[0], &monitor_type);
+	if (status != napi_ok || monitor_type != napi_external) return nullptr;
+	status = napi_get_value_external(env, args[0], (void **)&monitor);
+	if (status != napi_ok) return nullptr;
+
+	// void glfwGetMonitorPos(GLFWmonitor* monitor, int* xpos, int* ypos)
+	const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+
+	// return object
+	status = napi_create_object(env, &result_value);
+	if (status == napi_ok) {
+		napi_value width, height, redBits, greenBits, blueBits, refreshRate;
+		napi_create_int32(env, mode->width, &width);
+		napi_create_int32(env, mode->height, &height);
+		napi_create_int32(env, mode->redBits, &redBits);
+		napi_create_int32(env, mode->greenBits, &greenBits);
+		napi_create_int32(env, mode->blueBits, &blueBits);
+		napi_create_int32(env, mode->refreshRate, &refreshRate);
+		napi_set_named_property(env, result_value, "width", width);
+		napi_set_named_property(env, result_value, "height", height);
+		napi_set_named_property(env, result_value, "redBits", redBits);
+		napi_set_named_property(env, result_value, "greenBits", greenBits);
+		napi_set_named_property(env, result_value, "blueBits", blueBits);
+		napi_set_named_property(env, result_value, "refreshRate", refreshRate);
+	}
+	return (status == napi_ok) ? result_value : nullptr;
+}
+
 
 // width, height, title, [monitor], [shared context window]
 napi_value CreateWindow(napi_env env, napi_callback_info info) {
@@ -390,6 +426,23 @@ napi_value SetWindowMonitor(napi_env env, napi_callback_info info) {
 	// void glfwSetWindowMonitor(GLFWwindow* window, GLFWmonitor* monitor, int xpos, int ypos, int width, int height, int refreshRate)
 	glfwSetWindowMonitor(window, monitor, xpos, ypos, width, height, refreshRate);
 	return NULL;
+}
+
+
+napi_value SetWindowAttrib(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[2];
+	size_t argc = checkArgCount(env, info, args, 3, 3);
+	GLFWwindow* window = nullptr;
+	napi_valuetype window_type;
+	status = napi_typeof(env, args[0], &window_type);
+	if (status != napi_ok || window_type != napi_external) return nullptr;
+	status = napi_get_value_external(env, args[0], (void **)&window);
+	if (status != napi_ok) return nullptr;
+	int attrib = getInt32(env, args[1]);
+	int value = getInt32(env, args[2]);
+	glfwSetWindowAttrib(window, attrib, value);
+	return args[0];
 }
 
 
