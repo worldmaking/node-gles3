@@ -13,123 +13,173 @@
 
 const gl = require('./gles3.js') 
 const glfw = require('./glfw3.js')
-const glutils = require('./glutils.js');
 
-{
-	// once only
-	if (!glfw.init()) {
-		console.log("Failed to initialize GLFW");
-		process.exit(-1);
-	}
-	let version = glfw.getVersion();
-	console.log('glfw ' + version.major + '.' + version.minor + '.' + version.rev);
-	console.log('glfw version-string: ' + glfw.getVersionString());
+// once only
+if (!glfw.init()) {
+	console.log("Failed to initialize GLFW");
+	process.exit(-1);
 }
+let version = glfw.getVersion();
+console.log('glfw ' + version.major + '.' + version.minor + '.' + version.rev);
+console.log('glfw version-string: ' + glfw.getVersionString());
 
-let windows = []
 
-function createWindow(options) {
+class Window {
 
-	options = Object.assign({
-		monitor: 0,
-		fullscreen: false,
-		sync: false,
-	}, options)
+	window = null;
+	monitor = 0;
+	mode = null;
+	title = "";
+	fullscreen = false;
+	sync = false;
 
-	glfw.defaultWindowHints();
-	glfw.windowHint(glfw.CONTEXT_VERSION_MAJOR, 3);
-	glfw.windowHint(glfw.CONTEXT_VERSION_MINOR, 3);
-	glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
-	glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
+	// callbacks:
+	init = null;
+	draw = null;
+	onkey = null;
+	onpointermove = null;
+	onpointerdown = null;
+	onpointerscroll = null;
 
-	let monitors = glfw.getMonitors()
-	let monitor = typeof(options.monitor == "number") ? monitors[options.monitor % monitors.length] : options.monitor;
-	let mode = glfw.getVideoMode(monitor)
-	console.log("monitor", mode)
+	static all = new Set()
 
-	if (options.fullscreen) {
-		glfw.windowHint(glfw.DECORATED, 0);
-	} else {
-		glfw.windowHint(glfw.DECORATED, 1);
+	constructor(options) {
+		Object.assign(this, options)
+
+		glfw.defaultWindowHints();
+		glfw.windowHint(glfw.CONTEXT_VERSION_MAJOR, 3);
+		glfw.windowHint(glfw.CONTEXT_VERSION_MINOR, 3);
+		glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
+		glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
+
+		let monitors = glfw.getMonitors()
+		this.monitor = typeof(this.monitor == "number") ? monitors[this.monitor % monitors.length] : this.monitor;
+		this.mode = glfw.getVideoMode(this.monitor)
+
+		if (this.fullscreen) {
+			glfw.windowHint(glfw.DECORATED, 0);
+		} else {
+			glfw.windowHint(glfw.DECORATED, 1);
+		}
+
+		this.window = glfw.createWindow(this.mode.width/2, this.mode.height/2, this.title);
+		if (!this.window) {
+			console.log("Failed to open GLFW window");
+			glfw.terminate();
+			process.exit(-1);
+		}
+
+		this.setFullscreen(this.fullscreen)
+
+		// Enable vertical sync (on cards that support it)
+		// NOTE: per issue https://github.com/glfw/glfw/issues/1267 this should happen *before* makeContextCurrent
+		// but I also seem to need to do it *after* as well
+		glfw.swapInterval(this.sync)
+		glfw.makeContextCurrent(this.window)
+		glfw.swapInterval(this.sync)
+
+		console.log(gl.glewInit());
+		//can only be called after window creation!
+		console.log('GL ' + glfw.getWindowAttrib(this.window, glfw.CONTEXT_VERSION_MAJOR) + '.' + glfw.getWindowAttrib(this.window, glfw.CONTEXT_VERSION_MINOR) + '.' + glfw.getWindowAttrib(this.window, glfw.CONTEXT_REVISION) + " Core Profile?: " + (glfw.getWindowAttrib(this.window, glfw.OPENGL_PROFILE)==glfw.OPENGL_CORE_PROFILE));
+
+		// opportunity to set up GL items now the context is valid:
+		if (this.init) this.init()
+
+		glfw.setKeyCallback(this.window, (win, key, scan, down, mod) => {
+			if (this.onkey) this.onkey(key, scan, down, mod);
+		})
+
+		glfw.setCursorPosCallback(this.window, (window, px, py) => {
+			let dim = glfw.getWindowSize(window)
+			if (this.onpointermove) this.onpointermove(2*px/dim[0] - 1, -2*py/dim[1] + 1);
+		})
+		glfw.setMouseButtonCallback(this.window, (window, button, action, mods) => {
+			// button 0: left, 1: right, 2: middle
+			// action 0: up, 1: down
+			// mods is a bitmask for shift, ctrl, alt, win/mac etc.
+			if (this.onpointerbutton) this.onpointerbutton(button, action, mods)
+		});
+		glfw.setScrollCallback(this.window, (window, dx, dy) => {
+			if (this.onpointerscroll) this.onscroll(dy, dx);
+		})
+		
+		Window.all.add(this)
 	}
 
-	let window = glfw.createWindow(mode.width/2, mode.height/2, "Test");
-	if (!window) {
-		console.log("Failed to open GLFW window");
-		glfw.terminate();
-		process.exit(-1);
+	dispose() {
+		Window.all.remove(this)
 	}
 
-	function fullscreen(bool, monitor = monitor) {
-		let pos = glfw.getMonitorPos(monitor)
-		let mode = glfw.getVideoMode(monitor)
+	setFullscreen(bool) {
+		let pos = glfw.getMonitorPos(this.monitor)
+		this.mode = glfw.getVideoMode(this.monitor)
 		if (bool) {
 			// go fullscreen
-			glfw.setWindowAttrib(window, glfw.DECORATED, 0)
+			glfw.setWindowAttrib(this.window, glfw.DECORATED, 0)
 			// enable this if you want the window to always be on top (no alt-tabbing)
 			//glfw.setWindowAttrib(window, glfw.FLOATING , 1);
-			glfw.setWindowSize(window, mode.width, mode.height)
-			glfw.setWindowPos(window, pos[0], pos[1])
+			glfw.setWindowSize(this.window, this.mode.width, this.mode.height)
+			glfw.setWindowPos(this.window, pos[0], pos[1])
 			// to hide the mouse:
-			glfw.setInputMode(window, glfw.CURSOR, glfw.CURSOR_HIDDEN);
+			glfw.setInputMode(this.window, glfw.CURSOR, glfw.CURSOR_HIDDEN);
 
 		} else {
 			// exit fullscreen
-			glfw.setWindowAttrib(window, glfw.DECORATED, 1)
+			glfw.setWindowAttrib(this.window, glfw.DECORATED, 1)
 			// enable this if you want the window to always be on top (no alt-tabbing)
-			glfw.setWindowAttrib(window, glfw.FLOATING , 0);
-			glfw.setWindowSize(window, mode.width/2, mode.height/2)
-			glfw.setWindowPos(window, pos[0]+50, pos[1]+50)
+			glfw.setWindowAttrib(this.window, glfw.FLOATING , 0);
+			glfw.setWindowSize(this.window, this.mode.width/2, this.mode.height/2)
+			glfw.setWindowPos(this.window, pos[0]+50, pos[1]+50)
 			// to show the mouse:
-			glfw.setInputMode(window, glfw.CURSOR, glfw.CURSOR_NORMAL);
+			glfw.setInputMode(this.window, glfw.CURSOR, glfw.CURSOR_NORMAL);
 		}
+		this.fullscreen = bool;
 	}
 
-	fullscreen(options.fullscreen, monitor)
-
-	// Enable vertical sync (on cards that support it)
-	// NOTE: per issue https://github.com/glfw/glfw/issues/1267 this should happen *before* makeContextCurrent
-	// but I also seem to need to do it *after* as well
-	glfw.swapInterval(options.sync)
-	glfw.makeContextCurrent(window)
-	glfw.swapInterval(options.sync)
-
-	console.log(gl.glewInit());
-	//can only be called after window creation!
-	console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MINOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_REVISION) + " Core Profile?: " + (glfw.getWindowAttrib(window, glfw.OPENGL_PROFILE)==glfw.OPENGL_CORE_PROFILE));
-	
-
-	return {
-		window,
-	}
-}
-
-let win = createWindow()
-console.log(win)
-
-function animate() {
-	glfw.pollEvents();
-	for (let o of windows) {
-		if (glfw.windowShouldClose(o.window) || glfw.getKey(o.window, glfw.KEY_ESCAPE)) {
-			return;
-		}
-	}
-
-	// insert simulate() here
-
-	for (let o of windows) {
-		glfw.makeContextCurrent(o.window);
-		// Get window size (may be different than the requested size)
-		let dim = glfw.getFramebufferSize(o.window);
+	render() {
+		glfw.makeContextCurrent(this.window);
 
 		// insert submit() and draw() here
+		if (this.draw) this.draw()
 
 		// Swap buffers
-		glfw.swapBuffers(o.window);
+		glfw.swapBuffers(this.window);
 	}
 
-	// at end, so that any errors prevent repeat:
-	setImmediate(animate)
+	get dim() {
+		return glfw.getFramebufferSize(this.window)
+	}
+
+	static animate() {
+		glfw.pollEvents();
+
+		for (let o of Window.all) {
+			if (glfw.windowShouldClose(o.window) || glfw.getKey(o.window, glfw.KEY_ESCAPE)) {
+				return;
+			}
+			o.render();
+		}
+
+		// at end, so that any errors prevent repeat:
+		setImmediate(Window.animate)
+	}
 }
 
-animate()
+
+// let win1 = new Window({
+// 	draw() {
+// 		let f = 0
+// 		gl.clearColor(f, 1-f, 0, 1);
+// 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+// 	}
+// })
+// let win2 = new Window({
+// 	draw() {
+// 		let f = 1
+// 		gl.clearColor(f, 1-f, 0, 1);
+// 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+// 	}
+// })
+// Window.animate()
+
+module.exports = Window;
