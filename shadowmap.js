@@ -441,7 +441,7 @@ float compute_pcss_shadow(sampler2D shadowmap, vec2 uv, float dc, float zc, floa
 
 	// first get region width
 	// proportional to light size, and to the distance from the light nearplane (cz)
-    float search_region_width = u_light_size * (zc - near) / zc; //  / u_frustum_width;
+    float search_region_width = u_light_size * (zc - near) / zc; 
 
 	// now compute blockers:
 	int blocker_count = 0;
@@ -470,21 +470,14 @@ float compute_pcss_shadow(sampler2D shadowmap, vec2 uv, float dc, float zc, floa
     float penumbra_width =  u_light_size * (zc - blocker_distance) / blocker_distance; // / u_frustum_width;
 	//float penumbra_width = abs(zc - blocker_distance) / blocker_distance;
 
-
 	float pcf_width = penumbra_width * near / zc;
-	//pcf_width = 0.1;
-
-    // // float penumbra_width = compute_penumbra_width(blocker_distance);
-    // // float pcf_width = compute_pcf_width(penumbra_width);
-    // // return compute_pcss(pcf_width);
 
 	float bias = 0.000001;
     float pcss = compute_pcss(shadowmap, uv, dc, pcf_width, pcf_kernel_size, bias);
 
 	return pcss;
-
-	//return 0.;
 }
+
 
 void main() {
 
@@ -535,13 +528,13 @@ void main() {
 	vec2 texSize = textureSize(u_tex, 0);
 	vec2 texelSize = 1.0 / texSize;
 
-	shadow = shadowRaw(u_tex, shadowprojcoords.xy, currentDepth - bias, 1);
-	shadow = shadowBilinear(u_tex, shadowprojcoords.xy, currentDepth - bias, 1);
-	shadow = shadow3x3(u_tex, shadowprojcoords.xy, currentDepth - bias, 1.);
-	shadow = shadowPCF(u_tex, shadowprojcoords.xy, currentDepth - bias, 1.); 
-	shadow = shadowDisk(u_tex, shadowprojcoords.xy, currentDepth - bias, 5.);  
-	shadow = shadowRandomBilinear(u_tex, shadowprojcoords.xy, currentDepth - bias, 10.);  
-	shadow = shadowESM(u_tex, shadowprojcoords.xy, z, near, far, 1.0);
+	// shadow = shadowRaw(u_tex, shadowprojcoords.xy, currentDepth - bias, 1);
+	// shadow = shadowBilinear(u_tex, shadowprojcoords.xy, currentDepth - bias, 1);
+	// shadow = shadow3x3(u_tex, shadowprojcoords.xy, currentDepth - bias, 1.);
+	// shadow = shadowPCF(u_tex, shadowprojcoords.xy, currentDepth - bias, 1.); 
+	// shadow = shadowDisk(u_tex, shadowprojcoords.xy, currentDepth - bias, 5.);  
+	// shadow = shadowRandomBilinear(u_tex, shadowprojcoords.xy, currentDepth - bias, 10.);  
+	// shadow = shadowESM(u_tex, shadowprojcoords.xy, z, near, far, 1.0);
 	shadow = compute_pcss_shadow(u_tex, shadowprojcoords.xy, currentDepth, z, near, far);
 	
 	isUnshadowed = 1. - shadow;
@@ -630,8 +623,8 @@ function animate() {
 		// draw to the depth texture
 		gl.bindFramebuffer(gl.FRAMEBUFFER, depthFramebuffer);
 		gl.viewport(0, 0, depthTextureSize, depthTextureSize);
-		gl.clearDepthf(0.0)
-		gl.depthFunc(gl.GEQUAL);
+		// gl.clearDepthf(0.0)
+		// gl.depthFunc(gl.GEQUAL);
 		gl.colorMask(false, false, false, false)
 		gl.clear(gl.DEPTH_BUFFER_BIT);
 		gl.enable(gl.CULL_FACE)
@@ -650,8 +643,8 @@ function animate() {
 		gl.cullFace(gl.BACK)
 		gl.disable(gl.CULL_FACE)
 		gl.colorMask(true, true, true, true)
-		gl.clearDepthf(1.0)
-		gl.depthFunc(gl.LEQUAL);
+		// gl.clearDepthf(1.0)
+		// gl.depthFunc(gl.LEQUAL);
 		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	}
 
