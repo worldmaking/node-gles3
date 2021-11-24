@@ -82,7 +82,7 @@ void main() {
 
 let pipe = new rs2.Pipeline().start()
 pipe.modelmatrix = mat4.create();
-mat4.translate(pipe.modelmatrix, pipe.modelmatrix, [0, 2.65, 0])
+mat4.translate(pipe.modelmatrix, pipe.modelmatrix, [0, 3.9, 0])
 mat4.rotateX(pipe.modelmatrix, pipe.modelmatrix, 0.5*Math.PI)
 pipe.maxarea = 0.0001
 pipe.miny = 0.1
