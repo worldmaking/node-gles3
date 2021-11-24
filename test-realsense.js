@@ -56,7 +56,7 @@ void main() {
 		gl_PointSize = 0.0;
 	}
 
-	v_color = vec4(0.3);
+	v_color = vec4(0.5);
 	//v_color = vec4(a_texCoord, 0., 1.);
 	//v_color = vec4(u_viewmatrix[3].xyz * 0.5 + 0.5, 0.5);
 	//v_color = vec4(gl_Position.xyz * 0.5 + 0.5, 0.5);
