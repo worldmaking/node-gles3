@@ -27,10 +27,14 @@ monitors.forEach((monitor, i) => {
 		},
 	})
 
+	// some GL items, such as shaders, can be shared between windows
 	// some GL items, such as VAOs, must be created uniquely per context
 	// here we just do everything per context to keep it simple
+	let [ first ] = Window.all
+	console.log(Window.all.size, first)
 
-	let program = glutils.makeProgram(gl,
+	let program = first.program
+	if (!program) program = glutils.makeProgram(gl,
 	`#version 330
 	uniform mat4 u_modelmatrix;
 	uniform mat4 u_viewmatrix;
@@ -62,24 +66,21 @@ monitors.forEach((monitor, i) => {
 		outColor = v_color;
 	}
 	`);
+
 	let vao = glutils.createVao(gl, glutils.makeCube({
 		min: [0,-1,-1],
 		max: [1, 2, 2],
 		div: [1, 3, 3]
 	}), program.id);
 
-	
-	let t = glfw.getTime();
-	let fps = 60;
+	win.program = program
+	win.vao = vao
+
 
 	win.draw = function() {
-		let t1 = glfw.getTime();
-		let dt = t1-t;
-		fps += 0.1*((1/dt)-fps);
-		t = t1;
+		let {t, dt, fps, dim} = win;
 		glfw.setWindowTitle(win.window, `fps ${fps}`);
 
-		let dim = win.dim
 		// Compute the matrix
 		let viewmatrix = mat4.create();
 		let projmatrix = mat4.create();
@@ -97,12 +98,12 @@ monitors.forEach((monitor, i) => {
 
 		gl.enable(gl.DEPTH_TEST)
 
-		program.begin()
+		win.program.begin()
 			.uniform("u_modelmatrix", modelmatrix)
 			.uniform("u_viewmatrix", viewmatrix)
 			.uniform("u_projmatrix", projmatrix)
-		vao.bind().draw().unbind();
-		program.end();
+			win.vao.bind().draw().unbind();
+		win.program.end();
 	}
 })
 

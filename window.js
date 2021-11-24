@@ -26,9 +26,7 @@ console.log('glfw version-string: ' + glfw.getVersionString());
 
 class Window {
 
-	window = null;
 	monitor = 0;
-	mode = null;
 	title = "";
 	fullscreen = false;
 	sync = false;
@@ -38,8 +36,16 @@ class Window {
 	draw = null;
 	onkey = null;
 	onpointermove = null;
-	onpointerdown = null;
+	onpointerbutton = null;
 	onpointerscroll = null;
+
+	// internal:
+	window = null;
+	mode = null;
+
+	t = glfw.getTime();
+	fps = 60;
+	dt = 1/60;
 
 	static all = new Set()
 
@@ -55,6 +61,7 @@ class Window {
 		let monitors = glfw.getMonitors()
 		this.monitor = typeof(this.monitor == "number") ? monitors[this.monitor % monitors.length] : this.monitor;
 		this.mode = glfw.getVideoMode(this.monitor)
+		this.fps = this.mode.refreshRate
 
 		if (this.fullscreen) {
 			glfw.windowHint(glfw.DECORATED, 0);
@@ -62,7 +69,10 @@ class Window {
 			glfw.windowHint(glfw.DECORATED, 1);
 		}
 
-		this.window = glfw.createWindow(this.mode.width/2, this.mode.height/2, this.title);
+		// for context sharing:
+		const [first_window ] = Window.all
+
+		this.window = glfw.createWindow(this.mode.width/2, this.mode.height/2, this.title, null, first_window ? first_window.window : null);
 		if (!this.window) {
 			console.log("Failed to open GLFW window");
 			glfw.terminate();
@@ -100,7 +110,7 @@ class Window {
 			if (this.onpointerbutton) this.onpointerbutton(button, action, mods)
 		});
 		glfw.setScrollCallback(this.window, (window, dx, dy) => {
-			if (this.onpointerscroll) this.onscroll(dy, dx);
+			if (this.onpointerscroll) this.onpointerscroll(dy, dx);
 		})
 		
 		Window.all.add(this)
@@ -108,6 +118,10 @@ class Window {
 
 	dispose() {
 		Window.all.remove(this)
+	}
+
+	toggleFullscreen() {
+		this.setFullscreen(glfw.getWindowAttrib(this.window, glfw.DECORATED))
 	}
 
 	setFullscreen(bool) {
@@ -137,6 +151,11 @@ class Window {
 	}
 
 	render() {
+		let t1 = glfw.getTime();
+		this.dt = t1-this.t;
+		this.fps += 0.1*((1/this.dt)-this.fps);
+		this.t = t1;
+		
 		glfw.makeContextCurrent(this.window);
 
 		// insert submit() and draw() here
@@ -157,6 +176,8 @@ class Window {
 			if (glfw.windowShouldClose(o.window) || glfw.getKey(o.window, glfw.KEY_ESCAPE)) {
 				return;
 			}
+		}
+		for (let o of Window.all) {
 			o.render();
 		}
 

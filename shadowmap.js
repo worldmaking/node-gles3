@@ -78,7 +78,6 @@ gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.GL_CLAMP_TO_BORDER);
 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.GL_CLAMP_TO_BORDER);
 gl.texParameterfv(gl.TEXTURE_2D, gl.TEXTURE_BORDER_COLOR, new Float32Array([1., 1., 1., 1.])); 
 //gl.texParameterfv(gl.TEXTURE_2D, gl.TEXTURE_BORDER_COLOR, new Float32Array([0, 0, 0, 0]));  
-
 // for using sampler2DShadow:
 //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE);
 
@@ -595,14 +594,14 @@ function animate() {
 	let projmatrix_shadow_inverse = mat4.create()
 	let h = 3
 	mat4.lookAt(viewmatrix_shadow, [0, h, 0], [0, 0, 0], [0, 0, 1]);
-	mat3.invert(viewmatrix_shadow_inverse, viewmatrix_shadow)
+	mat4.invert(viewmatrix_shadow_inverse, viewmatrix_shadow)
 	
 	let far = h
 	let near = 0.1
 	let f = w/2 * near/far
 	//mat4.perspective(projmatrix_shadow, 2*Math.atan2(w/2, h), 1/1, 1, h);
 	mat4.frustum(projmatrix_shadow, -f, f, -f, f, near, far)
-	mat3.invert(projmatrix_shadow_inverse, projmatrix_shadow)
+	mat4.invert(projmatrix_shadow_inverse, projmatrix_shadow)
 
 	let lightmatrix = mat4.create()
 	mat4.multiply(lightmatrix, projmatrix_shadow, viewmatrix_shadow);

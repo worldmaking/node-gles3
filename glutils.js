@@ -78,6 +78,8 @@ function makeProgram(gl, vertexCode, fragmentCode) {
         dispose() {
             gl.deleteProgram(this.id)
         },
+
+        uniforms
 	}
 }
 
@@ -90,7 +92,7 @@ function makeProgramFromCode(gl, vertexCode, fragmentCode) {
     return createProgram(gl, vertexShader, fragmentShader);
 }
 
-function isTypedArray(a) { return !!(a.buffer instanceof ArrayBuffer && a.BYTES_PER_ELEMENT); }
+function isTypedArray(a) { return ArrayBuffer.isView(a); }
 function isArrayOrTypedArray(a) { return Array.isArray(a) || isTypedArray(a); }
 
 function uniformsFromCode(gl, program, code, uniforms = {}) {
@@ -419,12 +421,20 @@ function createPixelTexture(gl, width, height, floatingpoint=false) {
         },
         
         // bind() first
-        submit() {
-            let mipLevel = 0;
+        submit(miplevels = 4) {
             let internalFormat = floatingpoint ? gl.RGBA32F : gl.RGBA;   // format we want in the texture
-            let border = 0;                 // must be 0
-            gl.texImage2D(gl.TEXTURE_2D, mipLevel, internalFormat, this.width, this.height, border, this.format, this.dataType, this.data);
-            //gl.generateMipmap(gl.TEXTURE_2D);
+            // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_BASE_LEVEL, 0);
+            // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, miplevels-1);
+            gl.texParameteri(gl.TEXTURE_2D, gl.GENERATE_MIPMAP, gl.TRUE); 
+            if (miplevels > 1) {
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.GL_LINEAR_MIPMAP_LINEAR);
+            } else {
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.GL_LINEAR);
+            }
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, this.width, this.height, 0, this.format, this.dataType, this.data);
+            if (miplevels > 1) gl.generateMipmap(gl.TEXTURE_2D)
+            
             return this;
         },
         
@@ -981,7 +991,6 @@ function createVao(gl, geom, program) {
                     this.texCoordBuffer = buffer;
                 }
                 if (geom.indices) {
-
                     // check type: 
                     if (geom.indices.constructor == Uint32Array) this.indexType = gl.UNSIGNED_INT 
 
