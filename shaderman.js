@@ -39,10 +39,10 @@ class Shaderman {
 		return program
 	}
 
-	reload(name) {
+	reload(gl, name) {
 		if (this.shaders[name]) {
 			this.shaders[name].dispose()
-			return this.create(name)
+			return this.create(gl, name)
 		}
 	}
 
