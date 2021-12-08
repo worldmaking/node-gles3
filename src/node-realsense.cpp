@@ -13,6 +13,12 @@
 
 #include "al/al_glm.h"
 
+// Euclidean modulo. assumes n > 0
+int wrap(int a, int n) { 
+	const int r = a % n;
+	return r < 0 ? r + n : r; //a % n + (Math.sign(a) !== Math.sign(n) ? n : 0); 
+}
+
  struct Pipeline : public Napi::ObjectWrap<Pipeline> {
 
 	// Create a Pipeline - this serves as a top-level API for streaming and processing frames
@@ -26,6 +32,10 @@
 	// https://intelrealsense.github.io/librealsense/doxygen/classrs2_1_1points.html
 	rs2::points points;
 
+	// min & max bounds for mesh & voxel processing (world space)
+	glm::vec3 min = glm::vec3(-10, -10, -10); 
+	glm::vec3 max = glm::vec3(10, 10, 10);
+
 	// storage for the vertex xyz points
 	Napi::ArrayBuffer vertices_ab;
 
@@ -33,6 +43,7 @@
 	Napi::TypedArrayOf<float> vertices;
 	Napi::TypedArrayOf<float> normals;
 	Napi::TypedArrayOf<uint32_t> indices;
+	Napi::TypedArrayOf<float> accel;
 
 // 	// .getWidth(), .getHeight(), .getResolution(), .getChannels()
 // 	// .getDataType(), .getMemoryType() (CPU or GPU), .getPtr()
@@ -47,6 +58,14 @@
 
     Pipeline(const Napi::CallbackInfo& info) : Napi::ObjectWrap<Pipeline>(info) {
 		Napi::Env env = info.Env();
+		Napi::Object This = info.This().As<Napi::Object>();
+
+
+		accel = Napi::TypedArrayOf<float>::New(env, 3, napi_float32_array);
+		This.Set("accel", accel);
+		accel[0] = 0;
+		accel[1] = 0;
+		accel[2] = -10;
 
 	//	if (info.Length()) open(info);
 	}
@@ -58,7 +77,7 @@
 // 		// expect some configuration here
  		const Napi::Object options = info.Length() ? info[0].ToObject() : Napi::Object::New(env);
 
-
+		//config.enable_stream(RS2_STREAM_ACCEL, RS2_FORMAT_MOTION_XYZ32F);
 
 		// Configure and start the pipeline
 		p.start(config);
@@ -157,34 +176,29 @@
 		printf("~Pipeline\n");
 	}
 
-// 	void zed_close() {
-// 		// join thread
-// 		// release memory
-
-// 		zed.close();
-// 	}
-
-// 	Napi::Value close(const Napi::CallbackInfo& info) {
-// 		zed_close();
-// 		return info.This();
-// 	}
-
-// 	Napi::Value isOpened(const Napi::CallbackInfo& info) {
-// 		Napi::Env env = info.Env();
-// 		return Napi::Boolean::New(env, zed.isOpened());
-// 	}
 
 	Napi::Value grab(const Napi::CallbackInfo& info) {
 		Napi::Env env = info.Env();
 		Napi::Object This = info.This().As<Napi::Object>();
-		
-
+	
 		bool wait = info.Length() > 0 ? info[0].As<Napi::Boolean>() : false;
 
 		float maxarea = This.Has("maxarea") ?  This.Get("maxarea").ToNumber().DoubleValue() : 0.001;
 		glm::mat4 transform = This.Has("modelmatrix") ? glm::make_mat4(This.Get("modelmatrix").As<Napi::Float32Array>().Data()) : glm::mat4();
 		float miny = This.Has("miny") ? This.Get("miny").ToNumber().DoubleValue() : 0.;
 
+		if (This.Has("min")) {
+			const Napi::Object value = This.Get("min").ToObject();
+			min.x = value.Get(uint32_t(0)).ToNumber().DoubleValue();
+			min.y = value.Get(uint32_t(1)).ToNumber().DoubleValue();
+			min.z = value.Get(uint32_t(2)).ToNumber().DoubleValue();
+		}
+		if (This.Has("max")) {
+			const Napi::Object value = This.Get("max").ToObject();
+			max.x = value.Get(uint32_t(0)).ToNumber().DoubleValue();
+			max.y = value.Get(uint32_t(1)).ToNumber().DoubleValue();
+			max.z = value.Get(uint32_t(2)).ToNumber().DoubleValue();
+		}
 
 		rs2::frameset frames;
 		if (wait) {
@@ -194,6 +208,14 @@
 		} else {
 			// non-blocking:
 			if (!p.poll_for_frames(&frames)) return env.Null();
+		}
+
+		if (rs2::motion_frame accel_frame = frames.first_or_default(RS2_STREAM_ACCEL)) {
+			rs2_vector a = accel_frame.get_motion_data();
+			accel[0] = a.x;
+			accel[1] = a.y;
+			accel[2] = a.z;
+			//printf("accel %f %f %f\n", accel.x, accel.y, accel.z);
 		}
 
 		// Try to get a frame of a depth image
@@ -229,13 +251,6 @@
 		// printf("size %d points %d x %d = %d \n", sz, width, height, width*height);
 
 		// {
-		// 	const size_t num_vertices = width * height; //points.size();
-		// 	const size_t num_floats = num_vertices;
-		// 	const float units = depth.get_units();
-		// 	const float * vertices = (float *)data; // (float *)depth.get_data();  // xyz
-
-		// 	printf("depth count %d point %f\n", num_vertices, vertices[640*240 + 320] * units);
-
 		// 	// const size_t num_bytes = num_floats * sizeof(float);
 		// 	if (!this->depth || this->depth.ElementLength() != num_floats) {
 		// 		// reallocate it:
@@ -243,9 +258,6 @@
 		// 		this->depth = Napi::TypedArrayOf<float>::New(env, num_floats, napi_float32_array);
 		// 		This.Set("depth", this->depth);
 		// 	}
-
-		// 	//memcpy(this->vertices.Data(), vertices, num_bytes);
-		// }
 
 		{
 			// Generate the pointcloud and texture mappings
@@ -284,9 +296,18 @@
 		int index_count = 0;
 
 		// apply transform:
+		// float maxdepth = 0.;
+		// int depthcount;
 		for (int i=0; i<num_vertices; i++) {
+			// float z = vertices[i].z;
+			// if (z > 0) {
+			// 	maxdepth += z;
+			// 	depthcount++;
+			// 	//maxdepth = z > maxdepth ? z : maxdepth;
+			// }
 			vertices[i] = glm::vec3(transform * glm::vec4(vertices[i], 1.));
 		}
+		//This.Set("maxdepth", Napi::Number::New(env, maxdepth/depthcount));
 
 		for (int y = 0; y < height - 1; ++y) {
 			for (int x = 0; x < width - 1; ++x) {
@@ -321,7 +342,13 @@
 				glm::vec3 n12;
 				// skip if any of these points are zero
 				// skip if triangle area is too large (or too small??)
-				if (point_a.y > miny && point_b.y > miny && point_d.y > miny && abd > 0. && abd < maxarea) 
+				if (point_a.x > min.x && point_b.x > min.x && point_d.x > min.x && 
+					point_a.y > min.y && point_b.y > min.y && point_d.y > min.y && 
+					point_a.z > min.z && point_b.z > min.z && point_d.z > min.z && 
+					point_a.x < max.x && point_b.x < max.x && point_d.x < max.x && 
+					point_a.y < max.y && point_b.y < max.y && point_d.y < max.y && 
+					point_a.z < max.z && point_b.z < max.z && point_d.z < max.z && 
+					abd > 0. && abd < maxarea) 
 				{
 					glm::vec3 n = glm::normalize(daba);
 					n12 = n;
@@ -333,7 +360,13 @@
 					normals[d] = n12;
 
 				}
-				if (point_a.y > miny && point_c.y > miny && point_d.y > miny && acd > 0. && acd < maxarea) 
+				if (point_a.x > min.x && point_c.x > min.x && point_d.x > min.x && 
+					point_a.y > min.y && point_c.y > min.y && point_d.y > min.y && 
+					point_a.z > min.z && point_c.z > min.z && point_d.z > min.z && 
+					point_a.x < max.x && point_c.x < max.x && point_d.x < max.x && 
+					point_a.y < max.y && point_c.y < max.y && point_d.y < max.y && 
+					point_a.z < max.z && point_c.z < max.z && point_d.z < max.z && 
+					acd > 0. && acd < maxarea) 
 				{
 					glm::vec3 n = glm::normalize(cada);
 					n12 = glm::normalize(n12 + n);
@@ -354,6 +387,61 @@
 		// auto color = frames.get_color_frame();
 		// // Tell pointcloud object to map to this color frame
 		// pc.map_to(color);
+
+		return This;
+	}
+
+	// float32array voxels, [dimx, dimy, dimz], lidar2voxels_mat, mul, add
+	Napi::Value voxels(const Napi::CallbackInfo& info) {
+		Napi::Env env = info.Env();
+		Napi::Object This = info.This().As<Napi::Object>();
+		if (info.Length() < 5) return info.This();
+
+		// voxel data:
+		Napi::Float32Array voxels_value = info[0].As<Napi::Float32Array>();
+		float * voxels_data = voxels_value.Data();
+		const size_t NUM_VOXELS = voxels_value.ElementLength();
+
+		const Napi::Object dim_value = info[1].ToObject();
+		const int32_t DIMX = dim_value.Get(uint32_t(0)).ToNumber().Int32Value();
+		const int32_t DIMY = dim_value.Get(uint32_t(1)).ToNumber().Int32Value();
+		const int32_t DIMZ = dim_value.Get(uint32_t(2)).ToNumber().Int32Value();
+		glm::ivec3 dim(DIMX, DIMY, DIMZ);
+
+		glm::mat4 lidar2voxels_mat = glm::make_mat4(info[2].As<Napi::Float32Array>().Data());
+
+		float voxels_mul =  info[3].ToNumber().DoubleValue();
+		float voxels_add =  info[4].ToNumber().DoubleValue();
+
+		Napi::Float32Array vertices_value = this->vertices;
+		glm::vec3 * vertices = (glm::vec3 *)vertices_value.Data();
+		const size_t NUM_FLOATS = vertices_value.ElementLength();
+		const size_t NUM_POINTS = NUM_FLOATS/3;
+		
+		// decay:
+		for (size_t i=0; i<NUM_VOXELS; i++) {
+			voxels_data[i] *= voxels_mul;
+		}
+
+
+		for (size_t i=0; i<NUM_POINTS; i++) {
+
+			// copy floats:
+			const glm::vec3& V = vertices[i];
+			// convert to voxel space:
+			const glm::vec4 v = lidar2voxels_mat * glm::vec4(V, 1.);
+			// compute index:
+			int x = v.x * DIMX;
+			int y = v.y * DIMY;
+			int z = v.z * DIMZ;
+			if (v.x > min.x && v.x < max.x && v.y > min.y && v.y < max.y && v.z > min.z && v.z < max.z &&
+				x >= 0 && x < DIMX && y >= 0 && y < DIMY && z >= 0 && z < DIMZ) {
+				int idx = x + y*(DIMX) + z*(DIMX*DIMY);//
+
+				// should this clamp rather than add? 
+				voxels_data[idx] += voxels_add;
+			}
+		}
 
 		return This;
 	}
@@ -456,6 +544,7 @@ public:
 		// 	Pipeline::InstanceMethod<&Pipeline::close>("close"),
 		// 	Pipeline::InstanceMethod<&Pipeline::isOpened>("isOpened"),
 			Pipeline::InstanceMethod<&Pipeline::grab>("grab"),
+			Pipeline::InstanceMethod<&Pipeline::voxels>("voxels"),
 			Pipeline::InstanceMethod<&Pipeline::grab>("get_active_profile"),
 		});
 

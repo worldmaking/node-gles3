@@ -58,6 +58,8 @@ class Window {
 		glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
 		glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
 
+		glfw.windowHint(glfw.SAMPLES, 4);
+
 		let monitors = glfw.getMonitors()
 		this.monitor = typeof(this.monitor == "number") ? monitors[this.monitor % monitors.length] : this.monitor;
 		this.mode = glfw.getVideoMode(this.monitor)
@@ -87,6 +89,7 @@ class Window {
 		glfw.swapInterval(this.sync)
 		glfw.makeContextCurrent(this.window)
 		glfw.swapInterval(this.sync)
+		gl.enable(gl.MULTISAMPLE);  
 
 		console.log(gl.glewInit());
 		//can only be called after window creation!

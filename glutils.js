@@ -426,10 +426,11 @@ function createPixelTexture(gl, width, height, floatingpoint=false) {
             // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_BASE_LEVEL, 0);
             // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, miplevels-1);
             gl.texParameteri(gl.TEXTURE_2D, gl.GENERATE_MIPMAP, gl.TRUE); 
+            //gl.texParameterf(gl.TEXTURE_2D, gl.TEXTURE_MAX_ANISOTROPY, 2.0);
             if (miplevels > 1) {
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.GL_LINEAR_MIPMAP_LINEAR);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
             } else {
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.GL_LINEAR);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
             }
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
             gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, this.width, this.height, 0, this.format, this.dataType, this.data);
@@ -607,12 +608,13 @@ function createTexture3D(gl, opt={}) {
     return tex.unbind();
 }
 
-function makeFboWithDepth(gl, width=1024, height=1024, mipmap=false, multisample=0) {
+function makeFboWithDepth(gl, width=1024, height=1024, mipmap=false, multisample=0, repeat) {
     
 	const id = gl.createFramebuffer();
 	const colorTexture = gl.createTexture();
 	const depthTexture = gl.createTexture();
     const texture_target = multisample ? gl.TEXTURE_2D_MULTISAMPLE : gl.TEXTURE_2D
+    repeat = repeat || gl.CLAMP_TO_BORDER
 	{		
 		gl.bindFramebuffer(gl.FRAMEBUFFER, id);
 		
@@ -639,10 +641,10 @@ function makeFboWithDepth(gl, width=1024, height=1024, mipmap=false, multisample
             if (mipmap) gl.generateMipmap(gl.TEXTURE_2D); 
 
             // set the filtering so we don't need mips
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, (mipmap) ? gl.GL_LINEAR_MIPMAP_LINEAR : gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, (mipmap) ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, repeat);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, repeat);
             gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, colorTexture, level);
 
             // depth texture
@@ -651,8 +653,8 @@ function makeFboWithDepth(gl, width=1024, height=1024, mipmap=false, multisample
             // set the filtering so we don't need mips
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, repeat);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, repeat);
             gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depthTexture, level);
         }
 
@@ -672,10 +674,10 @@ function makeFboWithDepth(gl, width=1024, height=1024, mipmap=false, multisample
             return this;
         },
 
-        end() {
+        end(unit=0) {
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
             if (mipmap){
-                gl.bindTexture(texture_target, colorTexture);
+                this.bind()
 		        if (mipmap && !multisample) gl.generateMipmap(gl.TEXTURE_2D);
             }
             return this;

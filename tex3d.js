@@ -5,6 +5,7 @@ const glfw = require('./glfw3.js')
 const vr = require('./openvr.js')
 const glutils = require('./glutils.js');
 
+const Shaderman = require("./shaderman")
 
 const N = 32;
 const DIM = vec3.fromValues(N, N, N)
@@ -38,6 +39,7 @@ console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '
 // Enable vertical sync (on cards that support it)
 glfw.swapInterval(1); // 0 for vsync off
 
+const shaderman = new Shaderman(gl)
 
 let tex3d = glutils.createTexture3D(gl, { 
 	float:true, 
@@ -112,6 +114,7 @@ void main() {
 }
 `);
 
+
 // create a VAO from a basic geometry and shader
 let cube = glutils.createVao(gl, glutils.makeCube({ min:-0.25, max:0.25, div: 2 }), cubeprogram.id);
 
@@ -146,190 +149,11 @@ cubes.bind().submit().unbind();
 cubes.attachTo(cube);
 
 
-let volprogram = glutils.makeProgram(gl,
-`#version 330
-uniform mat4 u_viewmatrix;
-uniform mat4 u_projmatrix;
-uniform mat4 u_modelmatrix;
-uniform float u_N;
-uniform sampler3D u_tex;
 
-// instanced variable:
-in vec4 i_pos;
-in vec4 i_quat;
-
-in vec3 a_position;
-in vec3 a_normal;
-in vec2 a_texCoord;
-out vec4 v_color;
-out vec3 v_normal;
-out vec3 v_tc;
-out vec3 v_eyepos, v_raydir, v_rayexit;
-
-// http://www.geeks3d.com/20141201/how-to-rotate-a-vertex-by-a-quaternion-in-glsl/
-vec3 quat_rotate( vec4 q, vec3 v ){
-	return v + 2.0 * cross( q.xyz, cross( q.xyz, v ) + q.w * v );
-}
-vec4 quat_rotate( vec4 q, vec4 v ){
-	return vec4(v.xyz + 2.0 * cross( q.xyz, cross( q.xyz, v.xyz ) + q.w * v.xyz), v.w );
-}
-
-// equiv. quat_rotate(quat_conj(q), v):
-// q must be a normalized quaternion
-vec3 quat_unrotate(in vec4 q, in vec3 v) {
-	// return quat_mul(quat_mul(quat_conj(q), vec4(v, 0)), q).xyz;
-	// reduced:
-	vec4 p = vec4(
-		q.w*v.x - q.y*v.z + q.z*v.y,  // x
-		q.w*v.y - q.z*v.x + q.x*v.z,  // y
-		q.w*v.z - q.x*v.y + q.y*v.x,  // z
-		q.x*v.x + q.y*v.y + q.z*v.z   // w
-	);
-	return vec3(
-		p.w*q.x + p.x*q.w + p.y*q.z - p.z*q.y,  // x
-		p.w*q.y + p.y*q.w + p.z*q.x - p.x*q.z,  // y
-		p.w*q.z + p.z*q.w + p.x*q.y - p.y*q.x   // z
-	);
-}
-
-
-void main() {
-	v_tc = a_position.xyz;
-	//v_color = texture(u_tex, tc);
-	
-	// Multiply the position by the matrix.
-	vec4 vertex = vec4(a_position, 1.);
-	vertex = quat_rotate(i_quat, vertex);
-	vertex.xyz += i_pos.xyz;
-	vec4 worldpos = u_modelmatrix * vertex;
-	gl_Position = u_projmatrix * u_viewmatrix * worldpos;
-
-	// derive eyepos (worldspace)
-	v_eyepos = -(u_viewmatrix[3].xyz)*mat3(u_viewmatrix);
-
-	// derive ray (texture-space)
-	// this assumes rendering with front-face culling:
-	v_rayexit = v_tc;
-	v_raydir = (quat_unrotate(i_quat, worldpos.xyz - v_eyepos));
-	// could we compute the ray end? intersection of ray & bounding box
-
-	v_normal = quat_rotate(i_quat, a_normal);
-
-	// v_color = vec4(v_normal*0.25+0.25, 1.);
-	// v_color += vec4(a_texCoord*0.5, 0., 1.);
-	v_color = vec4(v_tc, 1.);
-	//v_color = vec4(texture(u_tex, tc));
-}
-`,
-`#version 330
-precision mediump float;
-
-uniform sampler3D u_tex;
-uniform float u_N;
-in vec4 v_color;
-in vec3 v_normal;
-in vec3 v_tc;
-in vec3 v_eyepos, v_raydir, v_rayexit;
-out vec4 outColor;
-
-// assume box b:  0,0,0 to 1,1,1
-float rayBoxExitDistance(vec3 ro, vec3 rd) {
-	// pt = ro + rd*t => t = (pt-ro)/rd
-	// assumes glsl handles case of rd component==0
-    vec3 t1 = (0. - ro)/rd;
-    vec3 t2 = (1. - ro)/rd;
-	return min(min(max(t1.x, t2.x), max(t1.z, t2.z)), max(t1.y, t2.y));
-}
-
-// assume box b:  0,0,0 to 1,1,1
-float rayBoxEntryDistance(vec3 ro, vec3 rd) {
-	// pt = ro + rd*t => t = (pt-ro)/rd
-	// assumes glsl handles case of rd component==0
-    vec3 t1 = (0. - ro)/rd;
-    vec3 t2 = (1. - ro)/rd;
-	return max(max(min(t1.x, t2.x), min(t1.z, t2.z)), min(t1.y, t2.y));
-}
-
-vec3 normal4(in vec3 p, in sampler3D tex, float eps) {
-	vec2 e = vec2(-eps, eps);
-	// tetra points
-	float t1 = texture(u_tex, p+e.yxx).x;
-	float t2 = texture(u_tex, p+e.xxy).x;
-	float t3 = texture(u_tex, p+e.xyx).x;
-	float t4 = texture(u_tex, p+e.yyy).x;
-	vec3 n = t1*e.yxx + t2*e.xxy + t3*e.xyx + t4*e.yyy;
-	return normalize(n);
-}
-
-void main() {
-	vec3 rd = normalize(v_raydir);
-	// this assumes we rendered with front-face culling
-	// for back-face culling, 
-	// ro = v_rayentry, 
-	// and tmax = rayBoxExitDistance(ro, rd)
-	float tmax = rayBoxExitDistance(v_rayexit, -rd);
-	vec3 ro = v_rayexit - tmax*rd;
-
-	// ok now step from t=0 to t=tmax
-	float a = 0.;
-	float dt = 0.25 / u_N;
-	//float t0 = fract(tmax/dt);
-
-	float v = 0.;
-
-	float t=0.;
-	for (; t < tmax; t += dt) {
-		float weight = min(1., tmax-t);
-		//float weight = min(t, 1.);
-		vec3 pt = ro + t*rd;
-		float c = texture(u_tex, pt).x;
-		v += c * weight;
-		//a = max(a, c);
-		// naive additive blending
-		a += max(c, 0.)*dt * weight*16.; 
-		// transmittance:
-		float opacity = exp(-t * abs(c));
-		//a += trans * dt * weight;
-		//a = max(a, c*dt * weight*50.);
-		// Cout(v) = Cin(v) * (1 - Opacity(x)) + Color(x) * Opacity(x)
-		// float c1 = c*weight*8;
-		// a = mix(c1, a, opacity);
-
-		//a += 0.5*dt * weight;
-		if (c*weight > 0.1) {
-			//break;
-		}
-	}
-
-	a = t < tmax ? 1. : 0. ;
-
-	vec3 pt = ro + t*rd;
-	vec3 n = normal4(pt, u_tex, dt);
-
-	outColor = vec4(n*0.5+0.5, 1.);
-	float ndotr = dot(n, rd);
-	ndotr = pow(abs(ndotr), 0.5);
-	outColor = vec4(1.-abs(ndotr) );
-
-	//a = 1. - exp(-(a)/tmax);
-	//a = 1.-exp(a/tmax);
-
-	//outColor = vec4(v_tc, 0.2);
-	// float v = texture(u_tex, v_tc).r;
-	// outColor = vec4(rd, 0.5);
-	//outColor *= vec4(tmax);
-	outColor *= vec4(a);
-	// outColor = vec4(0.1);
-	// outColor = vec4(v_normal*0.5+0.5, 1.);
-	//outColor = vec4(tmax);
-
-	outColor = vec4(v * 0.1 );
-	//outColor = v < 1. ? vec4(v) : outColor;
-}
-`);
+let volshader = shaderman.create(gl, "vol")
 
 // create a VAO from a basic geometry and shader
-let vol = glutils.createVao(gl, glutils.makeCube({ min:0, max:1, div: 4 }), volprogram.id);
+let vol = glutils.createVao(gl, glutils.makeCube({ min:0, max:1, div: 4 }), volshader.id);
 
 let t = glfw.getTime();
 let fps = 60;
@@ -501,8 +325,11 @@ function animate() {
 	let viewmatrix = mat4.create();
 	let projmatrix = mat4.create();
 	let modelmatrix = mat4.create();
+	let modelmatrix_inverse = mat4.create();
+	let viewmatrix_inverse = mat4.create();
+	let projmatrix_inverse = mat4.create();
 	let angle = t/6;
-	let r = 1.5;
+	let r = 1.5 + Math.sin(t);
 	let x = r*Math.cos(angle), y = r*Math.sin(angle)
 	
 	let camera_pos = [x, 1.5 + 0.1*Math.sin(t/Math.PI), y];
@@ -541,6 +368,9 @@ function animate() {
 	mat4.identity(modelmatrix)
 	mat4.translate(modelmatrix, modelmatrix, [-1, 0.5, -1, 1])
 	mat4.scale(modelmatrix, modelmatrix, [2, 2, 2])
+	mat4.invert(modelmatrix_inverse, modelmatrix)
+	mat4.invert(viewmatrix_inverse, viewmatrix)
+	mat4.invert(projmatrix_inverse, projmatrix)
 
 	// use back-face culling if you want to render from inside the cloud
 	// this would be easier if the entire thing was handled by a cloud-pass, e.g. in gbuffer
@@ -550,14 +380,17 @@ function animate() {
 	gl.enable(gl.CULL_FACE);
 	gl.cullFace(gl.FRONT)
 
-	volprogram.begin();
-	volprogram.uniform("u_viewmatrix", viewmatrix);
-	volprogram.uniform("u_projmatrix", projmatrix);
-	volprogram.uniform("u_modelmatrix", modelmatrix);
-	volprogram.uniform("u_N", M);
-	volprogram.uniform("u_tex", 0);
+	shaderman.shaders.vol.begin()
+		.uniform("u_viewmatrix", viewmatrix)
+		.uniform("u_projmatrix", projmatrix)
+		.uniform("u_modelmatrix", modelmatrix)
+		.uniform("u_modelmatrix_inverse", modelmatrix_inverse)
+		.uniform("u_viewmatrix_inverse", viewmatrix_inverse)
+		.uniform("u_projmatrix_inverse", projmatrix_inverse)
+		.uniform("u_N", M)
+		.uniform("u_tex", 0)
 	vol.bind().draw().unbind()
-	volprogram.end();
+	shaderman.shaders.vol.end();
 
 	gl.disable(gl.CULL_FACE);
 
