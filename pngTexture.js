@@ -22,13 +22,13 @@ function png2tex(gl, pngpath) {
 
 function png2tex3(gl, pngpath0, pngpath1, pngpath2) {
 	let img0 = pnglib.sync.read(fs.readFileSync(pngpath0))
-	let img1 = pnglib.sync.read(fs.readFileSync(pngpath1))
-	let img2 = pnglib.sync.read(fs.readFileSync(pngpath2))
+	let img1 = fs.existsSync(pngpath1) ? pnglib.sync.read(fs.readFileSync(pngpath1)) : null
+	let img2 = fs.existsSync(pngpath2) ? pnglib.sync.read(fs.readFileSync(pngpath2)) : null
 	let tex = glutils.createPixelTexture(gl, img0.width, img1.height)
 	for (let i=0; i<tex.width * tex.height; i++) {
 		tex.data[i*4+0] = img0.data[i*4]
-		tex.data[i*4+1] = img1.data[i*4]
-		tex.data[i*4+2] = img2.data[i*4]
+		tex.data[i*4+1] = img1 ? img1.data[i*4] : 0
+		tex.data[i*4+2] = img2 ? img2.data[i*4] : 0
 	}
 	tex.bind().submit()
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
@@ -37,6 +37,7 @@ function png2tex3(gl, pngpath0, pngpath1, pngpath2) {
 	tex.unbind();
 	return tex
 }
+
 
 
 if (!glfw.init()) {

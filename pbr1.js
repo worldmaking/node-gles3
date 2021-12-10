@@ -25,8 +25,8 @@ function png2tex(gl, pngpath) {
 
 function png2tex3(gl, pngpath0, pngpath1, pngpath2) {
 	let img0 = pnglib.sync.read(fs.readFileSync(pngpath0))
-	let img1 = fs.fileExistsSync(pngpath1) ? pnglib.sync.read(fs.readFileSync(pngpath1)) : null
-	let img2 = fs.fileExistsSync(pngpath2) ? pnglib.sync.read(fs.readFileSync(pngpath2)) : null
+	let img1 = fs.existsSync(pngpath1) ? pnglib.sync.read(fs.readFileSync(pngpath1)) : null
+	let img2 = fs.existsSync(pngpath2) ? pnglib.sync.read(fs.readFileSync(pngpath2)) : null
 	let tex = glutils.createPixelTexture(gl, img0.width, img1.height)
 	for (let i=0; i<tex.width * tex.height; i++) {
 		tex.data[i*4+0] = img0.data[i*4]

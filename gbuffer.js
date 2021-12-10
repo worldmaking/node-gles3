@@ -59,7 +59,7 @@ let light_pos = [1, 3, 1];
 
 let color_tex = png2tex(gl, 'textures/metal_albedo.png') 
 let normal_tex = png2tex(gl, 'textures/metal_normal.png') 
-let metalness_tex = png2tex(gl, 'textures/metal_metalness.png') 
+let metalness_tex = png2tex(gl, 'textures/metal_png') 
 let roughness_tex = png2tex(gl, 'textures/metal_roughness.png') 
 
 /*
