@@ -10,309 +10,169 @@ uniform vec3 u_light_pos;
 uniform vec3 u_camera_pos;
 
 // normal in world space:
+in mat4 v_viewprojmatrix;
 in vec3 v_normal;
-in vec3 v_world;
+in vec4 v_world;
 in vec2 v_texCoord;
-
+in vec3 v_eyepos;
+in vec3 v_raydir;
+in vec3 v_raypos;
+in vec4 v_bounds;
+in vec4 v_quat;
 out vec4 outColor;
 
 #include "common.glsl"
+#include "math.glsl"
+#include "hg_sdf.glsl"
 #include "pbr.glsl"
 
-// vec3 environment(vec3 dir) {
-// 	return hemisphereLight(normalize(dir), u_light_pos) + 0.001;
-// }
-
-// // following functions are copies of UE4
-// // for computing cook-torrance specular lighting terms
-// float D_blinn(in float roughness, in float NdH){
-//     float m = roughness * roughness;
-//     float m2 = m * m;
-//     float n = 2.0 / m2 - 2.0;
-//     return (n + 2.0) / (2.0 * PI) * pow(NdH, n);
-// }
-
-// float D_beckmann(in float roughness, in float NdH){
-//     float m = roughness * roughness;
-//     float m2 = m * m;
-//     float NdH2 = NdH * NdH;
-//     return exp((NdH2 - 1.0) / (m2 * NdH2)) / (PI * m2 * NdH2 * NdH2);
-// }
-
-// float D_GGX(in float roughness, in float NdH){
-//     float m = roughness * roughness;
-//     float m2 = m * m;
-//     float d = (NdH * m2 - NdH) * NdH + 1.0;
-//     return m2 / (PI * d * d);
-// }
-
-// float G_schlick(in float roughness, in float NdV, in float NdL){
-//     float k = roughness * roughness * 0.5;
-//     float V = NdV * (1.0 - k) + k;
-//     float L = NdL * (1.0 - k) + k;
-//     return 0.25 / (V * L);
-// }
-
-// // cook-torrance specular calculation   
-
-// // simple phong specular calculation with normalization
-// vec3 phong_specular(in vec3 V, in vec3 L, in vec3 N, in vec3 specular, in float roughness) {
-//     vec3 R = reflect(-L, N);
-//     float spec = max(0.0, dot(V, R));
-
-//     float k = 1.999 / (roughness * roughness);
-//     return min(1.0, 3.0 * 0.0398 * k) * pow(spec, min(10000.0, k)) * specular;
-// }
-
-// // simple blinn specular calculation with normalization
-// vec3 blinn_specular(in float NdH, in vec3 specular, in float roughness) {
-//     float k = 1.999 / (roughness * roughness);
-//     return min(1.0, 3.0 * 0.0398 * k) * pow(NdH, min(10000.0, k)) * specular;
-// }
-
-// vec3 cooktorrance_blinn(in float NdL, in float NdV, in float NdH, in vec3 specular, in float roughness) {
-//  	float D = D_blinn(roughness, NdH);
-//     float G = G_schlick(roughness, NdV, NdL);
-//     float rim = mix(1.0 - roughness * 0.9, 1.0, NdV);
-//     return (1.0 / rim) * specular * G * D;
-// }
-
-// vec3 cooktorrance_beckmann(in float NdL, in float NdV, in float NdH, in vec3 specular, in float roughness) {
-// 	float D = D_beckmann(roughness, NdH);
-//     float G = G_schlick(roughness, NdV, NdL);
-//     float rim = mix(1.0 - roughness * 0.9, 1.0, NdV);
-//     return (1.0 / rim) * specular * G * D;
-// }
-
-// vec3 cooktorrance_ggx(in float NdL, in float NdV, in float NdH, in vec3 specular, in float roughness) {
-//     float D = D_GGX(roughness, NdH);
-//     float G = G_schlick(roughness, NdV, NdL);
-//     float rim = mix(1.0 - roughness * 0.9, 1.0, NdV);
-//     return (1.0 / rim) * specular * G * D;
-// }
-
-// ///////////////////////////////
+float scene(vec3 p) {
+	float d0 = fSphere(p, 0.5);
+	float d3 = fBox(p, vec3(0.1, 0.2, 0.4));
+	float d1 = fCylinder(p, 0.25, 0.5);
+	//return min(d0, d1);
+	return d1;
+}
 
 
+vec2 texcoord(vec3 p) {
+	// get a texture coordinate from the scene
+	// a simple cheat is cylindrical mapping of p
+	vec3 pn = normalize(p);
+	// atan2(y,x)/2pi gives -0.5..0.5 range
+	//return vec2(atan(pn.y, pn.x) * 0.159154943091895 + 0.5, pn.z);
+	return vec2(atan(pn.z, pn.x) * 0.159154943091895 + 0.5, pn.y);
+}
 
-// // float pow5(in float x) {
-// //     float x2 = x * x;
-// //     return x2 * x2 * x;
-// // }
+mat3 tbn4(in vec3 p, float eps) {
+	vec2 e = vec2(-eps, eps);
+	// get four nearby points (tetrahedral distribution):
+	vec3 p1 = p + e.yxx, p2 = p + e.xxy, p3 = p + e.xyx, p4 = p + e.yyy;
+	// get distances at these points:
+	float t1 = scene(p + e.yxx), t2 = scene(p + e.xxy), t3 = scene(p + e.xyx), t4 = scene(p + e.yyy);
+	vec3 N = normalize(e.yxx*t1 + e.xxy*t2 + e.xyx*t3 + e.yyy*t4);
+	// get texcoords at these points:
+	vec2 tc1 = texcoord(p1), tc2 = texcoord(p2), tc3 = texcoord(p3), tc4 = texcoord(p4); 
+	vec3 T = normalize(e.yxx*tc1.y + e.xxy*tc2.y + e.xyx*tc3.y + e.yyy*tc4.y);
+	// force it to be orthogonal:
+	T = normalize(T - N*dot(N,T));
+	// bitangent is orthogonal to both:
+	vec3 B = cross(N, T);//normalize(e.yxx*tc1.y + e.xxy*tc2.y + e.xyx*tc3.y + e.yyy*tc4.y);
+	return mat3(T, B, N);
+}
 
-// // vec3 schlick(const vec3 f0, float f90, float VoH) {
-// //     float f = pow5(1.0 - VoH);
-// //     return f + f0 * (f90 - f);
-// // }
-
-// // vec3 schlick(vec3 f0, vec3 f90, float VoH) {
-// //     return f0 + (f90 - f0) * pow5(1.0 - VoH);
-// // }
-
-// // float schlick(float f0, float f90, float VoH) {
-// //     return f0 + (f90 - f0) * pow5(1.0 - VoH);
-// // }
-
-
-// // // https://github.com/glslify/glsl-specular-beckmann
-// // float beckmann(float _NoH, float roughness) {
-// //     float NoH = max(_NoH, 0.0001);
-// //     float cos2Alpha = NoH * NoH;
-// //     float tan2Alpha = (cos2Alpha - 1.0) / cos2Alpha;
-// //     float roughness2 = roughness * roughness;
-// //     float denom = 3.141592653589793 * roughness2 * cos2Alpha * cos2Alpha;
-// //     return exp(tan2Alpha / roughness2) / denom;
-// // }
-
-// // float diffuseOrenNayar(vec3 L, vec3 N, vec3 V, float NoV, float NoL, float roughness) {
-// //     float LoV = dot(L, V);
-// //     float s = LoV - NoL * NoV;
-// //     float t = mix(1.0, max(NoL, NoV), step(0.0, s));
-// //     float sigma2 = roughness * roughness;
-// //     float A = 1.0 + sigma2 * (1.0 / (sigma2 + 0.13) + 0.5 / (sigma2 + 0.33));
-// //     float B = 0.45 * sigma2 / (sigma2 + 0.09);
-// //     return max(0.0, NoL) * (A + B * s / t);
-// // }
-
-// // float diffuseOrenNayar(vec3 L, vec3 N, vec3 V, float roughness) {
-// //     float NoV = max(dot(N, V), 0.001);
-// //     float NoL = max(dot(N, L), 0.001);
-// //     return diffuseOrenNayar(L, N, V, NoV, NoL, roughness);
-// // }
-
-// // float diffuseBurley(float NoV, float NoL, float LoH, float linearRoughness) {
-// //     // Burley 2012, "Physically-Based Shading at Disney"
-// //     float f90 = 0.5 + 2.0 * linearRoughness * LoH * LoH;
-// //     float lightScatter = schlick(1.0, f90, NoL);
-// //     float viewScatter  = schlick(1.0, f90, NoV);
-// //     return lightScatter * viewScatter;
-// // }
-
-// // float diffuseBurley(vec3 L, vec3 N, vec3 V, float NoV, float NoL, float roughness) {
-// //     float LoH = max(dot(L, normalize(L + V)), 0.001);
-// //     return diffuseBurley(NoV, NoL, LoH, roughness * roughness);
-// // }
-
-// // float diffuseBurley(vec3 L, vec3 N, vec3 V, float roughness) {
-// //     vec3 H = normalize(V + L);
-// //     float NoV = clamp(dot(N, V), 0.001, 1.0);
-// //     float NoL = clamp(dot(N, L), 0.001, 1.0);
-// //     float LoH = clamp(dot(L, H), 0.001, 1.0);
-
-// //     return diffuseBurley(NoV, NoL, LoH, roughness * roughness);
-// // }
+// compute normal from a SDF gradient by sampling 4 tetrahedral points around a location p
+// (cheaper than the usual technique of sampling 6 cardinal points)
+// 'scene' should be the SDF evaluator 'float distance = scene(vec3 pos)''  
+// 'eps' is the distance to compare points around the location 'p' 
+// a smaller eps gives sharper edges, but it should be large enough to overcome sampling error
+// in theory, the gradient magnitude of an SDF should everywhere = 1, 
+// but in practice this isn’t always held, so need to normalize() the result
+vec3 normal4(in vec3 p, float eps) {
+	vec2 e = vec2(-eps, eps);
+	// tetrahedral points
+	float t1 = scene(p + e.yxx), t2 = scene(p + e.xxy), t3 = scene(p + e.xyx), t4 = scene(p + e.yyy); 
+	vec3 n = (e.yxx*t1 + e.xxy*t2 + e.xyx*t3 + e.yyy*t4);
+	// normalize for a consistent SDF:
+	//return n / (4.*eps*eps);
+	// otherwise:
+	return normalize(n);
+}
 
 
-// // // https://github.com/stackgl/glsl-specular-cook-torrance
-// // float specularCookTorrance(vec3 _L, vec3 _N, vec3 _V, float _NoV, float _NoL, float _roughness, float _fresnel) {
-// //     float NoV = max(_NoV, 0.0);
-// //     float NoL = max(_NoL, 0.0);
-// //     //Half angle vector
-// //     vec3 H = normalize(_L + _V);
-// //     //Geometric term
-// //     float NoH = max(dot(_N, H), 0.0);
-// //     float VoH = max(dot(_V, H), 0.000001);
-// //     float LoH = max(dot(_L, H), 0.000001);
-// //     float x = 2.0 * NoH / VoH;
-// //     float G = min(1.0, min(x * NoV, x * NoL));
-// //     //Distribution term
-// //     float D = beckmann(NoH, _roughness);
-// //     //Fresnel term
-// //     float F = pow(1.0 - NoV, _fresnel);
-// //     //Multiply terms and done
-// //     return  G * F * D / max(3.14159265 * NoV * NoL, 0.000001);
-// // }
+vec4 shade(vec3 p) {
+	const float EPS = 0.003;
+	vec4 outColor;
 
-// // // https://github.com/glslify/glsl-specular-cook-torrance
-// // float specularCookTorrance(vec3 L, vec3 N, vec3 V, float roughness, float fresnel) {
-// //     float NoV = max(dot(N, V), 0.0);
-// //     float NoL = max(dot(N, L), 0.0);
-// //     return specularCookTorrance(L, N, V, NoV, NoL, roughness, fresnel);
-// // }
+	// get a texcoord from the surface
+	// ideally, the sdf itself would return a texcoord
+	vec2 tc = texcoord(p);
 
-// // float specularCookTorrance(vec3 L, vec3 N, vec3 V, float roughness) {
-// //     return specularCookTorrance(L, N, V, roughness, 0.04);
-// // }
+	// vec3 N = normalize(v_normal); 
+	// vec3 T = normalize(dFdx(v_texCoord.y)*dFdy(v_world.xyz)-dFdx(v_world.xyz)*dFdy(v_texCoord.y));
+	// vec3 B = cross(N, T);
+	// mat3 TBN = mat3(T, B, N);
+	//N = TBN * (texture(u_normal_tex, tc).xyz*2.-1.);
 
-// // float toShininess(float roughness, float metallic) {
-// //     float s = .95 - roughness * 0.5;
-// //     return s*s*s * (80. + 160. * (1.0-metallic));
-// // }
+	// for normal, we approximate it by testing the scene at nearby points
+	// for tangent/bitangent, we do the same, using texcoords for the surface orientation
+	mat3 TBN = tbn4(p, EPS);
+	// normal map:
+	TBN[2] = TBN * (texture(u_normal_tex, tc).xyz*2.-1.);
 
-// // vec3 envMap(vec3 normal, float roughness, float metallic) {
-// //     return pow(environment(normal), vec3(toShininess(roughness, metallic)));
-// // }
-
-// // vec3 fresnel(const vec3 f0, float LoH) {
-// //     float f90 = clamp(dot(f0, vec3(50.0 * 0.33)), 0., 1.);
-// //     return schlick(f0, f90, LoH);
-// // }
-
-// // vec3 fresnel(vec3 _R, vec3 _f0, float _NoV) {
-// //     return fresnel(_f0, _NoV) * environment(_R);
-// // }
-
-// // vec3 pbr0(vec3 surface_pos, vec3 light_pos, vec3 camera_pos, vec3 albedo, vec3 normal, float metallic, float roughness, float shadow, vec3 lightcolor=vec3(1.)) {
+	// all of these are in object-space:
+	// rotate to world space
+	vec3 T = quat_rotate(v_quat, TBN[0]);
+	vec3 B = quat_rotate(v_quat, TBN[1]);
+	vec3 N = quat_rotate(v_quat, TBN[2]);
+	//mat3 TBN = mat3(T, B, N);
 	
-// // 	float gamma = 2.2;
-// // 	vec3 L = normalize(light_pos - surface_pos);
-// //     vec3 N = normalize(normal);
-// //     vec3 V = normalize(camera_pos - surface_pos);
-// // 	vec3 R = reflect(-V, N);
+	outColor = vec4(N*0.5+0.5, 1.);
+	// outColor = vec4(T*0.5+0.5, 1.);
+	// outColor = vec4(B*0.5+0.5, 1.);
+	// outColor = vec4( abs(dot(N, T)) ); // verify that N, T are orthogonal; should be zero
+	// outColor = vec4( abs(dot(N, B)) ); // verify that N, B are orthogonal; should be zero
+	// outColor = vec4( abs(dot(T, B)) ); // verify that B, T are orthogonal; should be zero
+	//outColor = vec4(tc, 0., 1.);
+	// demo texture for debugging:
+	vec2 chk = mod(tc*2., 1.)-0.5;
+	float checker = sign(chk.x*chk.y)*0.5+0.5;
+	//outColor = vec4(N*checker, 1.);
 
-// // 	float notMetal = 1. - metallic;
-// //     float smoothe = 0.95 - roughness;
-// // 	float diffuse = diffuseBurley(L, N, V, roughness);
-// // 					//diffuseOrenNayar(L, N, V, roughness);
-// //     float specular = specularCookTorrance(L, N, V, roughness);
-
-// // 	return vec3(specular);
-
-// // 	specular *= shadow;
-// //     diffuse *= shadow;
-
-// // 	vec3 color = albedo * diffuse;
-
-// // 	color *= environment(N); // tonemapReinhard( sphericalHarmonics(N) );
-
-// // 	float specIntensity =   (0.04 * notMetal + 2.0 * metallic) * 
-// //                             clamp(1.1 + dot(N, V) + metallic, 0., 1.) * // Fresnel
-// //                             (metallic + smoothe * 4.0); // make smaller highlights brighter
-// // 	vec3 ambientSpecular = envMap(R, roughness, metallic) * specIntensity;
-// // 	ambientSpecular += fresnel(R, vec3(0.04), dot(N,V)) * metallic;
-
-// // 	color = color * notMetal + (ambientSpecular + lightcolor * 2.0 * specular) * (notMetal * smoothe + color * metallic);
-
-
-// // 	//return pow(color, vec3(1. / gamma));
-// // }
-
-void main() {
 	float gamma = 2.2;
-	vec3 albedo = pow(texture(u_albedo_tex, v_texCoord).rgb, vec3(gamma));
-	vec3 mra = texture(u_mra_tex, v_texCoord).rgb;
+	vec3 albedo = pow(texture(u_albedo_tex, tc).rgb, vec3(gamma));
+	vec3 mra = texture(u_mra_tex, tc).rgb;
 	float metallic = mra.x;
 	float roughness = mra.y;
 	float ao = mra.z;
 
-	vec3 N = normalize(v_normal); 
-	vec3 T = normalize(dFdx(v_texCoord.y)*dFdy(v_world.xyz)-dFdx(v_world.xyz)*dFdy(v_texCoord.y));
-	vec3 B = cross(N, T);
-	mat3 TBN = mat3(T, B, N);
-	vec3 normal = TBN * (texture(u_normal_tex, v_texCoord).xyz*2.-1.);
+	return vec4(pbr(albedo, normalize(N), roughness, metallic, ao, v_world.xyz, u_camera_pos, u_light_pos, u_env_tex), 1.);
 
-	outColor = vec4(pbr(albedo, normalize(normal), roughness, metallic, ao, v_world.xyz, u_camera_pos, u_light_pos, u_env_tex), 1.);
-
-	// ray from surface to eye
-	// vec3 V = normalize(u_camera_pos - v_world);
-	// vec3 R = reflect(-V, normal);
-	// // ray from surface to light
-	// vec3 L = normalize(u_light_pos - v_world);
-	// vec3 H = normalize(L+V);
-
-	//outColor = vec4(normal, 1.);
+	// now go ahead and do the lighting & texturing of choice
+	return outColor;
+}
 
 
- 	// // mix between metal and non-metal material, for non-metal
-    // // constant base specular factor of 0.04 grey is used
-    // vec3 specular_f0 = mix(vec3(0.04), albedo, metallic);
+void main() {
 
-	// vec3 env_diffuse = environment(normal);
-	// vec3 env_specular = environment(R);
+	vec3 rd = normalize(v_raydir);
+	vec3 ro = v_raypos;
+	float scale = v_bounds.w;
+	vec3 worldpos = v_world.xyz;
+	float dist = v_world.w; // maybe used for fog etc.
 
-	// // N or normal?
-	// float NdotL = max(0., dot(normal, L));
-	// float NdotV = max(0.001, dot(normal, V));
-	// float NdotH = max(0.001, dot(normal, H));
-	// float VdotH = max(0.001, dot(V, H));
-	// float VdotL = max(0.001, dot(V, L));
+	#define STEPS 64
+	#define FAR 3.0
+	const float EPS = 1./float(STEPS);
+	vec3 p = ro;
+	float t = 0.;
+	int step = 0;
+	float d = 0.;
+	float d0 = 0.;
+	int contact = 0;
 
-	// vec3 spec_fresnel = mix(specular_f0, vec3(1.0), pow(1.01 - NdotV, 5.0));
-	// vec3 specref = phong_specular(V, L, N, spec_fresnel, roughness);
+	for (; step < STEPS && t < FAR; step++) {
+		p = ro + t*rd;
+		d = scene(p);
+		if (sign(d)*sign(d0) == -1.) { // surface crossing
+			contact++;
+			// render at corrected surface position:
+			p = ro + (t-abs(d))*rd;
+			
+			worldpos += quat_rotate(v_quat, p * scale);
+			break;  // break here for solid shape
+		}
+		d0 = d;
+		// always move forward:
+		t += max(EPS,abs(d));
+	}
 
-	// specref *= NdotL;
-
-	// // diffuse is common for any model
-    // vec3 diffref = (vec3(1.0) - spec_fresnel) * NdotL / PI;
-
-
-	//outColor = vec4(R*0.5+0.5, 1.);
-	//outColor = vec4(T*0.5+0.5, 1.);
-	//outColor = mix( outColor, vec4(v_texCoord, 0., 1.), 0.2);
-	//outColor = vec4(albedo, 1.);
-	// // outColor = vec4(normal, 1.);
-	// // //outColor = vec4(mra, 1.);
-	// // // outColor = vec4(metallic);
-	// // // outColor = vec4(roughness);
-	// // //outColor = vec4(ao);
-	// //outColor = vec4(normal, 1.);
-
-	// outColor = vec4(v_texCoord, 0., 1.);
-
-	//vec3 ambient = equirectangular(irradianceMap, 
-	//	gl_TextureMatrix[5], 
-	///	normal, 
-	//	roughness * 8.).rgb;
-	// outColor = vec4(NdotL);
-	// outColor = vec4(diffref, 1.);
+	// for deadzone:
+	if (contact == 0) {
+		// outColor += vec4(0.25); // show bounding box
+		discard;
+	} else {
+		outColor = shade(p);
+	}
+	gl_FragDepth = computeDepth(worldpos, v_viewprojmatrix);
 }

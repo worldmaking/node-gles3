@@ -18,6 +18,7 @@
     "native-openvr-deps": "0.0.19",
     "node-addon-api": "^3.1.0",
     "png-js": "1.0.0",
+    "pngjs": "^6.0.0",
     "zed": "^0.1.0"
   }
 }

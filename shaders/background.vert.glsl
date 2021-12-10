@@ -1,12 +1,8 @@
 #version 330
-
-in vec3 a_position;
-in vec3 a_normal;
-
+in vec4 a_position;
+in vec2 a_texCoord;
 out vec2 v_texCoord;
-
 void main() {
-	gl_Position = vec4(a_position, 1.);
-
-	v_texCoord = a_position.xy * 0.5 + 0.5;
+	gl_Position = a_position;
+	v_texCoord = a_texCoord;
 }

@@ -5,8 +5,38 @@ const gl = require('./gles3.js')
 const glfw = require('./glfw3.js')
 const glutils = require('./glutils.js');
 
-const PNG = require("png-js");
 const jpeg = require('jpeg-js');
+const pnglib = require("pngjs").PNG
+
+function png2tex(gl, pngpath) {
+	let img = pnglib.sync.read(fs.readFileSync(pngpath))
+	let tex = glutils.createPixelTexture(gl, img.width, img.height)
+	tex.data = img.data
+	tex.bind().submit()
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+	gl.generateMipmap(gl.TEXTURE_2D);
+	tex.unbind();
+	return tex
+}
+
+function png2tex3(gl, pngpath0, pngpath1, pngpath2) {
+	let img0 = pnglib.sync.read(fs.readFileSync(pngpath0))
+	let img1 = pnglib.sync.read(fs.readFileSync(pngpath1))
+	let img2 = pnglib.sync.read(fs.readFileSync(pngpath2))
+	let tex = glutils.createPixelTexture(gl, img0.width, img1.height)
+	for (let i=0; i<tex.width * tex.height; i++) {
+		tex.data[i*4+0] = img0.data[i*4]
+		tex.data[i*4+1] = img1.data[i*4]
+		tex.data[i*4+2] = img2.data[i*4]
+	}
+	tex.bind().submit()
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+	gl.generateMipmap(gl.TEXTURE_2D);
+	tex.unbind();
+	return tex
+}
 
 
 if (!glfw.init()) {

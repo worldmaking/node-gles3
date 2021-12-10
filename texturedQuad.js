@@ -9,23 +9,26 @@ let Shaderman = require("./shaderman.js")
 const glfw3 = require("./glfw3.js")
 
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
-const PNG = require("png-js");
+
+const pnglib = require("pngjs").PNG
+
 function png2tex(gl, pngpath) {
-	let png = PNG.load(pngpath);
-	let tex = glutils.createPixelTexture(gl, png.width, png.height)
-	png.decode(pixels => {
-		tex.data = pixels;
-		tex.bind().submit()
-		gl.generateMipmap(gl.TEXTURE_2D);
-		tex.unbind();
-	})
+	let img = pnglib.sync.read(fs.readFileSync(pngpath))
+	let tex = glutils.createPixelTexture(gl, img.width, img.height)
+	tex.data = img.data
+	tex.bind().submit()
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+	gl.generateMipmap(gl.TEXTURE_2D);
+	tex.unbind();
 	return tex
 }
+
 
 let shaderman = new Shaderman(gl)
 let win = new Window()
 
-let name = "greasy-pan-2"
+let name = "metal"
 let albedo = png2tex(gl, path.join("textures", `${name}_albedo.png`))
 
 let quad = glutils.createVao(gl, glutils.makeQuad(), shaderman.create(gl, "texturedquad").id);

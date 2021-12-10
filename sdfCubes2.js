@@ -426,14 +426,20 @@ ${math_shader_lib}
 
 void main() {
 	vec4 vertex = vec4(a_position, 1.);
+
+	float n = vertex.z * 2.-1.;
+	//n = sign(n) * pow(abs(n), 0.2);
+	n = n *0.5+0.5;
 	
 	v_z = vertex.z;
-	vec4 q = quat_slerp(i_quat0, i_quat1, v_z);
+	vec4 q = quat_slerp(normalize(i_quat0), normalize(i_quat1), n);
+	q = normalize(q);
+	//vec4 q = mix(i_quat0, i_quat1, v_z);
 
 	// apply instance transform:
+	vertex = quat_rotate(q, vertex);
 	vertex.xyz *= i_bounds.xyz;
 	vertex.xyz *= i_bounds.w;
-	vertex = quat_rotate(q, vertex);
 	vertex.xyz += i_pos.xyz;
 
 	vec4 world = /*u_modelmatrix * */ vertex;
@@ -514,8 +520,8 @@ float scene(vec3 p) {
 	// float d0 = fSphere(p-vec3(0, 0, 0.5), 0.5);
 	float d1 = fCylinder(pc.xzy, 0.2, 0.5);
 	// float d2 = sdCapsule2(p, vec3(0., 0, -0.4), vec3(0., 0., -.4), 0.2, 0.3);
-	float d3 = sdCube(pc, vec3(0.2, 0.1, 0.5));
-	return d1;
+	float d3 = sdCube(pc, vec3(0.1, 0.1, 0.5));
+	return d3;
 }
 
 vec2 texcoord(vec3 p) {
@@ -647,10 +653,11 @@ void main() {
 	}
 
 	float glow = float(step)/float(STEPS);
-	outColor += vec4(glow*glow); // show halo
+	outColor += vec4(pow(2.*glow, 2.2)); // show halo
 	//outColor = mix(outColor, vec4(glow), glow*glow);
 
-	outColor = vec4(v_normal*0.5+0.5, 1.);
+	//outColor = vec4(v_normal*0.5+0.5, 1.);
+	//outColor = vec4(v_z);
 
 	//gl_FragDepth = computeDepth(worldpos, v_viewprojmatrix);
 	
@@ -658,24 +665,24 @@ void main() {
 	if (contact == 0) {
 		//outColor += vec4(0.15); // show bounding box
 		//gl_FragDepth = 0.9999;
-		//discard;
+		discard;
 	} else {
 
 		// outColor = vec4(worldpos, 1.);
-		// outColor = shade(p);
+		//outColor = shade(p);
 		// //outColor = vec4(dist);
 		// // outColor = vec4(v_pos);
 		// // outColor = vec4(v_bounds);
-		// outColor = vec4(v_normal*0.5+0.5, 1.);
+		outColor = vec4(v_normal*0.5+0.5, 1.);
 		// //outColor = vec4(v_world);
 		// outColor = vec4(v_texCoord, 0., 1.);
 		// outColor = vec4(v_eyepos, 1.);
 		// outColor = vec4(v_raypos, 1.);
-		// outColor = vec4(v_raydir, 1.);
+		//outColor = vec4(v_raydir, 1.);
 		// outColor = vec4(rd, 1.);
 		// outColor = vec4(d);
 		// outColor = vec4(contact);
-		// outColor = vec4(t * float(contact) + glow);
+		//outColor = vec4(t * float(contact) + glow);
 		//outColor = vec4(worldpos, 1.);
 	}
 
@@ -833,7 +840,7 @@ function animate() {
 	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], near, far);
 
 	gl.viewport(0, 0, dim[0], dim[1]);
-	gl.clearColor(0.1, 0.1, 0.1, 1);
+	gl.clearColor(0., 0., 0., 1);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 	gl.enable(gl.DEPTH_TEST)

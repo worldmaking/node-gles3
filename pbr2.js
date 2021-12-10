@@ -9,49 +9,35 @@ let Shaderman = require("./shaderman.js")
 const glfw3 = require("./glfw3.js")
 
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
-const PNG = require("png-js");
+const pnglib = require("pngjs").PNG
 
 function png2tex(gl, pngpath) {
-	let png = PNG.load(pngpath);
-	let tex = glutils.createPixelTexture(gl, png.width, png.height)
-	png.decode(pixels => {
-		tex.data = pixels;
-		tex.bind().submit()
-		gl.generateMipmap(gl.TEXTURE_2D);
-		tex.unbind();
-	})
+	let img = pnglib.sync.read(fs.readFileSync(pngpath))
+	let tex = glutils.createPixelTexture(gl, img.width, img.height)
+	tex.data = img.data
+	tex.bind().submit()
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+	gl.generateMipmap(gl.TEXTURE_2D);
+	tex.unbind();
 	return tex
 }
 
 function png2tex3(gl, pngpath0, pngpath1, pngpath2) {
-	let png0 = PNG.load(pngpath0);
-	let png1 = PNG.load(pngpath1);
-	let png2 = PNG.load(pngpath2);
-	let tex = glutils.createPixelTexture(gl, png0.width, png0.height)
-	function submit() {
-		tex.bind().submit()
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-		tex.unbind();
+	let img0 = pnglib.sync.read(fs.readFileSync(pngpath0))
+	let img1 = pnglib.sync.read(fs.readFileSync(pngpath1))
+	let img2 = pnglib.sync.read(fs.readFileSync(pngpath2))
+	let tex = glutils.createPixelTexture(gl, img0.width, img1.height)
+	for (let i=0; i<tex.width * tex.height; i++) {
+		tex.data[i*4+0] = img0.data[i*4]
+		tex.data[i*4+1] = img1.data[i*4]
+		tex.data[i*4+2] = img2.data[i*4]
 	}
-	png0.decode(pixels => {
-		for (let i=0; i<png0.width * png0.height; i++) {
-			tex.data[i*4+0] = pixels[i*4]
-		}
-		submit()
-	})
-	png1.decode(pixels => {
-		for (let i=0; i<png0.width * png0.height; i++) {
-			tex.data[i*4+1] = pixels[i*4]
-		}
-		submit()
-	})
-	png2.decode(pixels => {
-		for (let i=0; i<png0.width * png0.height; i++) {
-			tex.data[i*4+2] = pixels[i*4]
-		}
-		submit()
-	})
+	tex.bind().submit()
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+	gl.generateMipmap(gl.TEXTURE_2D);
+	tex.unbind();
 	return tex
 }
 
@@ -72,17 +58,36 @@ let win = new Window()
 //gl.hint(gl.GENERATE_MIPMAP_HINT, gl.NICEST) 
 
 let quad = glutils.createVao(gl, glutils.makeQuad(), shaderman.create(gl, "background").id);
-let cube = glutils.createVao(gl, glutils.makeCube(), shaderman.create(gl, "sdfpbr").id);
+let cube = glutils.createVao(gl, glutils.makeCube({ min:-0.5, max:0.5, div: 8 }), shaderman.create(gl, "sdfpbr").id);
+
+let cubes = glutils.createInstances(gl, [
+	{ name:"i_quat", components:4 },
+	{ name:"i_bounds", components:4 },
+	{ name:"i_pos", components:3 },
+], 100)
+cubes.instances.forEach(obj => {
+	vec4.set(obj.i_pos, 
+		(Math.random()-0.5) * 20,
+		(Math.random()-0.5) * 20,
+		(Math.random()-0.9) * 20
+	);
+	// xyz is bounding box, w is scale factor
+	let s = 1
+	vec4.set(obj.i_bounds, s, s, s, 1);
+	quat.random(obj.i_quat);
+})
+cubes.bind().submit().unbind();
+cubes.attachTo(cube);
 
 // let material_names = ["alien-metal", "beaten-up-metal1", "copper-rock1", "gray-granite-flecks", "vertical-lined-metal", "rustediron2", "iron-rusted4", "greasy-pan-2"]
-// //let material = loadMaterialTextures(gl, "alien-metal") 
-let material = loadMaterialTextures(gl, "beaten-up-metal1") 
-// //let material = loadMaterialTextures(gl, "copper-rock1")
-//let material = loadMaterialTextures(gl, "gray-granite-flecks")
+////let material = loadMaterialTextures(gl, "alien-metal") 
+////let material = loadMaterialTextures(gl, "copper-rock1")
+////let material = loadMaterialTextures(gl, "gray-granite-flecks")
+////let material = loadMaterialTextures(gl, "rustediron2") 
+////let material = loadMaterialTextures(gl, "iron-rusted4") 
+let material = loadMaterialTextures(gl, "greasy-pan-2")
 //let material = loadMaterialTextures(gl, "vertical-lined-metal")
-//let material = loadMaterialTextures(gl, "rustediron2") 
-//let material = loadMaterialTextures(gl, "iron-rusted4") 
-//let material = loadMaterialTextures(gl, "greasy-pan-2")
+//let material = loadMaterialTextures(gl, "beaten-up-metal1") 
 
 let envfbo = glutils.makeFboWithDepth(gl, 2048, 1024, true, 0, gl.CLAMP);
 let envquad = glutils.createVao(gl, glutils.makeQuad(), shaderman.create(gl, "env").id);
@@ -111,8 +116,19 @@ win.draw = function() {
 
 	let ts = t*2
 
-	let light_pos = [100*Math.cos(ts), 100*Math.sin(ts), 0.]
-	//let light_pos = [0, 4.5, 0]
+	//let light_pos = [100*Math.cos(ts), 100*Math.sin(ts), 0.]
+	let light_pos = [0, 4.5, 0]
+
+	// update scene:
+	let q = [0, 0, 0, 1]
+	for (let obj of cubes.instances) {
+		//let obj = cubes.instances[Math.floor(Math.random() * cubes.count)];
+		// change its orientation:
+		quat.random(q);
+		quat.slerp(obj.i_quat, obj.i_quat, q, 0.002);
+	}
+	// submit to GPU:
+	cubes.bind().submit().unbind()
 
 
 	// we're going to want a light map as a mipmapped texture
@@ -168,25 +184,45 @@ win.draw = function() {
 
 	
 	material.mra.bind(3)
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 	material.normal.bind(2)
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 	material.albedo.bind(1)
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 	
 	shaderman.shaders.sdfpbr.begin()
 		.uniform("u_projmatrix", projmatrix)
 		.uniform("u_viewmatrix", viewmatrix)
-		.uniform("u_modelmatrix", modelmatrix)
 		.uniform("u_mra_tex", 3)
 		.uniform("u_normal_tex", 2)
 		.uniform("u_albedo_tex", 1)
 		.uniform("u_env_tex", 0)
 		.uniform("u_light_pos", light_pos)
 		.uniform("u_camera_pos", camera_pos)
-		.uniform("u_modelmatrix", modelmatrix)
 	cube.bind().draw().unbind()
-	
-
-
 	shaderman.shaders.sdfpbr.end()
+
+	shaderman.shaders.sdfpbr.begin()
+		.uniform("u_projmatrix", projmatrix)
+		.uniform("u_viewmatrix", viewmatrix)
+		.uniform("u_mra_tex", 3)
+		.uniform("u_normal_tex", 2)
+		.uniform("u_albedo_tex", 1)
+		.uniform("u_env_tex", 0)
+		.uniform("u_light_pos", light_pos)
+		.uniform("u_camera_pos", camera_pos)
+	cube.bind().drawInstanced(cubes.count).unbind()
+	shaderman.shaders.sdfpbr.end()
+
+	// cubeprogram.begin();
+	// cubeprogram.uniform("u_viewmatrix", viewmatrix);
+	// cubeprogram.uniform("u_projmatrix", projmatrix);
+	// cubeprogram.uniform("u_nearfar", near, far);
+	// cube.bind().drawInstanced(cubes.count).unbind()
+	// cubeprogram.end();
 
 }
 

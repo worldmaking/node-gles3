@@ -15,7 +15,7 @@ out vec4 outColor;
 void main() {
 
 	// ray direction of background:
-	vec3 rd = normalize((u_projviewmatrix_inverse * vec4(v_texCoord*2.-1., 1., 1.)).xyz);
+	vec3 rd = normalize((u_projviewmatrix_inverse * vec4(v_texCoord * 2. -1., 1., 1.)).xyz);
 	vec2 uv = equirectangular(rd);	
 	outColor = vec4(v_texCoord, 0, 1);
 	outColor = vec4(rd, 1.);

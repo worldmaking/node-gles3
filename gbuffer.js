@@ -57,10 +57,10 @@ let camera_pos = [0, 1.7, 0.25];
 let camera_at = [0, 1.7, 0];
 let light_pos = [1, 3, 1];
 
-let color_tex = jpg2tex(gl, 'Metal007_1K_Color.jpg') 
-let normal_tex = jpg2tex(gl, 'Metal007_1K_Normal.jpg') 
-let metalness_tex = jpg2tex(gl, 'Metal007_1K_Metalness.jpg') 
-let roughness_tex = jpg2tex(gl, 'Metal007_1K_Roughness.jpg') 
+let color_tex = png2tex(gl, 'textures/metal_albedo.png') 
+let normal_tex = png2tex(gl, 'textures/metal_normal.png') 
+let metalness_tex = png2tex(gl, 'textures/metal_metalness.png') 
+let roughness_tex = png2tex(gl, 'textures/metal_roughness.png') 
 
 /*
 	g-buffer layers:
