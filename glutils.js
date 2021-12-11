@@ -1065,19 +1065,19 @@ function createVao(gl, geom, program) {
             }
 			return this;
 		},
-        draw(count=0) {
-			if (geom.indices) gl.drawElements(gl.TRIANGLES, count ? count : geom.indices.length, this.indexType, 0);
-			else gl.drawArrays(gl.TRIANGLES, 0, count ? count : geom.vertices.length/geom.vertexComponents);
+        draw(count=0, offset=0) {
+			if (geom.indices) gl.drawElements(gl.TRIANGLES, count ? count : geom.indices.length, this.indexType, offset);
+			else gl.drawArrays(gl.TRIANGLES, offset, count ? count : geom.vertices.length/geom.vertexComponents);
 			return this;
         },
-        drawLines(count=0) {
-			if (geom.indices) gl.drawElements(gl.LINES, count ? count : geom.indices.length, this.indexType, 0);
-			else gl.drawArrays(gl.LINES, 0, count ? count : geom.vertices.length/geom.vertexComponents);
+        drawLines(count=0, offset=0) {
+			if (geom.indices) gl.drawElements(gl.LINES, count ? count : geom.indices.length, this.indexType, offset);
+			else gl.drawArrays(gl.LINES, offset, count ? count : geom.vertices.length/geom.vertexComponents);
 			return this;
         },
-        drawPoints(count=0) {
-            if (geom.indices) gl.drawElements(gl.POINTS, count ? count : geom.indices.length, this.indexType, 0);
-			else gl.drawArrays(gl.POINTS, 0, count ? count : geom.vertices.length/geom.vertexComponents);
+        drawPoints(count=0, offset=0) {
+            if (geom.indices) gl.drawElements(gl.POINTS, count ? count : geom.indices.length, this.indexType, offset);
+			else gl.drawArrays(gl.POINTS, offset, count ? count : geom.vertices.length/geom.vertexComponents);
 			return this;
         },
         drawInstanced(instanceCount=1, primitive=gl.TRIANGLES) {
@@ -1085,6 +1085,12 @@ function createVao(gl, geom, program) {
             else gl.drawArraysInstanced(primitive, 0, geom.vertices.length/geom.vertexComponents, instanceCount)
 			return this;
         },
+        drawInstancedRange(instanceStart=0, instanceCount=1, primitive=gl.TRIANGLES) {
+            if (geom.indices) gl.drawElementsInstanced(primitive, geom.indices.length, this.indexType, instanceStart, instanceCount);
+            else gl.drawArraysInstanced(primitive, instanceStart, geom.vertices.length/geom.vertexComponents, instanceCount)
+			return this;
+        },
+
 
         dispose() {
             if(this.indexBuffer) gl.deleteBuffers(this.indexBuffer)
