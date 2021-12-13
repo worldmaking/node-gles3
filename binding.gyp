@@ -242,7 +242,7 @@
         "target_name": "realsense",
         "sources": [ "src/node-realsense.cpp" ],
         "defines": [],
-        "cflags": ["-std=c++11", "-Wall", "-pedantic"],
+        "cflags": ["-std=c++11", "-Wall", "-pedantic", "-O3"],
         "include_dirs": [ 
           "<!(node -p \"require('node-addon-api').include_dir\")",
           "src"

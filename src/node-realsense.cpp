@@ -383,7 +383,6 @@ int wrap(int a, int n) {
 		This.Set("count", Napi::Number::New(env, index_count));
 	
 
-
 		// auto color = frames.get_color_frame();
 		// // Tell pointcloud object to map to this color frame
 		// pc.map_to(color);
@@ -418,11 +417,10 @@ int wrap(int a, int n) {
 		const size_t NUM_FLOATS = vertices_value.ElementLength();
 		const size_t NUM_POINTS = NUM_FLOATS/3;
 		
-		// decay:
+		// // decay:
 		for (size_t i=0; i<NUM_VOXELS; i++) {
 			voxels_data[i] *= voxels_mul;
 		}
-
 
 		for (size_t i=0; i<NUM_POINTS; i++) {
 
@@ -545,7 +543,7 @@ public:
 		// 	Pipeline::InstanceMethod<&Pipeline::isOpened>("isOpened"),
 			Pipeline::InstanceMethod<&Pipeline::grab>("grab"),
 			Pipeline::InstanceMethod<&Pipeline::voxels>("voxels"),
-			Pipeline::InstanceMethod<&Pipeline::grab>("get_active_profile"),
+			//Pipeline::InstanceMethod<&Pipeline::grab>("get_active_profile"),
 		});
 
 		// Create a persistent reference to the class constructor. This will allow
