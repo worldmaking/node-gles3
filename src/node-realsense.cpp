@@ -185,7 +185,139 @@ int wrap(int a, int n) {
 
 		float maxarea = This.Has("maxarea") ?  This.Get("maxarea").ToNumber().DoubleValue() : 0.001;
 		glm::mat4 transform = This.Has("modelmatrix") ? glm::make_mat4(This.Get("modelmatrix").As<Napi::Float32Array>().Data()) : glm::mat4();
-		float miny = This.Has("miny") ? This.Get("miny").ToNumber().DoubleValue() : 0.;
+		//float miny = This.Has("miny") ? This.Get("miny").ToNumber().DoubleValue() : 0.;
+
+		if (This.Has("min")) {
+			const Napi::Object value = This.Get("min").ToObject();
+			min.x = value.Get(uint32_t(0)).ToNumber().DoubleValue();
+			min.y = value.Get(uint32_t(1)).ToNumber().DoubleValue();
+			min.z = value.Get(uint32_t(2)).ToNumber().DoubleValue();
+		}
+		if (This.Has("max")) {
+			const Napi::Object value = This.Get("max").ToObject();
+			max.x = value.Get(uint32_t(0)).ToNumber().DoubleValue();
+			max.y = value.Get(uint32_t(1)).ToNumber().DoubleValue();
+			max.z = value.Get(uint32_t(2)).ToNumber().DoubleValue();
+		}
+
+		rs2::frameset frames;
+		if (wait) {
+			// https://intelrealsense.github.io/librealsense/doxygen/classrs2_1_1frameset.html
+			// Block program until frames arrive
+			frames = p.wait_for_frames();
+		} else {
+			// non-blocking:
+			if (!p.poll_for_frames(&frames)) return env.Null();
+		}
+
+		if (rs2::motion_frame accel_frame = frames.first_or_default(RS2_STREAM_ACCEL)) {
+			rs2_vector a = accel_frame.get_motion_data();
+			accel[0] = a.x;
+			accel[1] = a.y;
+			accel[2] = a.z;
+			//printf("accel %f %f %f\n", accel.x, accel.y, accel.z);
+		}
+
+		// Try to get a frame of a depth image
+		// https://intelrealsense.github.io/librealsense/doxygen/classrs2_1_1depth__frame.html
+		rs2::depth_frame depth = frames.get_depth_frame();
+
+		
+		// rs2::pose_frame pose_frame = frames.get_pose_frame();
+		// rs2_pose pose = pose_frame.get_pose_data();
+		// printf("accel %f %f %f\n", pose.acceleration.x, pose.acceleration.y, pose.acceleration.z);
+
+		// frame depth.apply_filter (filter_interface &filter).as<rs2::depth_frame>();
+
+
+		// Get the depth frame's dimensions
+		int width = depth.get_width();
+		int height = depth.get_height();
+		const size_t num_vertices = width * height;
+		const size_t num_floats = num_vertices * 3;
+		size_t MAX_NUM_INDICES = num_vertices;
+		// retrieve frame stride, meaning the actual line width in memory in bytes (not the logical image width)
+		int stride = depth.get_stride_in_bytes ();
+		int bitspp = depth.get_bits_per_pixel ();
+		int bytespp = depth.get_bytes_per_pixel ();
+		double t = depth.get_timestamp ();
+		const int sz = depth.get_data_size ();
+		const void * data = depth.get_data ();
+		// Query the distance from the Pipeline to the object in the center of the image
+		//float dist_to_center = depth.get_distance(width / 2, height / 2);
+		// Print the distance
+		// printf("The Pipeline is facing an object %f x %f meters away \n", depth.get_units(), dist_to_center);
+		// printf("size %d points %d x %d = %d \n", sz, width, height, width*height);
+
+		// {
+		// 	// const size_t num_bytes = num_floats * sizeof(float);
+		// 	if (!this->depth || this->depth.ElementLength() != num_floats) {
+		// 		// reallocate it:
+		// 		printf("reallocating %d floats\n", num_floats);
+		// 		this->depth = Napi::TypedArrayOf<float>::New(env, num_floats, napi_float32_array);
+		// 		This.Set("depth", this->depth);
+		// 	}
+
+
+		// Generate the pointcloud and texture mappings
+		points = pc.calculate(depth);
+		//const rs2::vertex * vertices = points.get_vertices ();
+		const glm::vec3 * raw_vertices = (glm::vec3 *)points.get_vertices ();  // xyz
+		//const rs2::texture_coordinate * texcoords = points.get_texture_coordinates (); // uv
+		//const glm::vec2 * texcoords = (glm::vec2 *)points.get_texture_coordinates (); // uv
+		
+		const size_t num_bytes = num_floats * sizeof(float);
+		if (!this->vertices || this->vertices.ElementLength() != num_floats) {
+			// reallocate it:
+			printf("reallocating %d floats\n", num_floats);
+			printf("width %d height %d num vertices %d %d\n", width, height, num_vertices, width * height);
+			this->vertices = Napi::TypedArrayOf<float>::New(env, num_floats, napi_float32_array);
+			This.Set("vertices", this->vertices);
+			
+			// this->normals = Napi::TypedArrayOf<float>::New(env, num_floats, napi_float32_array);
+			// This.Set("normals", this->normals);
+			
+			this->indices = Napi::TypedArrayOf<uint32_t>::New(env, MAX_NUM_INDICES, napi_uint32_array);
+			This.Set("indices", this->indices);
+
+			This.Set("count", Napi::Number::New(env, 0));
+		}
+		//memcpy(this->vertices.Data(), raw_vertices, num_bytes);
+
+	
+		// see https://intelrealsense.github.io/librealsense/doxygen/rs__export_8hpp_source.html
+		glm::vec3 * vertices = (glm::vec3 *)this->vertices.Data();
+		glm::vec3 * normals = (glm::vec3 *)this->normals.Data();
+		uint32_t * indices = (uint32_t *)this->indices.Data();
+		
+		int index_count = 0;
+		for (int i=0; i<num_vertices; i++) {
+			glm::vec3& v = vertices[i];
+			v = glm::vec3(transform * glm::vec4(raw_vertices[i], 1.));
+
+			// meshless index array:
+			if (v.x > min.x && v.y > min.y && v.z > min.z && v.x < max.x && v.y < max.y && v.z < max.z) {
+				indices[index_count] = i;
+				index_count++;
+			}
+		}
+		//printf("index count: %d %d\n", index_count, MAX_NUM_INDICES);
+		This.Set("count", Napi::Number::New(env, index_count));
+
+		return This;
+	}
+
+	Napi::Value grab2(const Napi::CallbackInfo& info) {
+		Napi::Env env = info.Env();
+		Napi::Object This = info.This().As<Napi::Object>();
+	
+		bool wait = info.Length() > 0 ? info[0].As<Napi::Boolean>() : false;
+		bool createMesh = info.Length() > 1 ? info[1].As<Napi::Boolean>() : true;
+		bool withNormals = info.Length() > 2 ? info[2].As<Napi::Boolean>() : true;
+
+		float maxarea = This.Has("maxarea") ?  This.Get("maxarea").ToNumber().DoubleValue() : 0.001;
+		glm::mat4 transform = This.Has("modelmatrix") ? glm::make_mat4(This.Get("modelmatrix").As<Napi::Float32Array>().Data()) : glm::mat4();
+		//float miny = This.Has("miny") ? This.Get("miny").ToNumber().DoubleValue() : 0.;
 
 		if (This.Has("min")) {
 			const Napi::Object value = This.Get("min").ToObject();
@@ -296,92 +428,95 @@ int wrap(int a, int n) {
 		int index_count = 0;
 
 		// apply transform:
-		// float maxdepth = 0.;
-		// int depthcount;
 		for (int i=0; i<num_vertices; i++) {
-			// float z = vertices[i].z;
-			// if (z > 0) {
-			// 	maxdepth += z;
-			// 	depthcount++;
-			// 	//maxdepth = z > maxdepth ? z : maxdepth;
-			// }
-			vertices[i] = glm::vec3(transform * glm::vec4(vertices[i], 1.));
-		}
-		//This.Set("maxdepth", Napi::Number::New(env, maxdepth/depthcount));
+			glm::vec3& v = vertices[i];
+			v = glm::vec3(transform * glm::vec4(v, 1.));
 
-		for (int y = 0; y < height - 1; ++y) {
-			for (int x = 0; x < width - 1; ++x) {
-				// indices of a quad
-				int a = y * width + x, 
-					b = y * width + (x+1), 
-					c = (y+1)*width + x, 
-					d = (y+1)*width + (x+1);
-
-				// raw point data:
-				// vec3d point_a = { verts[a].x ,  -1 * verts[a].y,  -1 * verts[a].z };
-				// vec3d point_b = { verts[b].x ,  -1 * verts[b].y,  -1 * verts[b].z };
-				// vec3d point_c = { verts[c].x ,  -1 * verts[c].y,  -1 * verts[c].z };
-				// vec3d point_d = { verts[d].x ,  -1 * verts[d].y,  -1 * verts[d].z };
-				glm::vec3& point_a = vertices[a];
-				glm::vec3& point_b = vertices[b];
-				glm::vec3& point_c = vertices[c];
-				glm::vec3& point_d = vertices[d];
-
-				glm::vec3 da = point_d - point_a;
-				glm::vec3 ba = point_b - point_a;
-				glm::vec3 ca = point_c - point_a;
-				
-				// normalized cross product of two triangle edges gives face normal
-				glm::vec3 daba = glm::cross(da, ba);
-				glm::vec3 cada = glm::cross(ca, da);
-				// |cross product| of two sides gives area parallelogram, twice area of triangle
-				// this will be zero if there are degenerate points
-				float abd = glm::length(daba);
-				float acd = glm::length(cada);
-
-				glm::vec3 n12;
-				// skip if any of these points are zero
-				// skip if triangle area is too large (or too small??)
-				if (point_a.x > min.x && point_b.x > min.x && point_d.x > min.x && 
-					point_a.y > min.y && point_b.y > min.y && point_d.y > min.y && 
-					point_a.z > min.z && point_b.z > min.z && point_d.z > min.z && 
-					point_a.x < max.x && point_b.x < max.x && point_d.x < max.x && 
-					point_a.y < max.y && point_b.y < max.y && point_d.y < max.y && 
-					point_a.z < max.z && point_b.z < max.z && point_d.z < max.z && 
-					abd > 0. && abd < maxarea) 
-				{
-					glm::vec3 n = glm::normalize(daba);
-					n12 = n;
-					indices[index_count++] = a;
-					indices[index_count++] = d;
-					indices[index_count++] = b;
-					normals[a] = n;
-					normals[b] = n;
-					normals[d] = n12;
-
-				}
-				if (point_a.x > min.x && point_c.x > min.x && point_d.x > min.x && 
-					point_a.y > min.y && point_c.y > min.y && point_d.y > min.y && 
-					point_a.z > min.z && point_c.z > min.z && point_d.z > min.z && 
-					point_a.x < max.x && point_c.x < max.x && point_d.x < max.x && 
-					point_a.y < max.y && point_c.y < max.y && point_d.y < max.y && 
-					point_a.z < max.z && point_c.z < max.z && point_d.z < max.z && 
-					acd > 0. && acd < maxarea) 
-				{
-					glm::vec3 n = glm::normalize(cada);
-					n12 = glm::normalize(n12 + n);
-					indices[index_count++] = d;
-					indices[index_count++] = a;
-					indices[index_count++] = c;
-					normals[a] = n12;
-					normals[c] = n;
-					normals[d] = n12;
-				}
+			// meshless index array:
+			if (!createMesh && v.x > min.x && v.y > min.y && v.z > min.z && v.x < max.x && v.y < max.y && v.z < max.z) {
+				indices[index_count] = i;
+				index_count++;
 			}
 		}
+
+		if (createMesh) {
+			for (int y = 0; y < height - 1; ++y) {
+				for (int x = 0; x < width - 1; ++x) {
+					// indices of a quad
+					int a = y * width + x, 
+						b = y * width + (x+1), 
+						c = (y+1)*width + x, 
+						d = (y+1)*width + (x+1);
+
+					// raw point data:
+					// vec3d point_a = { verts[a].x ,  -1 * verts[a].y,  -1 * verts[a].z };
+					// vec3d point_b = { verts[b].x ,  -1 * verts[b].y,  -1 * verts[b].z };
+					// vec3d point_c = { verts[c].x ,  -1 * verts[c].y,  -1 * verts[c].z };
+					// vec3d point_d = { verts[d].x ,  -1 * verts[d].y,  -1 * verts[d].z };
+					glm::vec3& point_a = vertices[a];
+					glm::vec3& point_b = vertices[b];
+					glm::vec3& point_c = vertices[c];
+					glm::vec3& point_d = vertices[d];
+
+					glm::vec3 da = point_d - point_a;
+					glm::vec3 ba = point_b - point_a;
+					glm::vec3 ca = point_c - point_a;
+					
+					// normalized cross product of two triangle edges gives face normal
+					glm::vec3 daba = glm::cross(da, ba);
+					glm::vec3 cada = glm::cross(ca, da);
+					// |cross product| of two sides gives area parallelogram, twice area of triangle
+					// this will be zero if there are degenerate points
+					float abd = glm::length(daba);
+					float acd = glm::length(cada);
+
+					glm::vec3 n12;
+					// skip if any of these points are zero
+					// skip if triangle area is too large (or too small??)
+					if (point_a.x > min.x && point_b.x > min.x && point_d.x > min.x && 
+						point_a.y > min.y && point_b.y > min.y && point_d.y > min.y && 
+						point_a.z > min.z && point_b.z > min.z && point_d.z > min.z && 
+						point_a.x < max.x && point_b.x < max.x && point_d.x < max.x && 
+						point_a.y < max.y && point_b.y < max.y && point_d.y < max.y && 
+						point_a.z < max.z && point_b.z < max.z && point_d.z < max.z && 
+						abd > 0. && abd < maxarea) 
+					{
+						indices[index_count++] = a;
+						indices[index_count++] = d;
+						indices[index_count++] = b;
+						if (withNormals) {
+							glm::vec3 n = glm::normalize(daba);
+							n12 = n;
+							normals[a] = n;
+							normals[b] = n;
+							normals[d] = n12;
+						}
+
+					}
+					if (point_a.x > min.x && point_c.x > min.x && point_d.x > min.x && 
+						point_a.y > min.y && point_c.y > min.y && point_d.y > min.y && 
+						point_a.z > min.z && point_c.z > min.z && point_d.z > min.z && 
+						point_a.x < max.x && point_c.x < max.x && point_d.x < max.x && 
+						point_a.y < max.y && point_c.y < max.y && point_d.y < max.y && 
+						point_a.z < max.z && point_c.z < max.z && point_d.z < max.z && 
+						acd > 0. && acd < maxarea) 
+					{
+						indices[index_count++] = d;
+						indices[index_count++] = a;
+						indices[index_count++] = c;
+						if (withNormals) {
+							glm::vec3 n = glm::normalize(cada);
+							n12 = glm::normalize(n12 + n);
+							normals[a] = n12;
+							normals[c] = n;
+							normals[d] = n12;
+						}
+					}
+				}
+			}
+		} 
 		//printf("index count: %d %d\n", index_count, MAX_NUM_INDICES);
 		This.Set("count", Napi::Number::New(env, index_count));
-	
 
 		// auto color = frames.get_color_frame();
 		// // Tell pointcloud object to map to this color frame
@@ -414,15 +549,20 @@ int wrap(int a, int n) {
 
 		Napi::Float32Array vertices_value = this->vertices;
 		glm::vec3 * vertices = (glm::vec3 *)vertices_value.Data();
-		const size_t NUM_FLOATS = vertices_value.ElementLength();
-		const size_t NUM_POINTS = NUM_FLOATS/3;
+		// const size_t NUM_FLOATS = vertices_value.ElementLength();
+		// const size_t NUM_POINTS = NUM_FLOATS/3;
+
+		uint32_t * indices = (uint32_t *)this->indices.Data();
+		uint32_t count = This.Get("count").ToNumber().Int32Value();
 		
 		// // decay:
 		for (size_t i=0; i<NUM_VOXELS; i++) {
 			voxels_data[i] *= voxels_mul;
 		}
+		int total = 0;
 
-		for (size_t i=0; i<NUM_POINTS; i++) {
+		for (uint32_t idx=0; idx < count; idx++) {
+			uint32_t i = indices[idx];
 
 			// copy floats:
 			const glm::vec3& V = vertices[i];
@@ -432,14 +572,16 @@ int wrap(int a, int n) {
 			int x = v.x * DIMX;
 			int y = v.y * DIMY;
 			int z = v.z * DIMZ;
-			if (v.x > min.x && v.x < max.x && v.y > min.y && v.y < max.y && v.z > min.z && v.z < max.z &&
-				x >= 0 && x < DIMX && y >= 0 && y < DIMY && z >= 0 && z < DIMZ) {
-				int idx = x + y*(DIMX) + z*(DIMX*DIMY);//
+			if (x >= 0 && x < DIMX && y >= 0 && y < DIMY && z >= 0 && z < DIMZ) {
+				int j = x + y*(DIMX) + z*(DIMX*DIMY);//
 
 				// should this clamp rather than add? 
-				voxels_data[idx] += voxels_add;
+				voxels_data[j] += voxels_add;
+				total++;
 			}
 		}
+		//printf("added %d points %s %s\n", count, glm::to_string(min).c_str(), glm::to_string(max).c_str());
+		//printf("added %d points\n", total);
 
 		return This;
 	}

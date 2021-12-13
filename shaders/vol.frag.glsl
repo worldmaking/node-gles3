@@ -107,6 +107,6 @@ void main() {
 	outColor = vec4(v * 0.1 );
 	outColor = v < 1. ? vec4(v) : outColor;
 
-	outColor = vec4(v_tc, 0.2);
-	outColor = vec4(v_viewpos, 1);
+	// outColor = vec4(v_tc, 0.2);
+	// outColor = vec4(v_viewpos, 1);
 }

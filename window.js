@@ -46,6 +46,7 @@ class Window {
 	t = glfw.getTime();
 	fps = 60;
 	dt = 1/60;
+	frame = 0;
 
 	static all = new Set()
 
@@ -163,6 +164,8 @@ class Window {
 
 		// insert submit() and draw() here
 		if (this.draw) this.draw()
+
+		this.frame++;
 
 		// Swap buffers
 		glfw.swapBuffers(this.window);
