@@ -47,10 +47,10 @@ let tex3d = glutils.createTexture3D(gl, {
 	width:N 
 });
 // create a duplicate: 
-tex3d.data.forEach((v,i,a) => a[i] = 0.1*Math.random())   // or data.slice()
+tex3d.data.forEach((v,i,a) => a[i] = Math.random())   // or data.slice()
 tex3d.data1 = tex3d.data.slice()
 // copy it back
-tex3d.data.set(tex3d.data1)
+//tex3d.data.set(tex3d.data1)
 tex3d.bind().submit()
 
 let cubeprogram = glutils.makeProgram(gl,
@@ -153,7 +153,7 @@ cubes.attachTo(cube);
 let volshader = shaderman.create(gl, "vol")
 
 // create a VAO from a basic geometry and shader
-let vol = glutils.createVao(gl, glutils.makeCube({ min:0, max:1, div: 4 }), volshader.id);
+let vol = glutils.createVao(gl, glutils.makeCube({ min:0, max:1, div: 32 }), volshader.id);
 
 let t = glfw.getTime();
 let fps = 60;
@@ -341,23 +341,23 @@ function animate() {
 	gl.clearColor(0., 0., 0., 1);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 	gl.enable(gl.DEPTH_TEST)
-	tex3d.bind().submit()
+	//tex3d.bind().submit()
 
 	
 	mat4.identity(modelmatrix)
 	mat4.translate(modelmatrix, modelmatrix, [-1, 0.5, -1, 1])
 	mat4.scale(modelmatrix, modelmatrix, [2/N, 2/N, 2/N])
 	
-	if (Math.floor(t) % 2) {
-		cubeprogram.begin();
-		cubeprogram.uniform("u_viewmatrix", viewmatrix);
-		cubeprogram.uniform("u_projmatrix", projmatrix);
-		cubeprogram.uniform("u_modelmatrix", modelmatrix);
-		cubeprogram.uniform("u_N", M);
-		cubeprogram.uniform("u_tex", 0);
-		cube.bind().drawInstanced(cubes.count).unbind()
-		cubeprogram.end();
-	}
+	// if (Math.floor(t) % 2) {
+	// 	cubeprogram.begin();
+	// 	cubeprogram.uniform("u_viewmatrix", viewmatrix);
+	// 	cubeprogram.uniform("u_projmatrix", projmatrix);
+	// 	cubeprogram.uniform("u_modelmatrix", modelmatrix);
+	// 	cubeprogram.uniform("u_N", M);
+	// 	cubeprogram.uniform("u_tex", 0);
+	// 	cube.bind().drawInstanced(cubes.count).unbind()
+	// 	cubeprogram.end();
+	// }
 	
 
 

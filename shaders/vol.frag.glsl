@@ -8,6 +8,9 @@ in vec3 v_normal;
 in vec3 v_tc;
 in vec3 v_eyepos, v_raydir, v_rayexit;
 in vec3 v_viewpos;
+in vec3 v_debug;
+in vec3 v_ro, v_rd, v_re;
+
 out vec4 outColor;
 
 // assume box b:  0,0,0 to 1,1,1
@@ -40,13 +43,13 @@ vec3 normal4(in vec3 p, in sampler3D tex, float eps) {
 }
 
 void main() {
-	vec3 rd = normalize(v_raydir);
+	vec3 rd = normalize(v_rd);
 	// this assumes we rendered with front-face culling
 	// for back-face culling, 
 	// ro = v_rayentry, 
 	// and tmax = rayBoxExitDistance(ro, rd)
-	float tmax = rayBoxExitDistance(v_rayexit, -rd);
-	vec3 ro = v_rayexit - tmax*rd;
+	float tmax = length(v_ro - v_re); //rayBoxExitDistance(v_rayexit, -rd);
+	vec3 ro = v_ro; //v_rayexit - tmax*rd;
 
 	// need to clamp ro to near plane, if we are inside the volume already
 
@@ -87,10 +90,12 @@ void main() {
 	vec3 pt = ro + t*rd;
 	vec3 n = normal4(pt, u_tex, dt);
 
-	outColor = vec4(n*0.5+0.5, 1.);
-	float ndotr = dot(n, rd);
-	ndotr = pow(abs(ndotr), 0.5);
-	outColor = vec4(1.-abs(ndotr) );
+	outColor = vec4(v_ro, 1.);
+
+	// outColor = vec4(n*0.5+0.5, 1.);
+	// float ndotr = dot(n, rd);
+	// ndotr = pow(abs(ndotr), 0.5);
+	// outColor = vec4(1.-abs(ndotr) );
 
 	//a = 1. - exp(-(a)/tmax);
 	//a = 1.-exp(a/tmax);
@@ -99,14 +104,15 @@ void main() {
 	// float v = texture(u_tex, v_tc).r;
 	// outColor = vec4(rd, 0.5);
 	//outColor *= vec4(tmax);
-	outColor *= vec4(a);
+	//outColor *= vec4(a);
 	// outColor = vec4(0.1);
 	// outColor = vec4(v_normal*0.5+0.5, 1.);
 	//outColor = vec4(tmax);
 
-	outColor = vec4(v * 0.1 );
-	outColor = v < 1. ? vec4(v) : outColor;
+	// outColor = vec4(v * 0.1 );
+	// outColor = v < 1. ? vec4(v) : outColor;
 
 	// outColor = vec4(v_tc, 0.2);
-	// outColor = vec4(v_viewpos, 1);
+	//outColor = vec4(v_eyepos, 1);
+//	outColor = vec4(v_debug, 1.);
 }
