@@ -694,6 +694,18 @@ function makeFboWithDepth(gl, width=1024, height=1024, mipmap=false, multisample
             return this;
         },
 
+        bindDepth(unit=1) {
+            gl.activeTexture(gl.TEXTURE0 + unit);
+			gl.bindTexture(texture_target, depthTexture);
+            return this;
+        },
+        unbindDepth(unit=1) {
+            gl.activeTexture(gl.TEXTURE0 + unit);
+			gl.bindTexture(texture_target, null);
+            return this;
+        },
+
+
         dispose() {
             gl.deleteFramebuffers(this.id)
             gl.deleteTextures(this.colorTexture)
