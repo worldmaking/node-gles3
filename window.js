@@ -135,7 +135,7 @@ class Window {
 			// go fullscreen
 			glfw.setWindowAttrib(this.window, glfw.DECORATED, 0)
 			// enable this if you want the window to always be on top (no alt-tabbing)
-			//glfw.setWindowAttrib(window, glfw.FLOATING , 1);
+			glfw.setWindowAttrib(this.window, glfw.FLOATING , 1);
 			glfw.setWindowSize(this.window, this.mode.width, this.mode.height)
 			glfw.setWindowPos(this.window, pos[0], pos[1])
 			// to hide the mouse:

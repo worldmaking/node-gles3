@@ -1326,6 +1326,57 @@ napi_value SetCharModsCallback(napi_env env, napi_callback_info info) {
 // 	status = napi_call_function(env, global, callback, argc, argv, &result);
 // }
 
+struct {
+	napi_env env;
+	napi_ref onevent = nullptr;
+} MonitorCallbackState;
+
+void onmonitor(GLFWmonitor* monitor, int event) {
+    napi_status status = napi_ok;
+
+	//	printf("monitor event %d\n", event);
+	
+	napi_env env = MonitorCallbackState.env;
+	// retrieve the handler:
+	napi_value callback; 
+	napi_valuetype callback_type;
+	if (napi_ok != napi_get_reference_value(env, MonitorCallbackState.onevent, &callback)
+	|| napi_ok != napi_typeof(env, callback, &callback_type)
+	|| callback_type != napi_function) return;
+	// prepare the args:
+	int argc = 1;
+	napi_value argv[1];
+	napi_create_int32(env, event, &argv[0]);
+	// use global namespace as the `this`:
+	napi_value global;
+	status = napi_get_global(env, &global);
+	// now call it:
+	napi_value result;
+	status = napi_call_function(env, global, callback, argc, argv, &result);
+}
+
+napi_value SetMonitorCallback(napi_env env, napi_callback_info info) {
+	napi_status status = napi_ok;
+	napi_value args[1];
+	size_t argc = checkArgCount(env, info, args, 1, 1);
+
+	// arg must be a callable function
+	napi_value handler = args[0];
+	napi_valuetype handler_type;
+	status = napi_typeof(env, args[0], &handler_type);
+	if (status == napi_ok && handler_type == napi_function) {
+		// clear out old handler:
+		if (MonitorCallbackState.onevent) napi_delete_reference(env, MonitorCallbackState.onevent );
+		MonitorCallbackState.onevent = nullptr;
+		// install:
+		napi_create_reference(env, handler, 1, &MonitorCallbackState.onevent );
+		MonitorCallbackState.env = env;
+
+		//printf("installed monitor handler\n");
+	}
+	return nullptr;
+}
+
 //void Errorfun(int code, const char* msg) {}
 // since there's no userdata here, the only way we could get this to work is to 
 // stash a singleton user handler in the napi_env itself somehow
@@ -1371,16 +1422,6 @@ napi_value GetWindowUserPointer(napi_env env, napi_callback_info info) {
 	return nullptr;
 }
 
-/*
-Don't know how to deal with this yet
-It is called when monitors are added or removed
-There would need to be some kind of reference cached globally to retrieve the napi_env
-in order to call a js-level function
-*/
-// void (* GLFWmonitorfun)(GLFWmonitor*,int);
-napi_value SetMonitorCallback(napi_env env, napi_callback_info info) {
-	return nullptr;
-}
 
 // TODO: Vulkan stuff
 napi_value VulkanSupported(napi_env env, napi_callback_info info) {
