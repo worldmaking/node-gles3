@@ -31,7 +31,7 @@ glfw.windowHint(glfw.OPENGL_FORWARD_COMPAT, 1);
 glfw.windowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE);
 
 
-let window = glfw.createWindow(720, 480, "Test");
+let window = glfw.createWindow(1920, 1080, "Test");
 if (!window) {
 	console.log("Failed to open GLFW window");
 	glfw.terminate();
@@ -80,16 +80,35 @@ uniform mat4 u_modelmatrix;
 uniform mat4 u_viewmatrix;
 uniform mat4 u_projmatrix;
 uniform float u_pixelSize;
+uniform vec4 u_effect;
 in vec3 a_position;
 in vec2 a_texCoord;
 out vec4 v_color;
 out vec2 v_texcoord;
 
 void main() {
+
 	// Multiply the position by the matrix.
 	vec4 worldspace = u_modelmatrix * vec4(a_position.xyz, 1);
+	
+
 	vec4 viewspace = u_viewmatrix * worldspace;
 	float viewdist = length(viewspace.xyz);
+	{
+		float t = u_effect.x;
+		float z = max(0., viewdist - 1.7);
+		float tz = t * 27. * (0.6+z*0.4);
+		float fz = z * 25.;
+		float m = 1.3;
+
+		float x = 1. + z*m*(sin(tz + a_texCoord.x * fz)+cos(tz + a_texCoord.y * fz));
+		float y = 1. + z*m*(sin(tz + a_texCoord.y * fz)-cos(tz + a_texCoord.x * fz));
+
+
+		worldspace.xy *= vec2(x,y);
+	}
+
+	viewspace = u_viewmatrix * worldspace;
 	gl_Position = u_projmatrix * viewspace;
 	if (gl_Position.w > 0.0) {
 		gl_PointSize = u_pixelSize / gl_Position.w;
@@ -97,14 +116,11 @@ void main() {
 		gl_PointSize = 0.0;
 	}
 
-	v_color = vec4(worldspace.xyz * 0.5 + 0.5, 0.5);
-	v_color = mix(v_color, vec4(1.), 0.95);
-
 	// fade for near clip:
 	float fade = min(max((viewdist-0.25)/0.25, 0.), 1.);
 	// for distance:
-	fade *= 1. - sqrt(viewdist) * 0.1 * 0.05;
-	v_color.a *= fade;
+	fade *= clamp(1. - sqrt(max(0., viewdist - 1.8)*2.9), 0., 1.);
+	v_color = vec4(fade);
 
 	v_texcoord = a_texCoord;
 
@@ -118,13 +134,34 @@ in vec2 v_texcoord;
 out vec4 outColor;
 
 void main() {
+
+	vec3 col = texture(u_tex, v_texcoord).bgr;
+
+	float lum = 0.3*(col.r+col.g+col.g+col.b);
+
 	// get normalized -1..1 point coordinate
 	vec2 pc = (gl_PointCoord - 0.5) * 2.0;
 	// convert to distance:
-	float dist = max(0., min(1., 0.1 + 1.5*(1.0 - length(pc))));
+	float dist = clamp(min(1., 0.1 + 1.5*(1.0 - length(pc))), 0., 1.);
+	//dist = 1;
 	// paint
-	outColor = vec4(dist * dist) * v_color * texture(u_tex, v_texcoord).bgra;
+	dist *= v_color.a;
+	//outColor = texture(u_tex, v_texcoord).bgra * dist;
 
+	//outColor = vec4(pc, 0.5, v_color.a);
+
+	float fade = v_color.a;
+	fade *= smoothstep(0.9, 0.0, pow(length(pc), 1.));
+
+	fade = pow(clamp(1.-length(pc), 0., 1.), 1.);
+
+	fade *= v_color.a;
+
+	// gamma
+	col = pow(col, vec3(1.3)) * 1.4;
+	//col += 0.5*vec3(fade);
+
+	outColor = vec4(col, fade);
 }
 `);
 
@@ -184,7 +221,6 @@ colourTex.bind().submit().unbind()
 // let depthTex = glutils.createPixelTexture(gl, 640, 576)
 // depthTex.dataType = gl.UNSIGNED_SHORT
 // depthTex.allocate().bind().submit().unbind()
-
 // let depthTex = {
 // 	id: gl.createTexture(),
 // 	data: null,
@@ -254,7 +290,7 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 	t = t1;
 	// Get window size (may be different than the requested size)
 	let dim = glfw.getFramebufferSize(window);
-	glfw.setWindowTitle(window, `fps ${fps} dim ${dim[0]}c${dim[1]}`);
+	//glfw.setWindowTitle(window, `fps ${fps} dim ${dim[0]}c${dim[1]}`);
 
 	if (updating) {
 
@@ -306,15 +342,21 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 				
 				correction = mat4.fromRotation(correction, rad, kaxis);
 			}
+
+			mat4.scale(world2cloud, world2cloud, [-1, 1, 1]);
 			
 
 			// move pivot 2m into the cloud
-			mat4.multiply(world2cloud, correction, world2cloud);
-			mat4.translate(world2cloud, world2cloud, [0, -1.05, -2]);
+			//mat4.multiply(world2cloud, correction, world2cloud);
+			mat4.translate(world2cloud, world2cloud, [0, 0, -2]);
 			// rotate scene:
-			mat4.rotate(world2cloud, world2cloud, t, [0, 1, 0]);
+			mat4.rotate(world2cloud, world2cloud, 0.01*Math.sin(t), [0, 1, 0]);
 			// now step back 1m to view it
-			mat4.translate(world2cloud, world2cloud, [0, 0, 1]);
+			//mat4.translate(world2cloud, world2cloud, [0, 0, 1]);
+
+			
+			mat4.translate(world2cloud, world2cloud, [0, 0, 1.5]);
+
 
 			
 			k4a.device_set_matrix(kinect, world2cloud);
@@ -331,8 +373,9 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 	let viewmatrix = mat4.create();
 	let modelmatrix = mat4.create();
 	let projmatrix = mat4.create();
-	mat4.lookAt(viewmatrix, [0, 0, 1], [0, 0, 0], [0, 1, 0]);
-	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 10);
+	let h = 0.
+	mat4.lookAt(viewmatrix, [0, -h, 1], [0, 0, 0], [0, 1, 0]);
+	mat4.perspective(projmatrix, Math.PI/6, dim[0]/dim[1], 0.01, 10);
 
 	gl.viewport(0, 0, dim[0], dim[1]);
 	gl.clearColor(0., 0., 0., 1);
@@ -340,23 +383,12 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 
 	colourTex.bind();
 
-	// quadprogram.begin();
-	// quadprogram.uniform("u_scale", 1, 1);
-	// quad.bind().draw().unbind();
-	// quadprogram.end();
-	//gl.bindTexture(gl.TEXTURE_2D, null);
-
-	// depthTex.bind()
-	// depthquadprogram.begin();
-	// depthquadprogram.uniform("u_scale", 1, 1);
-	// depthquad.bind().draw().unbind();
-	// depthquadprogram.end();
-	// gl.bindTexture(gl.TEXTURE_2D, null);
-
 	if (1) {
 		gl.enable(gl.BLEND);
 		gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+		//gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_DST_ALPHA);
+		//gl.blendEquation(gl.MAX)
+		gl.depthMask(false)
 
 		gl.enable(gl.PROGRAM_POINT_SIZE);  //not needed gles3?
 
@@ -366,7 +398,8 @@ while(!glfw.windowShouldClose(window) && !glfw.getKey(window, glfw.KEY_ESCAPE)) 
 		cloudprogram.uniform("u_modelmatrix", modelmatrix);
 		cloudprogram.uniform("u_viewmatrix", viewmatrix);
 		cloudprogram.uniform("u_projmatrix", projmatrix);
-		cloudprogram.uniform("u_pixelSize", dim[1]/2500);
+		cloudprogram.uniform("u_pixelSize" , 6 * dim[1]/1080);
+		cloudprogram.uniform("u_effect", t, 0, 0, 0);
 
 		// Bind the attribute/buffer set we want.
 		gl.bindVertexArray(vao);
