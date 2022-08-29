@@ -96,6 +96,8 @@ function applystash(kernel, stash) {
 	});
 }
 
+function makeUID(name) { let id=0; gen.gen.getUID = () => name+(id++) }
+
 // handle messages from main thread:
 parentPort.on("message", (msg) => {
 	if (typeof msg == "object") {
@@ -103,8 +105,18 @@ parentPort.on("message", (msg) => {
 			case "graph": {
 				console.log("received graph from parent", msg.graph);
 				// make a basic graph:
-				let graph = eval(msg.graph)
-				//console.log(graph)
+				//let graph = eval(msg.graph)
+
+				makeUID("jenny")
+				let g1 = phasor(13)
+				makeUID("bob")
+				let g2 = phasor(7)
+				makeUID("steve")
+				let g3 = add(g1, g2)
+
+				let graph = g3
+
+				console.log(graph)
 				// swap kernel over and initiate crossfade:
 				let stash = kernel ? getstash(kernel) : {}
 				oldkernel = kernel
@@ -116,6 +128,8 @@ parentPort.on("message", (msg) => {
 				// after compiling, build up the index map for stashing:
 				kernel.memorymap = getMemoryMap(graph);
 				applystash(kernel, stash);
+
+				console.log(JSON.stringify(stash, null, "  "))
 
 				console.log("map", kernel.memorymap);
 				// this is our list of parameters:
