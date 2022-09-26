@@ -107,6 +107,10 @@ parentPort.on("message", (msg) => {
 				// make a basic graph:
 				//let graph = eval(msg.graph)
 
+				// TODO convert a dot-style graph (list of objects and list of arcs)
+				// into a dependency graph
+				// anything that can be modulated by user should be a "param"
+				// TODO figure out SSD (history) op
 				makeUID("jenny")
 				let g1 = phasor(13)
 				makeUID("bob")
