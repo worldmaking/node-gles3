@@ -3,8 +3,6 @@ const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 const gl = require('./gles3.js') 
 const glutils = require('./glutils.js');
 
-const spout = require('bindings')('spout.node');
-
 if (!glfw.init()) {
 	console.log("Failed to initialize GLFW");
 	process.exit(-1);
@@ -33,7 +31,7 @@ console.log(gl.glewInit());
 console.log('GL ' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MAJOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_VERSION_MINOR) + '.' + glfw.getWindowAttrib(window, glfw.CONTEXT_REVISION) + " Profile: " + glfw.getWindowAttrib(window, glfw.OPENGL_PROFILE));
 
 // Enable vertical sync (on cards that support it)
-glfw.swapInterval(1); // 0 for vsync off
+glfw.swapInterval(0); // 0 for vsync off
 
 
 let fbo = glutils.makeFboWithDepth(gl, 1024, 1024, false)
@@ -103,11 +101,13 @@ let t = glfw.getTime();
 let fps = 60;
 
 
-let sender = new spout.Sender()
-sender.setName("foo")
-
+const spout = require('bindings')('spout.node');
+let sender = new spout.Sender("nodejs")
 
 function animate() {
+
+    glfw.setWindowTitle(window, `sender`);
+
 	if(glfw.windowShouldClose(window) || glfw.getKey(window, glfw.KEY_ESCAPE)) {
 		shutdown();
 	} else {
@@ -126,7 +126,7 @@ function animate() {
 	let dt = t1-t;
 	fps += 0.1*((1/dt)-fps);
 	t = t1;
-	glfw.setWindowTitle(window, `fps ${fps}`);
+	//glfw.setWindowTitle(window, `fps ${fps}`);
 	// Get window size (may be different than the requested size)
 	let dim = glfw.getFramebufferSize(window);
 	//if(wsize) console.log("FB size: "+wsize.width+', '+wsize.height);
@@ -180,7 +180,7 @@ function animate() {
 		quadprogram.end();
 
         // FBO must be bound
-        sender.sendFBO(fbo.id, fbo.width, fbo.height, true)
+        sender.sendFbo(fbo.id, fbo.width, fbo.height, true)
 
 	// Swap buffers
 	glfw.swapBuffers(window);

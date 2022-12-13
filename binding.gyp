@@ -288,11 +288,22 @@
         "dependencies": [],
         "conditions": [
             ['OS=="win"', {
+              'include_dirs': [
+                './node_modules/native-graphics-deps/include',
+              ],
               'library_dirs': [
                 './lib/x64',
+                './node_modules/native-graphics-deps/lib/windows/glew',
+                'lib/<(target_arch)',
               ],
               'libraries': [
-                '-lSpoutLibrary.lib'
+                '-lSpoutLibrary.lib',
+                'glew32.lib',
+                'opengl32.lib'
+              ],
+              'defines' : [
+                'WIN32_LEAN_AND_MEAN',
+                'VC_EXTRALEAN'
               ],
               "copies": [{
                 'destination': './build/<(CONFIGURATION_NAME)/',
