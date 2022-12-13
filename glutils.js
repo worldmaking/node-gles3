@@ -1683,6 +1683,66 @@ function makeQuad(options) {
 	}
 }
 
+function makeQuad3D(options) {
+    let opt = options || {}
+    let min = opt.min;
+    if (min == undefined) min = -1;
+    if (typeof min == "number") min = [min, min];
+    let max = opt.max; if (max == undefined) max = +1;
+    if (typeof max == "number") max = [max, max];
+    let div = opt.div; if (div == undefined) div = 1;
+    if (typeof div == "number") div = [div, div];
+    let span = [max[0]-min[0], max[1]-min[1]];
+    let step = [1/div[0], 1/div[1]];
+    let vertices = [];
+    let normals = [];
+    let texCoords = [];
+    let indices = [];
+    for (let y=0; y<div[1]; y++) {
+        let ay = step[1] * y;
+        let by = ay + step[1];
+        let vay = min[1] + ay*span[1];
+        let vby = min[1] + by*span[1];
+        for (let x=0; x<div[0]; x++) {
+            let ax = step[0] * x;
+            let bx = ax + step[0];
+            let vax = min[0] + ax*span[0];
+            let vbx = min[0] + bx*span[0];
+            let idx = vertices.length/3;
+            vertices.push(
+                vax, vay, 0,
+                vbx, vay, 0,
+                vbx, vby, 0,
+                vax, vby, 0
+            );
+            texCoords.push(
+                ax, ay,
+                bx, ay,
+                bx, by,
+                ax, by
+            );
+            normals.push(
+                0, 0, 1,
+                0, 0, 1,
+                0, 0, 1,
+                0, 0, 1
+            );
+            indices.push(
+                idx+0, idx+1, idx+2,
+                idx+2, idx+3, idx+0
+            );
+        }
+    }
+
+	return {
+		vertexComponents: 3,
+		vertices: new Float32Array(vertices),
+		normals: new Float32Array(normals),
+		texCoords: new Float32Array(texCoords),
+		indices: new Uint16Array(indices),
+	}
+}
+
 // by default, a simple line segment from [0,0,0] to [1,0,0]
 function makeLine(options) {
     let opt = options || {}
@@ -1939,6 +1999,7 @@ module.exports = {
 
 	makeCube,
     makeQuad,
+    makeQuad3D,
     makeLine,
     makeOpenCylinder,
 

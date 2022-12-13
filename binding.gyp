@@ -274,6 +274,37 @@
             }],
             ['OS=="linux"', {}],
         ],
+    },
+    {
+        "target_name": "spout",
+        "sources": [ "src/node-spout.cpp" ],
+        "defines": [],
+        "cflags": ["-std=c++11", "-Wall", "-pedantic", "-O3"],
+        "include_dirs": [ 
+          "<!(node -p \"require('node-addon-api').include_dir\")",
+          "src"
+        ],
+        "libraries": [],
+        "dependencies": [],
+        "conditions": [
+            ['OS=="win"', {
+              'library_dirs': [
+                './lib/x64',
+              ],
+              'libraries': [
+                '-lSpoutLibrary.lib'
+              ],
+              "copies": [{
+                'destination': './build/<(CONFIGURATION_NAME)/',
+                'files': ['./lib/x64/SpoutLibrary.dll']
+              }]
+            }],
+            ['OS=="mac"', {
+              'cflags+': ['-fvisibility=hidden'],
+              'xcode_settings': {},
+            }],
+            ['OS=="linux"', {}],
+        ],
     }
   ]
 }
