@@ -161,7 +161,7 @@
             },
             'copies': [
               {
-                'destination': './build/<(CONFIGURATION_NAME)/',
+                'destination': './<(CONFIGURATION_NAME)/',
                 'files': [
                   './node_modules/native-openvr-deps/lib/osx32/libopenvr_api.dylib'
                  ]
@@ -240,7 +240,7 @@
     
     {
         "target_name": "realsense",
-        "sources": [ "src/node-realsense.cpp" ],
+        
         "defines": [],
         "cflags": ["-std=c++11", "-Wall", "-pedantic", "-O3"],
         "include_dirs": [ 
@@ -251,6 +251,7 @@
         "dependencies": [],
         "conditions": [
             ['OS=="win"', {
+              "sources": [ "src/node-realsense.cpp" ],
               'include_dirs': [
                 "C:\\Program Files (x86)\\Intel RealSense SDK 2.0\\include"
               ],
@@ -277,7 +278,6 @@
     },
     {
         "target_name": "spout",
-        "sources": [ "src/node-spout.cpp" ],
         "defines": [],
         "cflags": ["-std=c++11", "-Wall", "-pedantic", "-O3"],
         "include_dirs": [ 
@@ -288,6 +288,7 @@
         "dependencies": [],
         "conditions": [
             ['OS=="win"', {
+              "sources": [ "src/node-spout.cpp" ],
               'include_dirs': [
                 './node_modules/native-graphics-deps/include',
               ],
