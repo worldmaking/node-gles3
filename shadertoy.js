@@ -85,10 +85,51 @@ glfw.swapInterval(1); // 0 for vsync off
 
 class Shadertoy {
 	dim = [720, 480];
-	common = ""; 	// string of glsl for all shaders
 	textures = {}; 	// library of textures, indexed by file path or pass number
+	common = ""; 	// string of glsl for all shaders
+	// the passes:
+	codes = [];
 	programs = [];
 	inputs = []; 	// input textures for each program
+
+	watched = {};	// list of files we are watching for changes on
+
+	vert = 
+		`#version 330
+		in vec4 a_position;
+		void main() {
+			gl_Position = a_position;
+		}`
+
+	frag_header = 
+		`#version 330
+		uniform vec3 iResolution;	// output pixels (not sure what the z component is for?)
+		uniform float iTime; 		// seconds
+		uniform float iTimeDelta; 	// seconds
+		uniform float iFrameRate; 	// fps
+		uniform float iFrame; 		// integer count
+		uniform vec4 iDate;			// year, month0, day0, seconds
+
+		uniform vec4 iMouse; 
+		//      mouse.xy  = mouse position during last button down (i.e. drag, in pixels)
+		//  abs(mouse.zw) = mouse position during last button click (in pixels)
+		// sign(mouze.z)  = button is down (drag)
+		// sign(mouze.w)  = button is clicked (only on first frame)
+
+		uniform sampler2D iChannel0;
+		uniform sampler2D iChannel1;
+		uniform sampler2D iChannel2;
+		uniform sampler2D iChannel3;
+		// uniform vec3 iChannelResolution[4]; // just use textureSize(iChannelN,0) instead
+
+		out vec4 outColor;
+		`
+
+	frag_footer = `
+		void main() {
+			mainImage(outColor, gl_FragCoord.xy);
+		}
+		`
 
 	/*
 		options = {
@@ -101,6 +142,17 @@ class Shadertoy {
 	constructor(gl, options) {
 		if (options.dim) this.dim = options.dim
 		if (options.common) this.common = options.common
+
+		// is common a filepath?
+		if (fs.existsSync(this.common)) {
+			// add file to watch list:
+			this.watched[this.common] = {
+				filepath: this.common,
+				mtime: fs.statSync(this.common).mtimeMs,
+				kind: "include"
+			}
+			this.common = fs.readFileSync(this.common);
+		}
 
 		this.fbo = gl.createFramebuffer();
 
@@ -130,8 +182,20 @@ class Shadertoy {
 
 		for (let i = 0; i < options.shaders.length; i++) {
 			let { code, inputs } = options.shaders[i]
+
 			// create the shader:
-			this.programs[i] = this.makeProgram(gl, code);
+			if (fs.existsSync(code)) {
+				// add file to watch list:
+				this.watched[code] = {
+					filepath: code,
+					slot: i,
+					mtime: fs.statSync(code).mtimeMs,
+					kind: "program"
+				}
+				code = fs.readFileSync(code);
+			}
+
+			this.makeProgram(gl, code, i);
 
 			// load inputs:
 			this.inputs[i] = inputs || []
@@ -162,50 +226,44 @@ class Shadertoy {
 		this.quad = glutils.createVao(gl, glutils.makeQuad(), this.display_program.id);
 	}
 
-	makeProgram(gl, code) {
-		const vert = 
-		`#version 330
-		in vec4 a_position;
-		void main() {
-			gl_Position = a_position;
-		}`
-
-		const frag_header = 
-		`#version 330
-		uniform vec3 iResolution;	// output pixels (not sure what the z component is for?)
-		uniform float iTime; 		// seconds
-		uniform float iTimeDelta; 	// seconds
-		uniform float iFrameRate; 	// fps
-		uniform float iFrame; 		// integer count
-		uniform vec4 iDate;			// year, month0, day0, seconds
-
-		uniform vec4 iMouse; 
-		//      mouse.xy  = mouse position during last button down (i.e. drag, in pixels)
-		//  abs(mouse.zw) = mouse position during last button click (in pixels)
-		// sign(mouze.z)  = button is down (drag)
-		// sign(mouze.w)  = button is clicked (only on first frame)
-
-		uniform sampler2D iChannel0;
-		uniform sampler2D iChannel1;
-		uniform sampler2D iChannel2;
-		uniform sampler2D iChannel3;
-		// uniform vec3 iChannelResolution[4]; // just use textureSize(iChannelN,0) instead
-
-		out vec4 outColor;
-		`
-
-		const frag_footer = `
-		void main() {
-			mainImage(outColor, gl_FragCoord.xy);
-		}
-		`
-
-		return glutils.makeProgram(gl, vert, frag_header + this.common + code + frag_footer);
+	makeProgram(gl, code, i) {
+		console.log("reload", i)
+		this.codes[i] = code;
+		this.programs[i] = glutils.makeProgram(gl, this.vert, this.frag_header + this.common + code + this.frag_footer);
 	}
 
 	render(window, gl) {
 		const { dim, fbo, textures } = this;
 		const { t, dt, fps, frame, mouse } = window;
+
+		if (Math.floor(t-dt) < Math.floor(t)) {   
+			// once per second
+			
+			// check for file changes:
+			Object.values(this.watched).forEach(o => {
+				let mtime = fs.statSync(o.filepath).mtimeMs
+				if (mtime != o.mtime) {
+					console.log("reload", o.filepath)
+					o.mtime = mtime
+					let code = fs.readFileSync(o.filepath);
+					if (code) {
+						if (o.kind == "program") {
+							// destroy existing shader (.dispose())
+							if (this.programs[o.slot]) this.programs[o.slot].dispose()
+							// create & install new shader
+							//this.programs[o.slot] = glutils.makeProgram(gl, vert, frag_header + this.common + code + frag_footer)
+							this.makeProgram(gl, code, o.slot)
+						} else if (o.kind == "include") {
+							this.common = code
+							// need to reload all programs:
+							for (let i=0; i<this.codes.length; i++) {
+								this.makeProgram(gl, this.codes[i], i)
+							}
+						}
+					}
+				}
+			})
+		}
 
 		if (mouse.isclick) {
 			mouse.vec[2] = mouse.pix[0]
@@ -300,126 +358,14 @@ class Shadertoy {
 
 let toy = new Shadertoy(gl, {
 	dim: [2048, 2048],
-	common: `/* deeply inspired by the amazing work of @wyatt */
-
-	#define DIM iResolution.xy
-	
-	#define PI 3.14159265359
-	
-	#define A(uv) texture(iChannel0, uv/DIM)
-	#define B(uv) texture(iChannel1, uv/DIM)
-	#define C(uv) texture(iChannel2, uv/DIM)
-	#define D(uv) texture(iChannel3, uv/DIM)
-	
-	#define norm(v) ((v)/(length(v)+1e-10))
-	
-	// distance of pt to 2D line segment from start to end
-	float line2(vec2 pt, vec2 start, vec2 end) {
-		vec2 g = end-start, h = pt-start;
-		return length(h - g*clamp(dot(g,h)/dot(g,g), 0.0, 1.));
-	}
-	
-	vec3 hsl2rgb( in vec3 c )
-	{
-		vec3 rgb = clamp( abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0 );
-		return c.z + c.y * (rgb-0.5)*(1.0-abs(2.0*c.z-1.0));
-	}`,
-
+	common: `shaders/shadertoyCommon.glsl`,
 	shaders: [
 		{ 
-			code:`
-			// back project along the vector field to guess where we were previously:
-			vec4 prev(vec2 coord) {
-				coord -= A(coord).xy*0.5;
-				coord -= A(coord).xy*0.5;
-				return A(coord);
-			}
-
-			void mainImage( out vec4 OUT, in vec2 COORD )
-			{
-				OUT = vec4(0);
-				
-				// past neighborhood states (per flow)
-				vec4 p = prev(COORD),
-					n = prev(COORD + vec2( 0, 1)),
-					s = prev(COORD + vec2( 0,-1)),
-					e = prev(COORD + vec2( 1, 0)),
-					w = prev(COORD + vec2(-1, 0));
-				// diffused past:
-				vec4 avg = (n+s+e+w)*0.25;
-				// ordered difference in the pressure/convergence/disorder (A.z) 
-				// creates velocity in me (OUT.xy)
-				vec2 force = -0.25*vec2(e.z-w.z, n.z-s.z);
-				// new velocity derived from neighbourhood average
-				// should this be p.xy rather than avg.xy?
-				// either the velocity or the pressure should be diffused, but not both
-				float blend = 0.;  // I like blend=0 more, it gives more turbulence; 1 is more smoky
-				//OUT.xy = avg.xy + force;
-				OUT.xy = mix(p.xy, avg.xy, blend) + force; 
-				
-				// variance in the velocity (A.xy) near me creates pressure/convergence/disorder in me
-				float press = -0.25*(e.x + n.y - w.x - s.y);
-				// should this be avg.z rather than p.z  ?
-				//OUT.z = p.z + press;
-				OUT.z = mix(avg.z, p.z, blend) + press;
-				
-				/*
-					This whole thing about bouncing energy between the velocity and pressure reminds me of scatter junctions in physical models!
-				*/
-				
-				// mass transport
-				float transport = -0.25*(e.x*e.w - w.x*w.w + n.y*n.w - s.y*s.w);
-				// can mix between p.w and avg.w here to allow general diffusion of mass
-				// slightly unrealistic in that this can result in negative mass
-				OUT.w = mix(p.w, avg.w, 0.) + transport;
-				
-				// optional add forces
-				float d = line2(COORD, DIM/2. - DIM.y*0.2* vec2(sin(iTime*0.2),cos(iTime*0.2)), DIM/2. + DIM.y*0.4* vec2(sin(iTime*.1618),cos(iTime*.1618)));
-				if (d < 1.) {
-					OUT = vec4(cos(iTime*PI), sin(iTime*PI), 0, 1);
-				}
-				if (iMouse.z > 0. && length(iMouse.xy - COORD) < 4.) {
-					OUT = vec4(COORD/DIM - 0.5, 0., 1.);
-				}
-				
-				// optional decays
-				// xy or z, don't need to do both
-				// OUT.xy *= 0.99;
-				//OUT.z *= 0.9999;
-				OUT.w *= 0.9999;
-				
-				// boundary:
-				float b = 4.;
-				if (COORD.x < b || COORD.y < b || DIM.x-COORD.x < b || DIM.y-COORD.y < b) {
-					OUT = vec4(0);
-				}
-				
-			}`,
+			code:`shaders/shadertoyA.glsl`,
 			inputs: [0]
 		},
 		{ 
-			code:`
-			void mainImage( out vec4 OUT, in vec2 COORD )
-			{
-			// OUT = vec4(0.0,0.0,1.0,1.0);
-			//
-				// Normalized pixel coordinates (from 0 to 1)
-			//  vec2 uv = COORD/DIM;
-
-				// Time varying pixel color
-			// vec3 col = 0.5 + 0.5*cos(iTime+uv.xyx+vec3(0,2,4));
-
-				// Output to screen
-			// OUT = vec4(norm(col),1.0);
-				
-				// line test
-			// float d = line2(COORD, vec2(40,40), vec2(200,200));
-				//OUT = vec4(exp(-d));
-				
-				vec4 a = A(COORD);
-				
-				OUT.rgb = a.www * hsl2rgb(vec3(0.25*dot(a.xy, vec2(1,0)), abs(a.z), 0.75));
-			}`,
+			code:`shaders/shadertoyImage.glsl`,
 			inputs: [0]
 		},
 	]
