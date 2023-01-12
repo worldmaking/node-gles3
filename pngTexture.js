@@ -96,7 +96,7 @@ function jpg2tex(gl, path) {
 	return tex;
 }
 
-let colortex = jpg2tex(gl, 'Metal007_1K_Color.jpg') 
+let colortex = png2tex(gl, 'textures/metal_albedo.png') 
 
 
 let cubeprogram = glutils.makeProgram(gl,

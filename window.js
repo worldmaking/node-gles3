@@ -194,6 +194,7 @@ class Window {
 	}
 }
 
+// IMPORTANT: must create window first, before using any gl calls
 
 // let win1 = new Window({
 //     // width, height, monitor, fullscreen, title, sync
