@@ -90,9 +90,17 @@ class Shadertoy {
 	// the passes:
 	codes = [];
 	programs = [];
-	inputs = []; 	// input textures for each program
+	inputs = [
+		[],
+		[],
+		[],
+		[],
+		[],
+	]; 	// input textures for each program
 
 	watched = {};	// list of files we are watching for changes on
+	frame = 0;
+	t = 0;
 
 	vert = 
 		`#version 330
@@ -180,32 +188,10 @@ class Shadertoy {
 			this.textures[i] = tex
 		}
 
-		for (let i = 0; i < options.shaders.length; i++) {
-			let { code, inputs } = options.shaders[i]
-
-			// create the shader:
-			if (fs.existsSync(code)) {
-				// add file to watch list:
-				this.watched[code] = {
-					filepath: code,
-					slot: i,
-					mtime: fs.statSync(code).mtimeMs,
-					kind: "program"
-				}
-				code = fs.readFileSync(code);
-			}
-
-			this.makeProgram(gl, code, i);
-
-			// load inputs:
-			this.inputs[i] = inputs || []
-			this.inputs[i].forEach(path => {
-				if (typeof path == "string") {
-					if (!this.textures[path]) {
-						this.textures[path] = img2tex(gl, path).id
-					}
-				}
-			})
+		for (let slot = 0; slot < options.shaders.length; slot++) {
+			let { code, inputs } = options.shaders[slot]
+			this.setProgram(gl, slot, code);
+			this.setInputs(gl, slot, inputs)
 		}
 
 		this.display_program = glutils.makeProgram(gl, `#version 330
@@ -226,17 +212,56 @@ class Shadertoy {
 		this.quad = glutils.createVao(gl, glutils.makeQuad(), this.display_program.id);
 	}
 
-	makeProgram(gl, code, i) {
-		console.log("reload", i)
-		this.codes[i] = code;
-		this.programs[i] = glutils.makeProgram(gl, this.vert, this.frag_header + this.common + code + this.frag_footer);
+	setCommon(gl, code) {
+		this.common = code
+		// need to reload all programs:
+		for (let slot=0; slot<this.programs.length; slot++) {
+			this.setProgram(gl, slot, this.codes[slot])
+		}
+	}
+
+	setProgram(gl, slot, code) {
+		// create the shader:
+		if (fs.existsSync(code)) {
+			// add file to watch list:
+			this.watched[code] = {
+				filepath: code,
+				mtime: fs.statSync(code).mtimeMs,
+				kind: "program",
+				slot: slot,
+			}
+			code = fs.readFileSync(code);
+		}
+
+		this.codes[slot] = code;
+		// destroy existing shader (.dispose())
+		if (this.programs[slot]) this.programs[slot].dispose()
+		// create & install new shader
+		this.programs[slot] = glutils.makeProgram(gl, this.vert, this.frag_header + this.common + code + this.frag_footer);
+	}
+
+	setInput(gl, slot, input, path) {
+		if (typeof path == "string") {
+			if (!this.textures[path]) {
+				this.textures[path] = img2tex(gl, path).id
+			}
+		}
+		this.inputs[slot][input] = path
+	}
+
+	setInputs(gl, slot, inputs) {
+		if (inputs) {
+			inputs.forEach((path, index) => {
+				this.setInput(gl, slot, index, path);
+			})
+		}
 	}
 
 	render(window, gl) {
 		const { dim, fbo, textures } = this;
-		const { t, dt, fps, frame, mouse } = window;
+		const { dt, fps, mouse } = window;
 
-		if (Math.floor(t-dt) < Math.floor(t)) {   
+		if (Math.floor(this.t-dt) < Math.floor(this.t)) {   
 			// once per second
 			
 			// check for file changes:
@@ -248,18 +273,14 @@ class Shadertoy {
 					let code = fs.readFileSync(o.filepath);
 					if (code) {
 						if (o.kind == "program") {
-							// destroy existing shader (.dispose())
-							if (this.programs[o.slot]) this.programs[o.slot].dispose()
-							// create & install new shader
-							//this.programs[o.slot] = glutils.makeProgram(gl, vert, frag_header + this.common + code + frag_footer)
-							this.makeProgram(gl, code, o.slot)
+							this.setProgram(gl, o.slot, code)
 						} else if (o.kind == "include") {
-							this.common = code
-							// need to reload all programs:
-							for (let i=0; i<this.codes.length; i++) {
-								this.makeProgram(gl, this.codes[i], i)
-							}
+							this.setCommon(gl, code)
 						}
+
+						// reset timers:
+						this.frame = 0;
+						this.t = 0;
 					}
 				}
 			})
@@ -302,8 +323,8 @@ class Shadertoy {
 			let program = this.programs[i]
 			program.begin()
 				.uniform("iResolution", dim[0], dim[1], 0)
-				.uniform("iTime", t)
-				.uniform("iFrame", frame)
+				.uniform("iTime", this.t)
+				.uniform("iFrame", this.frame)
 				.uniform("iMouse", mouse.vec)
 				.uniform("iDate", iDate)
 				.uniform("iTimeDelta", dt)
@@ -335,6 +356,8 @@ class Shadertoy {
 		if (mouse.isclick) {
 			mouse.isclick = false
 		}
+		this.frame++;
+		this.t += dt;
 	}
 
 	display(window, gl, texid) {
@@ -362,7 +385,7 @@ let toy = new Shadertoy(gl, {
 	shaders: [
 		{ 
 			code:`shaders/shadertoyA.glsl`,
-			inputs: [0]
+			inputs: [0, "textures/lichen.jpg"]
 		},
 		{ 
 			code:`shaders/shadertoyImage.glsl`,

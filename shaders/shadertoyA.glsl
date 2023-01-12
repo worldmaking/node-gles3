@@ -6,7 +6,8 @@ vec4 prev(vec2 coord) {
 }
 
 void mainImage( out vec4 OUT, in vec2 COORD ){
-	
+	vec2 uv = COORD / iResolution.xy;
+
 	OUT = vec4(0);
 	
 	// past neighborhood states (per flow)
@@ -63,5 +64,9 @@ void mainImage( out vec4 OUT, in vec2 COORD ){
 	if (COORD.x < b || COORD.y < b || DIM.x-COORD.x < b || DIM.y-COORD.y < b) {
 		OUT = vec4(0);
 	}
-	
+
+	// init:
+	if (iFrame == 0) {
+		OUT = texture(iChannel1, uv);
+	}
 }
