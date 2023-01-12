@@ -194,12 +194,23 @@ class Window {
 
 
 // let win1 = new Window({
+//     // width, height, monitor, fullscreen, title, sync
+//     init() {
+//         console.log("init")
+//     },
 // 	draw() {
+//         // this.t, this.dt, this.fps, this.frame, this.dim
 // 		let f = 0
 // 		gl.clearColor(f, 1-f, 0, 1);
 // 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 // 	}
+//     // onkey(key, scan, down, mod),
+//     // onpointermove(2*px/dim[0] - 1, -2*py/dim[1] + 1),
+//     // onpointerbutton(button, action, mods),
+//     // onpointerscroll(dy, dx),
+//     // 
 // })
+
 // let win2 = new Window({
 // 	draw() {
 // 		let f = 1
@@ -207,6 +218,7 @@ class Window {
 // 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 // 	}
 // })
+
 // Window.animate()
 
 module.exports = Window;
