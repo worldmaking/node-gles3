@@ -25,8 +25,11 @@ audio.start()
 // console.log("AUDIO", audio)
 
 // Now setup genish.js
-const gen = require("./genish.js")
-gen.samplerate = audio.samplerate
+const genish = require("./genish.js")
+genish.gen.mode = "" // prevent worklet mode, because it breaks node.js
+console.log("genish", genish)
+
+genish.samplerate = audio.samplerate
 const { 
 	add, sub, mul, div, mod, pow, exp, 
 	abs, round, floor, ceil, min, max, sign, 
@@ -41,7 +44,7 @@ const {
 	param, history, memo, 
 	attack, decay, env, ad, adsr, bang, pan, 
 	data, peek, peekDyn, poke, delay, 
-} = gen;
+} = genish;
 //console.log("GEN", gen)
 // this will hold our generated audio code
 // left undefined for now:
@@ -96,7 +99,7 @@ function applystash(kernel, stash) {
 	});
 }
 
-function makeUID(name) { let id=0; gen.gen.getUID = () => name+(id++) }
+function makeUID(name) { let id=0; genish.gen.getUID = () => name+(id++) }
 
 // handle messages from main thread:
 parentPort.on("message", (msg) => {
@@ -105,20 +108,22 @@ parentPort.on("message", (msg) => {
 			case "graph": {
 				console.log("received graph from parent", msg.graph);
 				// make a basic graph:
-				//let graph = eval(msg.graph)
 
-				// TODO convert a dot-style graph (list of objects and list of arcs)
-				// into a dependency graph
-				// anything that can be modulated by user should be a "param"
-				// TODO figure out SSD (history) op
-				makeUID("jenny")
-				let g1 = phasor(13)
-				makeUID("bob")
-				let g2 = phasor(7)
-				makeUID("steve")
-				let g3 = add(g1, g2)
 
-				let graph = g3
+				let graph = eval(msg.graph)
+
+				// // TODO convert a dot-style graph (list of objects and list of arcs)
+				// // into a dependency graph
+				// // anything that can be modulated by user should be a "param"
+				// // TODO figure out SSD (history) op
+				// makeUID("jenny")
+				// let g1 = phasor(13)
+				// makeUID("bob")
+				// let g2 = phasor(7)
+				// makeUID("steve")
+				// let g3 = add(g1, g2)
+
+				// let graph = g3
 
 				console.log(graph)
 				// swap kernel over and initiate crossfade:
@@ -127,7 +132,7 @@ parentPort.on("message", (msg) => {
 				mixerXfade = 1
 				// 2nd argument here is a memory allocation
 				// TODO we need to figure out how to assign this more sensibly
-				kernel = gen.gen.createCallback(graph, memsize)
+				kernel = genish.gen.createCallback(graph, memsize)
 				kernel.graph = graph
 				// after compiling, build up the index map for stashing:
 				kernel.memorymap = getMemoryMap(graph);

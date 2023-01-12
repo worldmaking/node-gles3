@@ -25,8 +25,10 @@ function png2tex(gl, pngpath) {
 }
 
 
-let shaderman = new Shaderman(gl)
+
 let win = new Window()
+let shaderman = new Shaderman(gl)
+
 
 let name = "metal"
 let albedo = png2tex(gl, path.join("textures", `${name}_albedo.png`))

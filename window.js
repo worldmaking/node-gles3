@@ -26,6 +26,8 @@ console.log('glfw version-string: ' + glfw.getVersionString());
 
 class Window {
 
+	gl = gl;
+
 	monitor = 0;
 	title = "";
 	fullscreen = false;
@@ -154,7 +156,7 @@ class Window {
 		this.fullscreen = bool;
 	}
 
-	render() {
+	render(gl) {
 		let t1 = glfw.getTime();
 		this.dt = t1-this.t;
 		this.fps += 0.1*((1/this.dt)-this.fps);
@@ -163,12 +165,12 @@ class Window {
 		glfw.makeContextCurrent(this.window);
 
 		// insert submit() and draw() here
-		if (this.draw) this.draw()
-
-		this.frame++;
+		if (this.draw) this.draw(gl)
 
 		// Swap buffers
 		glfw.swapBuffers(this.window);
+
+		this.frame++;
 	}
 
 	get dim() {
@@ -184,7 +186,7 @@ class Window {
 			}
 		}
 		for (let o of Window.all) {
-			o.render();
+			o.render(gl);
 		}
 
 		// at end, so that any errors prevent repeat:
