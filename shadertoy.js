@@ -48,43 +48,12 @@ function img2tex(gl, imgpath) {
 	}
 }
 
-
-let win = new Window()
-
-win.mouse = {
-	pix: [0, 0],
-	isdown: false,
-	isclick: false,
-	vec: [-1, -1, -1, -1]
-}
-
-win.onpointermove = function(x, y) {
-	let { dim, mouse } = this
-	mouse.pix = [ (x*0.5+0.5) * dim[0], (y*0.5+0.5) * dim[1] ]
-}
-
-win.onpointerbutton = function(button, action, mods) {
-	let mouse = win.mouse
-	mouse.isdown = !!action
-	mouse.isclick = !!action
-}
-
-win.onkey = function(key, scan, down, mod) {
-	if (down==1) {
-		if (key == 70) { // F
-			// toggle fullscreen:
-			this.setFullscreen(!this.fullscreen);
-		} else {
-			console.log(key, down, mod);
-		}
-	}
-}
-
 // Enable vertical sync (on cards that support it)
 glfw.swapInterval(1); // 0 for vsync off
 
 class Shadertoy {
-	dim = [720, 480];
+	window = null;
+	dim = null;
 	textures = {}; 	// library of textures, indexed by file path or pass number
 	common = ""; 	// string of glsl for all shaders
 	// the passes:
@@ -101,6 +70,12 @@ class Shadertoy {
 	watched = {};	// list of files we are watching for changes on
 	frame = 0;
 	t = 0;
+	mouse = {
+		pix: [0, 0],
+		isdown: false,
+		isclick: false,
+		vec: [-1, -1, -1, -1]
+	};
 
 	vert = 
 		`#version 330
@@ -148,8 +123,22 @@ class Shadertoy {
 		}
 	*/
 	constructor(gl, options) {
-		if (options.dim) this.dim = options.dim
+		if (options.window) {
+			this.setWindow(options.window)
+		}
+
+		if (options.dim) {
+			this.dim = options.dim
+		} 
+		const dim = this.dim || this.window.dim
+		console.log("dim", dim)
+
 		if (options.common) this.common = options.common
+
+		
+
+		// Enable vertical sync (on cards that support it)
+		glfw.swapInterval(1); // 0 for vsync off
 
 		// is common a filepath?
 		if (fs.existsSync(this.common)) {
@@ -167,7 +156,7 @@ class Shadertoy {
 		this.output_texture = gl.createTexture();
 		this.last_texture = this.output_texture;
 		gl.bindTexture(gl.TEXTURE_2D, this.output_texture);
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, this.dim[0], this.dim[1], 0, gl.RGBA, gl.FLOAT, null);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, dim[0], dim[1], 0, gl.RGBA, gl.FLOAT, null);
 		//gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -178,7 +167,7 @@ class Shadertoy {
 		for (let i = 0; i < 4; i++) {
 			let tex = gl.createTexture();
 			gl.bindTexture(gl.TEXTURE_2D, tex);
-			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, this.dim[0], this.dim[1], 0, gl.RGBA, gl.FLOAT, null);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, dim[0], dim[1], 0, gl.RGBA, gl.FLOAT, null);
 			//gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -257,9 +246,33 @@ class Shadertoy {
 		}
 	}
 
+	setWindow(win) {
+		this.window = win
+
+		// install callbacks:	
+		win.onpointermove = (x, y) => {
+			const { dim } = this.window;
+			this.mouse.pix = [ (x*0.5+0.5) * dim[0], (y*0.5+0.5) * dim[1] ]
+		}
+
+		win.onpointerbutton = (button, action, mods) => {
+			this.mouse.isdown = !!action
+			this.mouse.isclick = !!action
+		}
+
+		win.draw = () => {
+			const { fps, gl, window } = this.window;
+			glfw.setWindowTitle(window, `fps ${fps}`);
+			this.render(this, gl)
+			this.display(this, gl, this.last_texture)
+		}
+	}
+
 	render(window, gl) {
-		const { dim, fbo, textures } = this;
-		const { dt, fps, mouse } = window;
+		const { fbo, textures, mouse } = this;
+		const { dt, fps } = window;
+
+		const dim = this.dim || this.window.dim;
 
 		if (Math.floor(this.t-dt) < Math.floor(this.t)) {   
 			// once per second
@@ -361,7 +374,7 @@ class Shadertoy {
 	}
 
 	display(window, gl, texid) {
-		const { dim } = window;
+		const dim = this.dim || this.window.dim;
 		// now show final:
 		gl.viewport(0, 0, dim[0], dim[1]);
 		gl.enable(gl.DEPTH_TEST)
@@ -379,28 +392,4 @@ class Shadertoy {
 	}
 }
 
-let toy = new Shadertoy(gl, {
-	dim: [2048, 2048],
-	common: `shaders/shadertoyCommon.glsl`,
-	shaders: [
-		{ 
-			code:`shaders/shadertoyA.glsl`,
-			inputs: [0, "textures/lichen.jpg"]
-		},
-		{ 
-			code:`shaders/shadertoyImage.glsl`,
-			inputs: [0]
-		},
-	]
-})
-
-win.draw = function() {
-	const { fps, gl, window } = this;
-	glfw.setWindowTitle(window, `fps ${fps}`);
-
-	toy.render(this, gl)
-	toy.display(this, gl, toy.last_texture)
-}
-
-Window.animate()
-
+module.exports = Shadertoy;
