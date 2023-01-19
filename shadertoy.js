@@ -10,7 +10,6 @@ const fs = require("fs"),
 const gl = require("./gles3.js")
 const glfw = require("./glfw3.js")
 const glutils = require("./glutils.js")
-const Window = require("./window.js")
 const pnglib = require("pngjs").PNG
 const jpeg = require('jpeg-js');
 
@@ -212,6 +211,7 @@ class Shadertoy {
 	setProgram(gl, slot, code) {
 		// create the shader:
 		if (fs.existsSync(code)) {
+			console.log("watching", code)
 			// add file to watch list:
 			this.watched[code] = {
 				filepath: code,
@@ -263,8 +263,8 @@ class Shadertoy {
 		win.draw = () => {
 			const { fps, gl, window } = this.window;
 			glfw.setWindowTitle(window, `fps ${fps}`);
-			this.render(this, gl)
-			this.display(this, gl, this.last_texture)
+			this.render(this.window, gl)
+			this.display(this.window, gl, this.last_texture)
 		}
 	}
 
