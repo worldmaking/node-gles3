@@ -262,7 +262,7 @@ class Shadertoy {
 
 		win.draw = () => {
 			const { fps, gl, window } = this.window;
-			const dim = this.dim || window.dim;
+			const dim = this.dim || this.window.dim;
 			glfw.setWindowTitle(window, `fps ${fps}`);
 			this.render(this.window, gl, dim);
 			this.display(this.window, gl, this.last_texture);
