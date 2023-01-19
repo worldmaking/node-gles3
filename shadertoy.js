@@ -299,15 +299,19 @@ class Shadertoy {
 			})
 		}
 
+		// mouse scaling:
+		let msx = dim[0] / window.dim[0]
+		let msy = dim[1] / window.dim[1]
+
 		if (mouse.isclick) {
-			mouse.vec[2] = mouse.pix[0]
-			mouse.vec[3] = mouse.pix[1]
+			mouse.vec[2] = mouse.pix[0] * msx
+			mouse.vec[3] = mouse.pix[1] * msy
 		} else {
 			mouse.vec[3] = -Math.abs(mouse.vec[3])
 		}
 		if (mouse.isdown) {
-			mouse.vec[0] = mouse.pix[0]
-			mouse.vec[1] = mouse.pix[1]
+			mouse.vec[0] = mouse.pix[0] * msx
+			mouse.vec[1] = mouse.pix[1] * msy
 		} else {
 			mouse.vec[2] = -Math.abs(mouse.vec[2])
 		}
