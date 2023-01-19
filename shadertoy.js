@@ -262,17 +262,17 @@ class Shadertoy {
 
 		win.draw = () => {
 			const { fps, gl, window } = this.window;
+			const dim = this.dim || window.dim;
 			glfw.setWindowTitle(window, `fps ${fps}`);
-			this.render(this.window, gl)
-			this.display(this.window, gl, this.last_texture)
+			this.render(this.window, gl, dim);
+			this.display(this.window, gl, this.last_texture);
 		}
 	}
 
-	render(window, gl) {
+	render(window, gl, dim) {
 		const { fbo, textures, mouse } = this;
 		const { dt, fps } = window;
-
-		const dim = this.dim || this.window.dim;
+		dim = dim || window.dim;
 
 		if (Math.floor(this.t-dt) < Math.floor(this.t)) {   
 			// once per second
@@ -374,7 +374,7 @@ class Shadertoy {
 	}
 
 	display(window, gl, texid) {
-		const dim = this.dim || this.window.dim;
+		const dim = window.dim;
 		// now show final:
 		gl.viewport(0, 0, dim[0], dim[1]);
 		gl.enable(gl.DEPTH_TEST)
