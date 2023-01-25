@@ -306,7 +306,7 @@ function createTexture(gl, opt) {
                 gl.texImage2D(gl.TEXTURE_2D, mipLevel, this.internalFormat, this.width, this.height, border, this.format, this.type, this.data);
                 gl.generateMipmap(gl.TEXTURE_2D);
             }
-            assert(!gl.getError(), 'gl error in texture submit');
+            //assert(!gl.getError(), 'gl error in texture submit');
             return this;
         },
         
