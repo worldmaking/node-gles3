@@ -218,6 +218,8 @@ class RTSP2Tex {
 // });
 // */
 
+const calib = JSON.parse(fs.readFileSync("camera_calibration.json"))
+
 let window = new Window()
 
 let shape_program = glutils.makeProgram(gl,
@@ -234,39 +236,61 @@ void main() {
     // Multiply the position by the matrix.
     vec3 vertex = a_position.xyz;
     gl_Position = u_projmatrix * u_viewmatrix * u_modelmatrix * vec4(vertex, 1);
+    v_uv = vec2(a_texCoord.x, 1.-a_texCoord.y);
 
-
-    v_uv = a_texCoord;
-
-    // if using gl.POINTS:
-    gl_PointSize = 10.;
 }
 `,
 `#version 330
 precision mediump float;
 
 uniform sampler2D u_tex;
+
+uniform vec4 u_centerfocal;  // center xy, focal xy
+uniform vec2 u_tangential;  // p1, p2
+uniform vec3 u_radial;       // k1, k2, k3
+
 in vec2 v_uv;
 out vec4 outColor;
+
+vec2 undistort(vec2 uv, vec4 centerfocal, vec3 radial, vec2 tangential) {
+    // translate, scale
+    vec2 xy = (uv - centerfocal.xy) / centerfocal.zw;
+    // radial & tangential:
+    float r2 = dot(xy, xy);
+    float r4 = r2*r2;
+    float r6 = r2*r4;
+    vec2 tang = 2.*(xy.x*xy.y*tangential) + tangential.yx*(r2 + 2.*xy);
+    float rad = (radial.x*r2 + radial.y*r4 + radial.z*r6);
+    xy = xy*(1.+rad) + tang;
+    // scale, translate
+    return xy*centerfocal.zw + centerfocal.xy;
+}
 
 void main() {
     outColor = vec4(v_uv, 0., 1.);
 	outColor.rgb = texture(u_tex, v_uv).rrr;
+	outColor.rgba = texture(u_tex, undistort(v_uv, u_centerfocal, u_radial, u_tangential)).rrrr;
 }
 `);
 let shape_geom = glutils.makeQuad({
-    min: 0,
-    max: [1.5, 1],
+    min: [-1.5, -1],
+    max: [1.5, 1, 1],
     // div: [1, 3, 3]
 })
 let shape_vao = glutils.createVao(gl, shape_geom, shape_program.id);
 let feed_dim = [640, 480]
 let feeds = [
-    //new RTSP2Tex("rtsp://192.168.86.177:554/h264cif?username=admin&password=123456", feed_dim),
-    // new RTSP2Tex("rtsp://192.168.86.178:554/h264cif?username=admin&password=123456", feed_dim),
-    // new RTSP2Tex("rtsp://192.168.86.179:554/h264cif?username=admin&password=123456", feed_dim),
+    new RTSP2Tex("rtsp://192.168.86.179:554/h264cif?username=admin&password=123456", feed_dim),
+    new RTSP2Tex("rtsp://192.168.86.178:554/h264cif?username=admin&password=123456", feed_dim),
+    new RTSP2Tex("rtsp://192.168.86.177:554/h264cif?username=admin&password=123456", feed_dim),
     
-    new RTSP2Tex("rtsp://192.168.86.188:554/h264cif?username=admin&password=123456", feed_dim),
+    //new RTSP2Tex("rtsp://192.168.86.188:554/h264cif?username=admin&password=123456", feed_dim),
+]
+
+let feedpose = [
+    [-1.5, 0.1, 0, -1.95],
+    [0, 0, 0, -2.1],
+    [1.8, -0.2, 0, -2.6],
 ]
 
 
@@ -282,23 +306,37 @@ window.draw = function() {
 	let viewmatrix = mat4.create();
 	let projmatrix = mat4.create();
 	let modelmatrix = mat4.create();
-	mat4.lookAt(viewmatrix, [0, 0, 1.5], [0, 0, 0], [0, 1, 0]);
+	mat4.lookAt(viewmatrix, [0, 0, 2], [0, 0, 0], [0, 1, 0]);
 	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 30);
+
+    gl.disable(gl.DEPTH_TEST)
+	gl.depthMask(false)
+    gl.enable(gl.BLEND);
+	//gl.blendEquation(gl.FUNC_ADD)
+	gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+	//gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
 
     for (let i=0; i<feeds.length; i++) {
         mat4.identity(modelmatrix);
-        let x = -3 + 6*(i/feeds.length)
-        mat4.translate(modelmatrix, modelmatrix, [x, -0.5, 0])
+        mat4.translate(modelmatrix, modelmatrix, feedpose[i])
+        mat4.rotateZ(modelmatrix, modelmatrix, feedpose[i][3])
         feeds[i].tex.bind().submit()
         shape_program.begin();
             shape_program.uniform("u_modelmatrix", modelmatrix);
             shape_program.uniform("u_viewmatrix", viewmatrix);
             shape_program.uniform("u_projmatrix", projmatrix);
             shape_program.uniform("u_tex", 0);
+            shape_program.uniform("u_centerfocal", calib.center[0]/calib.image_size[0], calib.center[1]/calib.image_size[1], calib.focal[0]/calib.image_size[0], calib.focal[1]/calib.image_size[1]);
+            shape_program.uniform("u_tangential", calib.tangential);
+            shape_program.uniform("u_radial", calib.radial);
             shape_vao.bind().draw().unbind();
         shape_program.end();
         feeds[i].tex.unbind()
     }
+
+    gl.enable(gl.DEPTH_TEST)
+	gl.depthMask(true)
+    gl.disable(gl.BLEND)
 }
 
 let imagecount = 0

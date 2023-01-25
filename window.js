@@ -77,7 +77,7 @@ class Window {
 		// for context sharing:
 		const [first_window ] = Window.all
 
-		this.window = glfw.createWindow(this.mode.width/2, this.mode.height/2, this.title, null, first_window ? first_window.window : null);
+		this.window = glfw.createWindow(this.width || this.mode.width/2, this.height || this.mode.height/2, this.title, null, first_window ? first_window.window : null);
 		if (!this.window) {
 			console.log("Failed to open GLFW window");
 			glfw.terminate();
@@ -148,7 +148,7 @@ class Window {
 			glfw.setWindowAttrib(this.window, glfw.DECORATED, 1)
 			// enable this if you want the window to always be on top (no alt-tabbing)
 			glfw.setWindowAttrib(this.window, glfw.FLOATING , 0);
-			glfw.setWindowSize(this.window, this.mode.width/2, this.mode.height/2)
+			glfw.setWindowSize(this.window, this.width || this.mode.width/2, this.height || this.mode.height/2)
 			glfw.setWindowPos(this.window, pos[0]+50, pos[1]+50)
 			// to show the mouse:
 			glfw.setInputMode(this.window, glfw.CURSOR, glfw.CURSOR_NORMAL);

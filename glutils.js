@@ -234,7 +234,7 @@ function loadTexture(gl, url, flipY=false, premultiply=false) {
     return tex;
 }
 
-function createTexture(gl, opt) {
+function createTexture(gl, opt={}) {
     const isFloat = !!opt.float;//&& EXT_color_buffer_float;
     const channels = opt.channels || 4; // RGBA
     const width = opt.width || 16;
@@ -265,7 +265,7 @@ function createTexture(gl, opt) {
         }
     }
 
-    console.log("texture", isFloat, channels, width, height)
+    //console.log("texture", isFloat, channels, width, height)
     //console.log(format, gl.RGBA);
     //console.log(internalFormat, gl.RGBA32F);
 
