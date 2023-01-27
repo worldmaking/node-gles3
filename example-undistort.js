@@ -1,6 +1,6 @@
 /*
 
-
+By using the undistort() method we actually lose some data, especially at the corners. 
 
 */
 
@@ -108,9 +108,11 @@ setInterval(loadimage, 3000)
 
 window.draw = function() {
 
-	let { t, dim } = this;
+	let { t } = this;
+    let dim = glfw.getFramebufferSize(this.window)
 
 	let f = 0
+    gl.viewport(0, 0, dim[0], dim[1]);
 	gl.clearColor(0, 0, 0, 1);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -120,7 +122,6 @@ window.draw = function() {
 	let modelmatrix = mat4.create();
 	mat4.lookAt(viewmatrix, [0, 0, 1.5], [0, 0, 0], [0, 1, 0]);
 	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 30);
-
     mat4.identity(modelmatrix);
     tex.bind().submit()
     shape_program.begin();

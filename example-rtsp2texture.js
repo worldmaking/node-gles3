@@ -299,6 +299,7 @@ window.draw = function() {
 	let { t, dim } = this;
 
 	let f = 0
+    gl.viewport(0, 0, dim[0], dim[1]);
 	gl.clearColor(0, 0, 0, 1);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -341,10 +342,14 @@ window.draw = function() {
 
 let imagecount = 0
 
+
 window.onkey = function(key, scan, down, mod) {
     if (down) {
-        // keypress will save an image
-        {
+        console.log(key, down, mod);
+        if (key == 70) { // F
+            // toggle fullscreen:
+            this.setFullscreen(!this.fullscreen);
+        } else if (key == 83) { // s = save images
             for (let i=0; i<feeds.length; i++) {
                 const feed = feeds[i]
                 const tex = feed.tex
