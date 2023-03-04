@@ -18,6 +18,8 @@ function png2tex(gl, imgpath) {
 	let tex = glutils.createPixelTexture(gl, img.width, img.height)
 	tex.data = img.data
 	tex.bind().submit()
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR_MIPMAP_LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 	gl.generateMipmap(gl.TEXTURE_2D);
@@ -31,8 +33,10 @@ function jpg2tex(gl, imgpath) {
 	assert(tex.data.length == jpg.data.length);
 	tex.data = jpg.data;
 	tex.bind().submit()
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 	tex.unbind();
 
 	return tex;
@@ -48,7 +52,7 @@ function img2tex(gl, imgpath) {
 }
 
 // Enable vertical sync (on cards that support it)
-glfw.swapInterval(1); // 0 for vsync off
+//glfw.swapInterval(1); // 0 for vsync off
 
 class Shadertoy {
 	window = null;
