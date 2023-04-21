@@ -177,6 +177,13 @@ class Window {
 		return glfw.getFramebufferSize(this.window)
 	}
 
+	set dim(v) {
+		[this.width, this.height] = v
+		if (this.window && !this.fullscreen)
+			glfw.setWindowSize(this.window, this.width, this.height)
+		return this
+	}
+
 	static animate() {
 		glfw.pollEvents();
 

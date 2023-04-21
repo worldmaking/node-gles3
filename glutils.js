@@ -1,4 +1,6 @@
 const assert = require("assert")
+const path = require("path")
+const fs = require("fs")
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 
 function ok(gl, msg="gl not ok: ") {
@@ -346,6 +348,51 @@ function createTexture(gl, opt={}) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, tex.filter_mag);
     
     return tex.unbind();
+}
+
+function img2tex(gl, filepath, options) {
+    options = Object.assign({
+        // use REPEAT for continuously texturing surfaces
+        wrap: gl.CLAMP_TO_EDGE,
+        // typically, LINEAR_MIPMAP_LINEAR if mipmap = true
+        // LINEAR or NEAREST if not
+        filter: gl.LINEAR_MIPMAP_LINEAR,
+        // can also set specific options:
+        // minfilter: gl.LINEAR_MIPMAP_LINEAR,
+        // magfilter: gl.LINEAR_MIPMAP_LINEAR,
+        mipmap: true,
+
+        // TODO:
+        // flipY: false,  // flip image in Y axis
+        // premultiply: false,  // premultiply RGB by A
+    }, options)
+
+    let ext = path.extname(filepath).toLowerCase()
+    let tex
+    if (ext == ".png") {
+        const pnglib = require("pngjs").PNG
+        let img = pnglib.sync.read(fs.readFileSync(filepath))
+        tex = createPixelTexture(gl, img.width, img.height)
+        tex.data = img.data
+    } else if (ext == ".jpg" || ext == ".jpeg") {
+        const jpeg = require('jpeg-js');
+        let jpg = jpeg.decode(fs.readFileSync(filepath));
+        tex = createPixelTexture(gl, jpg.width, jpg.height)
+        assert(tex.data.length == jpg.data.length);
+        tex.data = jpg.data;
+    // TODO openEXR
+    } else {
+        console.error("unknown file extension", filepath)
+        return
+    }
+    tex.bind().submit()
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, options.wrap);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, options.wrap);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, options.minfilter || options.filter);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, options.magfilter || options.filter);
+	if (options.mipmap) gl.generateMipmap(gl.TEXTURE_2D);
+	tex.unbind();
+    return tex
 }
 
 function createPixelTexture(gl, width, height, floatingpoint=false) {
@@ -912,6 +959,12 @@ function createFBO(gl, width=1024, height=1024, floatingpoint=false) {
 }
 
 // geom should have vertices, normals, indices
+// if no program is given
+// the attributes are laid out as follows:
+// 0: position (vec2 or vec3 depending on geometry)
+// 1: normal (vec3)
+// 2: texcoord (vec2)
+// 3: color (vec4)
 function createVao(gl, geom, program) {
     let self = {
 		id: gl.createVertexArray(),
@@ -930,7 +983,7 @@ function createVao(gl, geom, program) {
                     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
                     gl.bufferData(gl.ARRAY_BUFFER, geom.vertices, gl.STATIC_DRAW);
                     // look up in the shader program where the vertex attributes need to go.
-                    let attrLoc = gl.getAttribLocation(program, "a_position");
+                    let attrLoc = program ? gl.getAttribLocation(program, "a_position") : 0;
                     // Turn on the attribute
                     gl.enableVertexAttribArray(attrLoc);
                     // Tell the attribute how to get data out of buffer (ARRAY_BUFFER)
@@ -944,33 +997,13 @@ function createVao(gl, geom, program) {
                     gl.bindBuffer(gl.ARRAY_BUFFER, 0);
                     this.vertexBuffer = buffer;
                 }
-                if (geom.colors) {
-                    let buffer = gl.createBuffer();
-                    // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
-                    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-                    gl.bufferData(gl.ARRAY_BUFFER, geom.colors, gl.STATIC_DRAW);
-                    // look up in the shader program where the vertex attributes need to go.
-                    let attrLoc = gl.getAttribLocation(program, "a_color");
-                    // Turn on the attribute
-                    gl.enableVertexAttribArray(attrLoc);
-                    // Tell the attribute how to get data out of buffer (ARRAY_BUFFER)
-                    let size = 4;          // components per iteration
-                    let type = gl.FLOAT;   // the data is 32bit floats
-                    let normalize = false; // don't normalize the data
-                    let stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
-                    let offset = 0;        // start at the beginning of the buffer
-                    gl.vertexAttribPointer(attrLoc, size, type, normalize, stride, offset);
-                    // done with buffer:
-                    gl.bindBuffer(gl.ARRAY_BUFFER, 0);
-                    this.colorBuffer = buffer;
-                }
                 if (geom.normals) {
                     let buffer = gl.createBuffer();
                     // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
                     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
                     gl.bufferData(gl.ARRAY_BUFFER, geom.normals, gl.STATIC_DRAW);
                     // look up in the shader program where the vertex attributes need to go.
-                    let attrLoc = gl.getAttribLocation(program, "a_normal");
+                    let attrLoc = program ? gl.getAttribLocation(program, "a_normal") : 1;
                     // Turn on the attribute
                     gl.enableVertexAttribArray(attrLoc);
                     // Tell the attribute how to get data out of buffer (ARRAY_BUFFER)
@@ -990,7 +1023,7 @@ function createVao(gl, geom, program) {
                     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
                     gl.bufferData(gl.ARRAY_BUFFER, geom.texCoords, gl.STATIC_DRAW);
                     // look up in the shader program where the vertex attributes need to go.
-                    let attrLoc = gl.getAttribLocation(program, "a_texCoord");
+                    let attrLoc = program ? gl.getAttribLocation(program, "a_texCoord") : 2;
                     // Turn on the attribute
                     gl.enableVertexAttribArray(attrLoc);
                     // Tell the attribute how to get data out of positionBuffer (ARRAY_BUFFER)
@@ -1003,6 +1036,26 @@ function createVao(gl, geom, program) {
                     // done with buffer:
                     gl.bindBuffer(gl.ARRAY_BUFFER, 0);
                     this.texCoordBuffer = buffer;
+                }
+                if (geom.colors) {
+                    let buffer = gl.createBuffer();
+                    // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
+                    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+                    gl.bufferData(gl.ARRAY_BUFFER, geom.colors, gl.STATIC_DRAW);
+                    // look up in the shader program where the vertex attributes need to go.
+                    let attrLoc = program ? gl.getAttribLocation(program, "a_color") : 3;
+                    // Turn on the attribute
+                    gl.enableVertexAttribArray(attrLoc);
+                    // Tell the attribute how to get data out of buffer (ARRAY_BUFFER)
+                    let size = 4;          // components per iteration
+                    let type = gl.FLOAT;   // the data is 32bit floats
+                    let normalize = false; // don't normalize the data
+                    let stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
+                    let offset = 0;        // start at the beginning of the buffer
+                    gl.vertexAttribPointer(attrLoc, size, type, normalize, stride, offset);
+                    // done with buffer:
+                    gl.bindBuffer(gl.ARRAY_BUFFER, 0);
+                    this.colorBuffer = buffer;
                 }
                 if (geom.indices) {
                     // check type: 
@@ -1113,7 +1166,7 @@ function createVao(gl, geom, program) {
             gl.deleteVertexArrays(this.id)
         },
     }
-    if (program) self.init(program);
+    self.init(program);
 
     return self;
 }
@@ -1987,6 +2040,7 @@ module.exports = {
 	createPixelTexture: createPixelTexture,
 	createCheckerTexture: createCheckerTexture,
     createTexture3D: createTexture3D,
+    img2tex,
 
 	createVao: createVao,
     createQuadVao: createQuadVao,
