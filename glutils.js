@@ -33,7 +33,23 @@ function createShader(gl, type, source) {
     if (success) {
         return shader;
     }
-    console.error("shader compile error", gl.getShaderInfoLog(shader));
+    console.error("shader compile error");
+    const log = gl.getShaderInfoLog(shader)
+    const loglines = log.split("\n");
+    const sourcelines = source.split("\n");
+    loglines.forEach((line => {
+        // parse out the line & column?
+        //0(846) : warning C7022: unrecognized profile specifier "..."
+        //0(846) : error C0502: syntax error at token "..."
+        console.error(line)
+        const matches = line.match(/\d+\((\d+)\)/)
+        if (matches && matches.length > 1) {
+            const sourceline = matches[1]-1
+            const from = Math.max(0, sourceline-1)
+            const to = Math.min(sourcelines.length-1, sourceline+1)
+            for (i=from; i<=to; i++) console.error(i==sourceline?"-->":"   ", sourcelines[i])
+        }
+    }))
     gl.deleteShader(shader);
     return undefined;
 }
@@ -848,6 +864,17 @@ function makeGbuffer(gl, width=1024, height=1024, config=[
         end() {
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
             return this; 
+        },
+
+        bind(texture=0, unit=0) {
+            gl.activeTexture(gl.TEXTURE0 + unit);
+			gl.bindTexture(gl.TEXTURE_2D, this.textures[texture]);
+            return this;
+        },
+        unbind(unit=0) {
+            gl.activeTexture(gl.TEXTURE0 + unit);
+			gl.bindTexture(gl.TEXTURE_2D, null);
+            return this;
         },
 
         dispose() {

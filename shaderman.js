@@ -1,8 +1,10 @@
 const path = require("path"),
-	fs = require("fs")
+	fs = require("fs"), 
+	events = require('events'), 
+	util = require('util')
 const glutils = require("./glutils.js")
 
-class Shaderman {
+class Shaderman extends events.EventEmitter {
 	// shaders contains a list of shaderprograms
 	// indexed by the fragname
 	shaders = {};
@@ -14,6 +16,7 @@ class Shaderman {
 	dependencies = {}
 
 	constructor(gl, folder = "shaders") {
+		super();
 		this.folder = folder
 		this.watch(gl)
 	}
@@ -45,6 +48,8 @@ class Shaderman {
 		}
 		vertcode = vertcode.replace(/#include\s+["']([^"']+)["']/g, replacer);
 		fragcode = fragcode.replace(/#include\s+["']([^"']+)["']/g, replacer);
+
+		//console.log("fragcode", fragcode)
 
 		let program = glutils.makeProgram(gl, vertcode, fragcode)
 		this.shaders[name] = program
@@ -82,15 +87,9 @@ class Shaderman {
 					console.log("reload shader", filename, fragname)
 					this.shaders[fragname].dispose()
 					this.create(gl, vertname, fragname)
-				}
 
-				// let match = filename.match(/^([^\.]+)/)
-				// if (match && match[0]) {
-				// 	let [name] = match
-				// 	console.log("reload", filename, name)
-				// 	this.shaders[name].dispose()
-				// 	this.create(gl, name)
-				// }
+					this.emit('reload', vertname, fragname);
+				}
 			}
 		})
 	}
@@ -107,5 +106,7 @@ class Shaderman {
 		}
 	}
 }
+
+//util.inherits(Shaderman, events.EventEmitter)
 
 module.exports = Shaderman
