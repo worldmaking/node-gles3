@@ -853,7 +853,7 @@ function makeGbuffer(gl, width=1024, height=1024, config=[
 		depthTexture: depthTexture,
 		width: width,
         height: height,
-        data: null,
+        data: [],
         
         // be sure to set viewport & clear after begin()
         begin() {
@@ -887,10 +887,10 @@ function makeGbuffer(gl, width=1024, height=1024, config=[
         // reads the GPU memory back into this.data
         // must begin() first!
         // warning: can be slow
-        readPixels(attachment = gl.COLOR_ATTACHMENT0) {
-            if (!this.data) this.data = new Uint8Array(this.width * this.height * 4);
-            gl.readBuffer(attachment);
-            gl.readPixels(0, 0, this.width, this.height, gl.RGBA, gl.UNSIGNED_BYTE, this.data);
+        readPixels(attachment = 0) {
+            if (!this.data[attachment]) this.data[attachment] = new Uint8Array(this.width * this.height * 4);
+            gl.readBuffer(gl.COLOR_ATTACHMENT0 + attachment);
+            gl.readPixels(0, 0, this.width, this.height, gl.RGBA, gl.UNSIGNED_BYTE, this.data[attachment]);
             return this;
         },
 	}

@@ -185,6 +185,8 @@ class Window {
 	}
 
 	static animate() {
+		// get time at start:
+		let t0 = glfw.getTime();
 		glfw.pollEvents();
 
 		for (let o of Window.all) {
@@ -197,7 +199,13 @@ class Window {
 		}
 
 		// at end, so that any errors prevent repeat:
-		setImmediate(Window.animate)
+		let sleep = Math.max(0, 1/60 - (glfw.getTime() - t0));
+		if (this.sync && sleep > 0) {
+			setTimeout(Window.animate, sleep*1000)
+		} else {
+			setImmediate(Window.animate)
+		}
+		
 	}
 }
 
