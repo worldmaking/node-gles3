@@ -1,6 +1,7 @@
 const assert = require("assert")
 const path = require("path")
 const fs = require("fs")
+const {EOL} = require('os');
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 
 function ok(gl, msg="gl not ok: ") {
@@ -35,8 +36,8 @@ function createShader(gl, type, source) {
     }
     console.error("shader compile error");
     const log = gl.getShaderInfoLog(shader)
-    const loglines = log.split("\n");
-    const sourcelines = source.split("\n");
+    const loglines = log.split(/\r\n|\n/);
+    const sourcelines = source.split(/\r\n|\n/);
     loglines.forEach((line => {
         // parse out the line & column?
         //0(846) : warning C7022: unrecognized profile specifier "..."
@@ -1870,7 +1871,7 @@ function makeLine(options) {
 }
 
 function geomFromOBJ(objcode) {
-	let lines = objcode.split("\n")
+	let lines = objcode.split(/\r\n|\n/)
     let vertices = []
     let gvertices = []
 	let normals = []
@@ -1889,7 +1890,7 @@ function geomFromOBJ(objcode) {
             texCoords.push([+match[1], +match[2]])
 		} else if (line.substring(0,1) == "v") {
 			let match = line.match(/v\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)/)
-			vertices.push([+match[1], +match[2], +match[3]])
+            vertices.push([+match[1], +match[2], +match[3]])
 		} else if (line.substring(0,1) == "f") {
 			let regex = /([0-9]+)\s*\/\s*([0-9]*)\s*\/\s*([0-9]*)/g
 			let face = []
