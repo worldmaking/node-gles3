@@ -26,7 +26,7 @@ function byteSizeForGLType(gl, gltype) {
 }
 
 // utility to help turn shader code into a shader object:
-function createShader(gl, type, source) {
+function createShader(gl, type, source, name) {
     let shader = gl.createShader(type);
     gl.shaderSource(shader, source);
     gl.compileShader(shader);
@@ -34,7 +34,7 @@ function createShader(gl, type, source) {
     if (success) {
         return shader;
     }
-    console.error("shader compile error");
+    console.error("compile error in shader " + name);
     const log = gl.getShaderInfoLog(shader)
     const loglines = log.split(/\r\n|\n/);
     const sourcelines = source.split(/\r\n|\n/);
@@ -71,10 +71,10 @@ function createProgram(gl, vertexShader, fragmentShader) {
     return undefined;
 }
 
-function makeProgram(gl, vertexCode, fragmentCode) {
+function makeProgram(gl, vertexCode, fragmentCode, name="") {
 	// create GLSL shaders, upload the GLSL source, compile the shaders
-    let vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexCode);
-    let fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentCode);
+    let vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexCode, name);
+    let fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentCode, name);
     // Link the two shaders into a program
     let program = createProgram(gl, vertexShader, fragmentShader);
 
@@ -1870,6 +1870,8 @@ function makeLine(options) {
 	}
 }
 
+// TODO: this assumes triangle faces only; can we add support to turn quads into triangles?
+// TODO: autocenter & autonormalize?
 function geomFromOBJ(objcode) {
 	let lines = objcode.split(/\r\n|\n/)
     let vertices = []
@@ -1883,18 +1885,20 @@ function geomFromOBJ(objcode) {
 	let indexcount=0;
 	for (let line of lines) {
 		if (line.substring(0,2) == "vn") {
-			let match = line.match(/vn\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)/)
+			let match = line.match(/vn\s+([0-9.e-]+)\s+([0-9.e-]+)\s+([0-9.e-]+)/)
 			normals.push([+match[1], +match[2], +match[3]])
 		} else if (line.substring(0,2) == "vt") {
-            let match = line.match(/vt\s+([0-9.-]+)\s+([0-9.-]+)/)
+            let match = line.match(/vt\s+([0-9.e-]+)\s+([0-9.e-]+)/)
             texCoords.push([+match[1], +match[2]])
 		} else if (line.substring(0,1) == "v") {
-			let match = line.match(/v\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)/)
+            let match = line.match(/v\s+([0-9.e-]+)\s+([0-9.e-]+)\s+([0-9.e-]+)/)
             vertices.push([+match[1], +match[2], +match[3]])
 		} else if (line.substring(0,1) == "f") {
-			let regex = /([0-9]+)\s*\/\s*([0-9]*)\s*\/\s*([0-9]*)/g
 			let face = []
 			let match
+            // this only works for v/vt/vn input
+            // what about 
+			let regex = /([0-9]+)\s*\/\s*([0-9]*)\s*\/\s*([0-9]*)/g
 			while (match = regex.exec(line)) {
 				let name = `${match[1]}/${match[2]}/${match[3]}`
 				let id = memo[name]
@@ -1928,6 +1932,7 @@ function geomFromOBJ(objcode) {
 		} else {
 			//console.log("ignored", line)
 		}
+
     }
     let geom = {
         vertices: new Float32Array(gvertices)

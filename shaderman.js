@@ -51,7 +51,7 @@ class Shaderman extends events.EventEmitter {
 
 		//console.log("fragcode", fragcode)
 
-		let program = glutils.makeProgram(gl, vertcode, fragcode)
+		let program = glutils.makeProgram(gl, vertcode, fragcode, name)
 		this.shaders[name] = program
 		return program
 	}
