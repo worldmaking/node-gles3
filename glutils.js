@@ -1001,6 +1001,105 @@ function createVao(gl, geom, program) {
 
         indexType: gl.UNSIGNED_SHORT,
 
+        setGeom(geom) {
+            this.bind();
+            if (geom) {
+                if (!geom.vertexComponents) geom.vertexComponents = 3;
+
+                if (geom.vertices) {
+                    if (!this.vertexBuffer) {
+                        let buffer = gl.createBuffer();
+                        this.vertexBuffer = buffer;
+                        // look up in the shader program where the vertex attributes need to go.
+                        let attrLoc = program ? gl.getAttribLocation(program, "a_position") : 0;
+                        // Turn on the attribute
+                        gl.enableVertexAttribArray(attrLoc);
+                        // Tell the attribute how to get data out of buffer (ARRAY_BUFFER)
+                        let size = geom.vertexComponents;  // how many components per vertex (e.g. 2D, 3D geometry)
+                        let type = gl.FLOAT;   // the data is 32bit floats
+                        let normalize = false; // don't normalize the data
+                        let stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
+                        let offset = 0;        // start at the beginning of the buffer
+                        gl.vertexAttribPointer(attrLoc, size, type, normalize, stride, offset);
+                    }
+                    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+                    gl.bufferData(gl.ARRAY_BUFFER, geom.vertices, gl.DYNAMIC_DRAW);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, 0);
+                }
+                if (geom.normals) {
+                    if (!this.normalBuffer) {
+                        let buffer = gl.createBuffer();
+                        this.normalBuffer = buffer;
+                        // look up in the shader program where the vertex attributes need to go.
+                        let attrLoc = program ? gl.getAttribLocation(program, "a_normal") : 1;
+                        // Turn on the attribute
+                        gl.enableVertexAttribArray(attrLoc);
+                        // Tell the attribute how to get data out of buffer (ARRAY_BUFFER)
+                        let size = 3;          // 2 components per iteration
+                        let type = gl.FLOAT;   // the data is 32bit floats
+                        let normalize = false; // don't normalize the data
+                        let stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
+                        let offset = 0;        // start at the beginning of the buffer
+                        gl.vertexAttribPointer(attrLoc, size, type, normalize, stride, offset);
+                    }
+                    gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
+                    gl.bufferData(gl.ARRAY_BUFFER, geom.normals, gl.DYNAMIC_DRAW);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, 0);
+                }
+                if (geom.texCoords) {
+                    if (!this.normalBuffer) {
+                        let buffer = gl.createBuffer();
+                        this.texCoordBuffer = buffer;
+                        // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
+                        // look up in the shader program where the vertex attributes need to go.
+                        let attrLoc = program ? gl.getAttribLocation(program, "a_texCoord") : 2;
+                        // Turn on the attribute
+                        gl.enableVertexAttribArray(attrLoc);
+                        // Tell the attribute how to get data out of positionBuffer (ARRAY_BUFFER)
+                        let size = 2;          // 2 components per iteration
+                        let type = gl.FLOAT;   // the data is 32bit floats
+                        let normalize = false; // don't normalize the data
+                        let stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
+                        let offset = 0;        // start at the beginning of the buffer
+                        gl.vertexAttribPointer(attrLoc, size, type, normalize, stride, offset);
+                    }
+                    gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
+                    gl.bufferData(gl.ARRAY_BUFFER, geom.texCoords, gl.DYNAMIC_DRAW);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, 0);
+                }
+                if (geom.colors) {
+                    if (!this.colorBuffer) {
+                        let buffer = gl.createBuffer();
+                        this.colorBuffer = buffer;
+                        // look up in the shader program where the vertex attributes need to go.
+                        let attrLoc = program ? gl.getAttribLocation(program, "a_color") : 3;
+                        // Turn on the attribute
+                        gl.enableVertexAttribArray(attrLoc);
+                        // Tell the attribute how to get data out of buffer (ARRAY_BUFFER)
+                        let size = 4;          // components per iteration
+                        let type = gl.FLOAT;   // the data is 32bit floats
+                        let normalize = false; // don't normalize the data
+                        let stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
+                        let offset = 0;        // start at the beginning of the buffer
+                        gl.vertexAttribPointer(attrLoc, size, type, normalize, stride, offset);
+                    }
+                    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+                    gl.bufferData(gl.ARRAY_BUFFER, geom.colors, gl.DYNAMIC_DRAW);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, 0);
+                }
+                if (geom.indices) {
+                    if (!this.indexBuffer) {
+                        let buffer = gl.createBuffer();
+                        this.indexBuffer = buffer;
+                    }
+                    this.indexType = (geom.indices.constructor == Uint32Array) ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT;
+                    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+                    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geom.indices, gl.DYNAMIC_DRAW);
+                }
+            }
+            this.unbind()
+        },
+
         init(program) {
             this.bind();
             if (geom) {
@@ -1897,7 +1996,6 @@ function geomFromOBJ(objcode) {
 			let face = []
 			let match
             // this only works for v/vt/vn input
-            // what about 
 			let regex = /([0-9]+)\s*\/\s*([0-9]*)\s*\/\s*([0-9]*)/g
 			while (match = regex.exec(line)) {
 				let name = `${match[1]}/${match[2]}/${match[3]}`
@@ -1939,7 +2037,9 @@ function geomFromOBJ(objcode) {
     }
 	if (gnormals.length) geom.normals = new Float32Array(gnormals)
 	if (gtexCoords.length) geom.texCoords = new Float32Array(gtexCoords)
-	if (gindices.length) geom.indices = new Uint16Array(gindices)
+	if (gindices.length) {
+        geom.indices = new Uint32Array(gindices)
+    }
 	return geom
 }
 

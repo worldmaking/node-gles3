@@ -1,4 +1,4 @@
-
+const fs = require("fs")
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 const gl = require('./gles3.js') 
 const glfw = require('./glfw3.js')
@@ -135,6 +135,7 @@ gl.vertexAttribPointer(positionLocation, elementsPerVertex, gl.FLOAT, normalize,
 
 let t = glfw.getTime();
 let fps = 60;
+let frame = 0
 
 function animate() {
 	if(glfw.windowShouldClose(window) || glfw.getKey(window, glfw.KEY_ESCAPE)) {
@@ -190,11 +191,28 @@ function animate() {
     // Draw the geometry.
 	let count = NUM_POINTS;
 	gl.drawArrays(gl.POINTS, 0, count);
-    //gl.drawArrays(gl.TRIANGLES, 0, count);
+
+	// here's how you can quickly copy the content of the screen into a buffer:
+	if (frame == 1) {
+		let [width, height] = dim
+		let x = 0, y = 0
+		console.log(x, y, width, height)
+		let buf = new Uint8Array(width*height*4)
+		gl.readPixels(x, y, width, height, gl.RGBA, gl.UNSIGNED_BYTE, buf)
+		// you could write this into a PNG file:
+		const pnglib = require("pngjs").PNG
+		fs.writeFileSync("tmp_capture.png", pnglib.sync.write({
+			width, height,
+			//depth: 16, interlace: false, palette: false, color: false, alpha: true, bpp: 2, colorType: 4,
+			data: buf
+		}))
+	}
 
 	// Swap buffers
 	glfw.swapBuffers(window);
 	glfw.pollEvents();
+
+	frame++
 }
 
 function shutdown() {

@@ -31,7 +31,8 @@ class Window {
 	monitor = 0;
 	title = "";
 	fullscreen = false;
-	sync = false;
+
+	pos = [40, 40];
 
 	// callbacks:
 	init = null;
@@ -50,6 +51,7 @@ class Window {
 	dt = 1/60;
 	frame = 0;
 
+	static syncfps = 0;
 	static all = new Set()
 
 	constructor(options) {
@@ -75,7 +77,7 @@ class Window {
 		}
 
 		// for context sharing:
-		const [first_window ] = Window.all
+		const [first_window] = Window.all
 
 		this.window = glfw.createWindow(this.width || this.mode.width/2, this.height || this.mode.height/2, this.title, null, first_window ? first_window.window : null);
 		if (!this.window) {
@@ -149,7 +151,7 @@ class Window {
 			// enable this if you want the window to always be on top (no alt-tabbing)
 			glfw.setWindowAttrib(this.window, glfw.FLOATING , 0);
 			glfw.setWindowSize(this.window, this.width || this.mode.width/2, this.height || this.mode.height/2)
-			glfw.setWindowPos(this.window, pos[0]+50, pos[1]+50)
+			glfw.setWindowPos(this.window, pos[0]+this.pos[0], pos[1]+this.pos[1])
 			// to show the mouse:
 			glfw.setInputMode(this.window, glfw.CURSOR, glfw.CURSOR_NORMAL);
 		}
@@ -199,13 +201,16 @@ class Window {
 		}
 
 		// at end, so that any errors prevent repeat:
-		let sleep = Math.max(0, 1/60 - (glfw.getTime() - t0));
-		if (this.sync && sleep > 0) {
-			setTimeout(Window.animate, sleep*1000)
+		if (Window.syncfps) {
+			let sleep = Math.max(0, 1/Window.syncfps - (glfw.getTime() - t0));
+			if (sleep > 0) {
+				setTimeout(Window.animate, sleep*1000)
+			} else {
+				setImmediate(Window.animate)
+			}
 		} else {
 			setImmediate(Window.animate)
 		}
-		
 	}
 }
 
