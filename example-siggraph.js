@@ -18,7 +18,7 @@ const Shadertoy = require("./shadertoy.js")
 
 let w = 6*1920
 let h = 1080
-let dimdiv = 2
+let dimdiv = 8
 let window = new Window({
     width: w/dimdiv,
     height: h/dimdiv

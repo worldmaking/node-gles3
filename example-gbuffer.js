@@ -1,8 +1,22 @@
 const assert = require("assert")
+const fs = require("fs")
 const glfw = require("./glfw3.js")
 const { vec2, vec3, vec4, quat, mat2, mat2d, mat3, mat4} = require("gl-matrix")
 const gl = require('./gles3.js') 
 const glutils = require('./glutils.js');
+const pnglib = require("pngjs").PNG
+
+function png2tex(gl, imgpath) {
+	let img = pnglib.sync.read(fs.readFileSync(imgpath))
+	let tex = glutils.createPixelTexture(gl, img.width, img.height)
+	tex.data = img.data
+	tex.bind().submit()
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+	gl.generateMipmap(gl.TEXTURE_2D);
+	tex.unbind();
+	return tex
+}
 
 if (!glfw.init()) {
 	console.log("Failed to initialize GLFW");
