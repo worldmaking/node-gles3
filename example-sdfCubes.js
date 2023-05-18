@@ -629,7 +629,7 @@ void main() {
 	
 	// for deadzone:
 	if (contact == 0) {
-		// outColor += vec4(0.25); // show bounding box
+		outColor += vec4(0.25); // show bounding box
 		// discard;
 	}
 

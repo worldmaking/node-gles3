@@ -13,7 +13,6 @@
   "dependencies": {
     "bindings": "1.5.0",
     "gl-matrix": "3.3.0",
-    "gstreamer-superficial": "^1.7.4",
     "jpeg-js": "^0.4.4",
     "native-graphics-deps": "0.0.21",
     "native-openvr-deps": "0.0.19",
