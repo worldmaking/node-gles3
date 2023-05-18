@@ -814,8 +814,9 @@ function makeGbuffer(gl, width=1024, height=1024, config=[
 			gl.bindTexture(gl.TEXTURE_2D, tex);
 			gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, width, height, 0,
 				format, type, null);
+            if (cfg.mipmap) gl.generateMipmap(gl.TEXTURE_2D); 
 			// set the filtering so we don't need mips
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, (cfg.mipmap) ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER);
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
@@ -864,6 +865,13 @@ function makeGbuffer(gl, width=1024, height=1024, config=[
 
         end() {
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            for (let i=0; i<config.length; i++) {
+                let cfg = config[i];
+                if (cfg.mipmap){
+                    this.bind(i)
+                    gl.generateMipmap(gl.TEXTURE_2D);
+                }
+            }
             return this; 
         },
 
