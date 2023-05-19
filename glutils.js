@@ -781,10 +781,10 @@ function makeFboWithDepth(gl, width=1024, height=1024, mipmap=false, multisample
 
 
 function makeGbuffer(gl, width=1024, height=1024, config=[
-	{ float:false },
-	{ float:true },
-	{ float:true },
-	{ float:false },
+	{ float:false, mipmap: false, wrap: gl.CLAMP_TO_EDGE },
+	{ float:true, mipmap: false, wrap: gl.CLAMP_TO_EDGE },
+	{ float:true, mipmap: false, wrap: gl.CLAMP_TO_EDGE },
+	{ float:false, mipmap: false, wrap: gl.CLAMP_TO_EDGE },
 ]) {
 
 	const id = gl.createFramebuffer();
@@ -807,6 +807,8 @@ function makeGbuffer(gl, width=1024, height=1024, config=[
 				type = gl.FLOAT;
 				internalFormat = gl.RGBA32F;
 			}
+
+            let wrap = cfg.wrap || gl.CLAMP_TO_EDGE
 		
 			// define size and format of level 0
 			//gl.enable(gl.TEXTURE_2D)
@@ -818,8 +820,8 @@ function makeGbuffer(gl, width=1024, height=1024, config=[
 			// set the filtering so we don't need mips
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, (cfg.mipmap) ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER);
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
 			gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0+i, gl.TEXTURE_2D, tex, 0);
 
 			textures[i] = tex
@@ -837,8 +839,8 @@ function makeGbuffer(gl, width=1024, height=1024, config=[
 		// set the filtering so we don't need mips
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depthTexture, level);
 
 		if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
