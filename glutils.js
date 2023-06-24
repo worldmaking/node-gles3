@@ -259,6 +259,8 @@ function createTexture(gl, opt={}) {
     const width = opt.width || 16;
     const height = opt.height || 1;
     const multisample = opt.multisample || 0;
+    const wrapx = opt.wrapx || opt.wrap || gl.CLAMP_TO_EDGE;
+    const wrapy = opt.wrapy || opt.wrap || gl.CLAMP_TO_EDGE;
     
     let format = gl.RGBA;
     if (channels == 1) {
@@ -291,16 +293,18 @@ function createTexture(gl, opt={}) {
     let tex = {
         id: gl.createTexture(),
         data: opt.data,
-        isFloat: isFloat,
-        width: width,
-        height: height,
-        channels: channels,
-        format: format,
-        type: type,
+        isFloat,
+        width,
+        height,
+        channels,
+        format,
+        type,
         multisample: !!opt.multisample,
         filter_min: opt.filter_min || opt.filter || gl.NEAREST,
         filter_mag: opt.filter_mag || opt.filter || gl.NEAREST,
-        internalFormat: internalFormat,  // type of data we are supplying,
+        wrapx,
+        wrapy,
+        internalFormat,  // type of data we are supplying,
         
         // allocate local data
         allocate() {
@@ -359,8 +363,8 @@ function createTexture(gl, opt={}) {
     tex.allocate().bind().submit();
 
     // unless we get `OES_texture_float_linear` we can not filter floating point
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, tex.wrapx);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, tex.wrapy);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, tex.filter_min);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, tex.filter_mag);
     
@@ -809,6 +813,11 @@ function makeGbuffer(gl, width=1024, height=1024, config=[
 			}
 
             let wrap = cfg.wrap || gl.CLAMP_TO_EDGE
+
+            cfg.format = format
+            cfg.internalFormat = internalFormat
+            cfg.type = type
+            cfg.wrap = wrap
 		
 			// define size and format of level 0
 			//gl.enable(gl.TEXTURE_2D)
@@ -819,13 +828,14 @@ function makeGbuffer(gl, width=1024, height=1024, config=[
             if (cfg.mipmap) gl.generateMipmap(gl.TEXTURE_2D); 
 			// set the filtering so we don't need mips
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, (cfg.mipmap) ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, (cfg.mipmap) ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
 			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
 			gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0+i, gl.TEXTURE_2D, tex, 0);
 
 			textures[i] = tex
 			attachments[i] = gl.COLOR_ATTACHMENT0+i
+            config[i] = cfg
 		}
 		gl.drawBuffers(attachments);
 
@@ -853,6 +863,7 @@ function makeGbuffer(gl, width=1024, height=1024, config=[
 	return {
 		id: id,
 		textures: textures,
+        config: config,
         colorTexture: textures[0],
 		depthTexture: depthTexture,
 		width: width,
@@ -882,6 +893,12 @@ function makeGbuffer(gl, width=1024, height=1024, config=[
 			gl.bindTexture(gl.TEXTURE_2D, this.textures[texture]);
             return this;
         },
+        // must bind first
+        submit(texture=0) {
+            gl.texImage2D(gl.TEXTURE_2D, 0, config[texture].internalFormat, this.width, this.height, 0, config[texture].format, config[texture].type, this.data[texture]);
+            if (config[texture].mipmap) gl.generateMipmap(gl.TEXTURE_2D);
+            return this;
+        },
         unbind(unit=0) {
             gl.activeTexture(gl.TEXTURE0 + unit);
 			gl.bindTexture(gl.TEXTURE_2D, null);
@@ -894,14 +911,31 @@ function makeGbuffer(gl, width=1024, height=1024, config=[
             gl.deleteTextures(this.depthTexture)
             return this;
         },
+
+        // reads the GPU memory back into this.data
+        getData(attachment = 0) {
+            const cfg = this.config[attachment]
+            if (cfg.float) {
+                if (!this.data[attachment]) this.data[attachment] = new Float32Array(this.width * this.height * 4);
+            } else {
+                if (!this.data[attachment]) this.data[attachment] = new Uint8Array(this.width * this.height * 4);
+            }
+            gl.bindTexture(gl.TEXTURE_2D, this.textures[attachment])
+            gl.getTexImage(gl.TEXTURE_2D, 0, cfg.format, cfg.type, this.data[attachment]);
+        },
         
         // reads the GPU memory back into this.data
         // must begin() first!
         // warning: can be slow
         readPixels(attachment = 0) {
-            if (!this.data[attachment]) this.data[attachment] = new Uint8Array(this.width * this.height * 4);
+            const cfg = this.config[attachment]
+            if (cfg.float) {
+                if (!this.data[attachment]) this.data[attachment] = new Float32Array(this.width * this.height * 4);
+            } else {
+                if (!this.data[attachment]) this.data[attachment] = new Uint8Array(this.width * this.height * 4);
+            }
             gl.readBuffer(gl.COLOR_ATTACHMENT0 + attachment);
-            gl.readPixels(0, 0, this.width, this.height, gl.RGBA, gl.UNSIGNED_BYTE, this.data[attachment]);
+            gl.readPixels(0, 0, this.width, this.height, cfg.format, cfg.type, this.data[attachment]);
             return this;
         },
 	}
@@ -2006,21 +2040,24 @@ function geomFromOBJ(objcode) {
 			let face = []
 			let match
             // this only works for v/vt/vn input
-			let regex = /([0-9]+)\s*\/\s*([0-9]*)\s*\/\s*([0-9]*)/g
+			let regex = /([0-9]+)\s*(\/\s*([0-9]*))?\s*(\/\s*([0-9]*))?/g
 			while (match = regex.exec(line)) {
-				let name = `${match[1]}/${match[2]}/${match[3]}`
+                let V = match[1]
+                let T = match[3]
+                let N = match[5]
+				let name = `${V}/${T}/${N}`
 				let id = memo[name]
 			 	if (id == undefined) {
 					// a new vertex/normal/texcoord combo, create a new entry for it
 					id = indexcount;
-					let v = vertices[(+match[1])-1]
+					let v = vertices[(+V)-1]
                     gvertices.push(v[0], v[1], v[2])
-                    if (texCoords.length) {
-                        let vt = texCoords[(+match[2])-1]
+                    if (T && texCoords.length) {
+                        let vt = texCoords[(+T)-1]
                         gtexCoords.push(vt[0], vt[1])
                     }
-                    if (normals.length) {
-                        let vn = normals[(+match[3])-1]
+                    if (N && normals.length) {
+                        let vn = normals[(+N)-1]
                         gnormals.push(vn[0], vn[1], vn[2])
                     }
 					memo[name] = id;
@@ -2051,6 +2088,47 @@ function geomFromOBJ(objcode) {
         geom.indices = new Uint32Array(gindices)
     }
 	return geom
+}
+
+// m4 should be a mat4
+// geom should have vertexComponents 3+
+function geomTransform(geom, m4) {
+    // apply mat4 mat to all vertices:
+    let vc = geom.vertexComponents || 3
+    if (vc < 3) console.log("warning: transforming a 2D geom with a mat4 may not work as intended")
+
+    if (vc==3) {
+        for (let i=0; i<geom.vertices.length; i+=vc) {
+            let v = new Float32Array(geom.vertices.buffer, i*4, vc);
+            vec3.transformMat4(v, v, m4)
+        }
+    } else if (vc==4) {
+        for (let i=0; i<geom.vertices.length; i+=vc) {
+            let v = new Float32Array(geom.vertices.buffer, i*4, vc);
+            vec4.transformMat4(v, v, m4)
+        }
+    }
+
+    if (geom.normals) {
+        let m3 = mat3.create()
+        mat3.fromMat4(m3, m4)
+        for (let i=0; i<geom.normals.length; i+=3) {
+            let v = new Float32Array(geom.normals.buffer, i*4, 3);
+            vec2.transformMat3(v, v, m3)
+        }
+    }
+    return geom
+}
+
+function geomTexTransform(geom, m3) {
+    if (!geom.texCoords) {
+        console.error("geom has no texCoords to transform")
+    }
+    for (let i=0; i<geom.texCoords.length; i+=2) {
+        let v = new Float32Array(geom.texCoords.buffer, i*4, 2);
+        vec2.transformMat3(v, v, m3)
+    }
+    return geom
 }
 
 // merge another geom into self:
@@ -2202,6 +2280,8 @@ module.exports = {
 
     geomFromOBJ,
     geomAppend,
+    geomTransform,
+    geomTexTransform,
 
 	quat_rotate,
     quat_unrotate,
