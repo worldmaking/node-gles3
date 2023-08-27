@@ -1767,7 +1767,7 @@ function makeCube(options) {
 		vertices: new Float32Array(vertices),
 		normals: new Float32Array(normals),
 		texCoords: new Float32Array(texCoords),
-		indices: new Uint16Array(indices),
+		indices: new Uint32Array(indices),
 	}
 }
 
@@ -1843,7 +1843,7 @@ function makeOpenCylinder(options) {
 		vertices: new Float32Array(vertices),
 		normals: new Float32Array(normals),
 		texCoords: new Float32Array(texCoords),
-		indices: new Uint16Array(indices),
+		indices: new Uint32Array(indices),
 	}
 }
 
@@ -1903,7 +1903,7 @@ function makeQuad(options) {
 		vertices: new Float32Array(vertices),
 		normals: new Float32Array(normals),
 		texCoords: new Float32Array(texCoords),
-		indices: new Uint16Array(indices),
+		indices: new Uint32Array(indices),
 	}
 }
 
@@ -1963,7 +1963,7 @@ function makeQuad3D(options) {
 		vertices: new Float32Array(vertices),
 		normals: new Float32Array(normals),
 		texCoords: new Float32Array(texCoords),
-		indices: new Uint16Array(indices),
+		indices: new Uint32Array(indices),
 	}
 }
 
@@ -2009,7 +2009,7 @@ function makeLine(options) {
 		vertices: new Float32Array(vertices),
 		//normals: new Float32Array(normals),
 		texCoords: new Float32Array(texCoords),
-		indices: new Uint16Array(indices),
+		indices: new Uint32Array(indices),
 	}
 }
 
@@ -2140,7 +2140,7 @@ function geomAppend(self, other) {
     if (self.indices && other.indices) {
         const ni = self.indices.length
         const offset = self.vertices.length/3;
-        const ar = new Uint16Array(ni + other.indices.length)
+        const ar = new Uint32Array(ni + other.indices.length)
         ar.set(self.indices)
         for (let i=0; i<other.indices.length; i++) {
             ar[ni + i] = other.indices[i] + offset
