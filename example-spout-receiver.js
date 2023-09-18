@@ -35,6 +35,7 @@ glfw.swapInterval(1); // 0 for vsync off
 
 
 let fbo = glutils.makeFboWithDepth(gl, 1024, 1024, false)
+let spoutTex = glutils.createPixelTexture(gl, 1024, 1024)
 
 console.log("fbo", fbo)
 
@@ -63,60 +64,72 @@ void main() {
 `);
 let quad = glutils.createVao(gl, glutils.makeQuad(), quadprogram.id);
 
-let cubeprogram = glutils.makeProgram(gl,
-`#version 330
-uniform mat4 u_modelmatrix;
-uniform mat4 u_viewmatrix;
-uniform mat4 u_projmatrix;
-in vec3 a_position;
-in vec3 a_normal;
-in vec2 a_texCoord;
-out vec4 v_color;
+// let cubeprogram = glutils.makeProgram(gl,
+// `#version 330
+// uniform mat4 u_modelmatrix;
+// uniform mat4 u_viewmatrix;
+// uniform mat4 u_projmatrix;
+// in vec3 a_position;
+// in vec3 a_normal;
+// in vec2 a_texCoord;
+// out vec4 v_color;
 
-void main() {
-	// Multiply the position by the matrix.
-	vec3 vertex = a_position.xyz;
-	gl_Position = u_projmatrix * u_viewmatrix * u_modelmatrix * vec4(vertex, 1);
+// void main() {
+// 	// Multiply the position by the matrix.
+// 	vec3 vertex = a_position.xyz;
+// 	gl_Position = u_projmatrix * u_viewmatrix * u_modelmatrix * vec4(vertex, 1);
 
-	// in case rendering with gl.POINTS:
-	gl_PointSize = 4.;
+// 	// in case rendering with gl.POINTS:
+// 	gl_PointSize = 4.;
 
-	v_color = vec4(a_normal*0.25+0.25, 1.);
-	v_color += vec4(a_texCoord*0.5, 0., 1.);
-}
-`,
-`#version 330
-precision mediump float;
+// 	v_color = vec4(a_normal*0.25+0.25, 1.);
+// 	v_color += vec4(a_texCoord*0.5, 0., 1.);
+// }
+// `,
+// `#version 330
+// precision mediump float;
 
-in vec4 v_color;
-out vec4 outColor;
+// in vec4 v_color;
+// out vec4 outColor;
 
-void main() {
-	outColor = v_color;
-}
-`);
-let cube = glutils.createVao(gl, glutils.makeCube({ div: 8 }), cubeprogram.id);
+// void main() {
+// 	outColor = v_color;
+// }
+// `);
+// let cube = glutils.createVao(gl, glutils.makeCube({ div: 8 }), cubeprogram.id);
 
 let t = glfw.getTime();
 let fps = 60;
 
 
 const spout = require('bindings')('spout.node');
-let receiver = new spout.Receiver("nodejs")
+
+let receiver = new spout.Receiver()
+let senders = receiver.getSenders()
 let connected = 0
 
-console.log("senders", receiver.getSenders())
-//receiver.setActiveSender("nodejs")
+
+console.log("senders", senders)
+receiver.setActiveSender(senders[0])
 
 function animate() {
 
     glfw.setWindowTitle(window, `receiver ${receiver.isConnected()} ${receiver.getSenderName()}`);
 
-    if (!connected && receiver.isConnected()) {
+	//receiver.receiveTexture(GLuint TextureID, GLuint TextureTarget, bool bInvert, GLuint HostFbo)
+	receiver.receiveTexture(spoutTex.id, gl.TEXTURE_2D, true)
+
+    if (receiver.isUpdated()) {
         console.log("receive from", receiver.getSenderName())
         console.log("receive dim", receiver.getSenderWidth(), receiver.getSenderHeight())
         console.log("receive frame", receiver.getSenderFrame(), "fps", receiver.getSenderFps())
         console.log("receive format", receiver.getSenderFormat())
+
+		// rebuild the texture
+		spoutTex.dispose()
+		spoutTex = glutils.createPixelTexture(gl,  receiver.getSenderWidth(), receiver.getSenderHeight())
+
+		console.log(spoutTex)
 		connected = 1;
     }
 	if (connected && !receiver.isConnected()) connected = 0;
@@ -145,39 +158,39 @@ function animate() {
 	//if(wsize) console.log("FB size: "+wsize.width+', '+wsize.height);
 
 	// Compute the matrix
-	let viewmatrix = mat4.create();
-	let projmatrix = mat4.create();
-	let modelmatrix = mat4.create();
-	mat4.lookAt(viewmatrix, [0, 0, 3], [0, 0, 0], [0, 1, 0]);
-	mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 10);
+	// let viewmatrix = mat4.create();
+	// let projmatrix = mat4.create();
+	// let modelmatrix = mat4.create();
+	// mat4.lookAt(viewmatrix, [0, 0, 3], [0, 0, 0], [0, 1, 0]);
+	// mat4.perspective(projmatrix, Math.PI/2, dim[0]/dim[1], 0.01, 10);
 
-	//mat4.identity(modelmatrix);
-	let axis = vec3.fromValues(Math.sin(t*0.1), 1., 0.);
-	vec3.normalize(axis, axis);
-	mat4.rotate(modelmatrix, modelmatrix, t*0.1, axis)
+	// //mat4.identity(modelmatrix);
+	// let axis = vec3.fromValues(Math.sin(t*0.1), 1., 0.);
+	// vec3.normalize(axis, axis);
+	// mat4.rotate(modelmatrix, modelmatrix, t*0.1, axis)
 
 
-	fbo.begin()
-	// render to our targetTexture by binding the framebuffer
-    //gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.id);
+	// fbo.begin()
+	// // render to our targetTexture by binding the framebuffer
+    // //gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.id);
 	
-		gl.viewport(0, 0, fbo.width, fbo.height);
-		gl.enable(gl.DEPTH_TEST)
-		gl.depthMask(true)
-		gl.clearColor(0, 0, 0, 1);
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+	// 	gl.viewport(0, 0, fbo.width, fbo.height);
+	// 	gl.enable(gl.DEPTH_TEST)
+	// 	gl.depthMask(true)
+	// 	gl.clearColor(0, 0, 0, 1);
+	// 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-		cubeprogram.begin();
-		cubeprogram.uniform("u_modelmatrix", modelmatrix);
-		cubeprogram.uniform("u_viewmatrix", viewmatrix);
-		cubeprogram.uniform("u_projmatrix", projmatrix);
-		//cube.bind().drawPoints().unbind();
-		cube.bind().draw().unbind();
-		cube.unbind();
-		cubeprogram.end();
+	// 	cubeprogram.begin();
+	// 	cubeprogram.uniform("u_modelmatrix", modelmatrix);
+	// 	cubeprogram.uniform("u_viewmatrix", viewmatrix);
+	// 	cubeprogram.uniform("u_projmatrix", projmatrix);
+	// 	//cube.bind().drawPoints().unbind();
+	// 	cube.bind().draw().unbind();
+	// 	cube.unbind();
+	// 	cubeprogram.end();
 	
-		fbo.end();
-		//gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+	// 	fbo.end();
+	// 	//gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
 		gl.viewport(0, 0, dim[0], dim[1]);
 		gl.enable(gl.DEPTH_TEST)
@@ -186,7 +199,8 @@ function animate() {
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 		// render the cube with the texture we just rendered to
-		gl.bindTexture(gl.TEXTURE_2D, fbo.colorTexture);
+		//gl.bindTexture(gl.TEXTURE_2D, fbo.colorTexture);
+		spoutTex.bind()
 		quadprogram.begin();
 		quadprogram.uniform("u_scale", 1, 1);
 		quad.bind().draw().unbind();

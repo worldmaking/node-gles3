@@ -78,7 +78,7 @@ struct Sender : public Napi::ObjectWrap<Sender> {
 
 struct Receiver : public Napi::ObjectWrap<Receiver> {
 
-    SpoutReceiver receiver;    // Spout sender object
+    SpoutReceiver receiver;    // Spout object
 
     Receiver(const Napi::CallbackInfo& info) : Napi::ObjectWrap<Receiver>(info) {
 		Napi::Env env = info.Env();
@@ -118,6 +118,7 @@ struct Receiver : public Napi::ObjectWrap<Receiver> {
 		Napi::Env env = info.Env();
 		Napi::Object This = info.This().As<Napi::Object>();
         if (info.Length() > 0 && info[0].IsString()) {
+            //printf("seetting active sender %s\n", info[0].ToString().Utf8Value().c_str());
             receiver.SetActiveSender(info[0].ToString().Utf8Value().c_str());
         }
         return This;
@@ -175,16 +176,15 @@ struct Receiver : public Napi::ObjectWrap<Receiver> {
     Napi::Value receiveTexture(const Napi::CallbackInfo& info) {
 		Napi::Env env = info.Env();
 		Napi::Object This = info.This().As<Napi::Object>();
-        if (info.Length() > 3 
+        if (info.Length() >= 2 
             && info[0].IsNumber()
-            && info[1].IsNumber()
-            && info[3].IsNumber()) {
-            //SpoutReceiver::ReceiveTexture(GLuint TextureID, GLuint TextureTarget, bool bInvert, GLuint HostFbo)
+            && info[1].IsNumber()) {
+            //SpoutReceiver::ReceiveTexture(GLuint TextureID, GLuint TextureTarget, bool bInvert = false, GLuint HostFbo = 0)
             return Napi::Boolean::New(env, receiver.ReceiveTexture(
                 info[0].ToNumber().Uint32Value(), // texid
                 info[1].ToNumber().Uint32Value(),  // texture target
                 info[2].ToBoolean().Value(),        // invert
-                info[3].ToNumber().Uint32Value()));  // host FBO
+                info[3].ToNumber().Uint32Value()));  // host FBO, optional
         }
         return Napi::Boolean::New(env, false);
     }
